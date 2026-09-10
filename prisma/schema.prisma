@@ -1951,6 +1951,17 @@ model NewsArticle {
   language              String    @default("en")
   country               String?
   category              String    @default("ANIME") // "ANIME", "MANGA", "STUDIOS", "INDUSTRY", "ANNOUNCEMENTS", "CASTING", "PRODUCTION", "TRAILERS"
+  // Anime-relevance gate. Sources like ANN and Anime Corner cover general
+  // Japanese gaming and entertainment alongside anime, so being in the feed
+  // is not by itself evidence an article is anime-related.
+  //   "ANIME_RELATED" — shown in the public feed (default)
+  //   "REVIEW"        — still shown, but flagged for an editor to confirm
+  //   "OFF_TOPIC"     — withheld from the public feed, never deleted
+  // Off-topic articles are retained so a misclassification is reversible and
+  // auditable (rule 6, section 77). relevanceReason records which signals fired.
+  relevance             String    @default("ANIME_RELATED")
+  relevanceScore        Float     @default(1.0)
+  relevanceReason       String?
   status                String    @default("PUBLISHED") // "DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED", "REMOVED", "FAILED", "PUBLISH_BLOCKED"
   verificationStatus    String    @default("VERIFIED") // "UNVERIFIED", "VERIFIED", "DISPUTED", "CORRECTED", "RETRACTED"
   moderationState       String    @default("APPROVED") // "PENDING_REVIEW", "APPROVED", "REJECTED", "PUBLISH_BLOCKED"
@@ -1982,6 +1993,7 @@ model NewsArticle {
   @@unique([provider, externalId])
   @@index([publishedAt])
   @@index([category])
+  @@index([relevance])
   @@index([sourceName])
   @@index([provider])
   @@index([status])

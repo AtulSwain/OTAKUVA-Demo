@@ -12,6 +12,7 @@
 import { prisma } from '../../prisma';
 import { emitEngineEvent } from '../events/eventEngine';
 import { NewsCategory, NewsQueryOptions } from './newsTypes';
+import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
 
 export interface SearchResultItem {
   id: string;
@@ -142,6 +143,9 @@ export class NewsSearchService {
         ...tokens.map((t) => ({ summary: { contains: t } })),
       ];
     }
+
+    // Search only within anime-related coverage.
+    where.relevance = PUBLIC_RELEVANCE_WHERE;
 
     // Fetch candidate articles
     const [candidates, total] = await Promise.all([
@@ -323,6 +327,7 @@ export class NewsSearchService {
     const matchingNews = await prisma.newsArticle.findMany({
       where: {
         status: 'PUBLISHED',
+        relevance: PUBLIC_RELEVANCE_WHERE,
         OR: [{ title: { contains: q } }, { summary: { contains: q } }],
       },
       select: { id: true, title: true, adminOverrideTitle: true, slug: true, imageUrl: true, sourceName: true },

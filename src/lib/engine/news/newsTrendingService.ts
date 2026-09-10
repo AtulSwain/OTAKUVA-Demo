@@ -13,6 +13,7 @@
 
 import { prisma } from '../../prisma';
 import { NewsCategory } from './newsTypes';
+import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
 
 export interface TrendingArticleItem {
   id: string;
@@ -89,6 +90,9 @@ export class NewsTrendingService {
       where.category = category.toUpperCase();
     }
 
+    // Keep general gaming/entertainment coverage out of trending.
+    where.relevance = PUBLIC_RELEVANCE_WHERE;
+
     // Fetch candidate articles within time window
     const candidates = await prisma.newsArticle.findMany({
       where,
@@ -124,6 +128,7 @@ export class NewsTrendingService {
       pool = await prisma.newsArticle.findMany({
         where: {
           status: 'PUBLISHED',
+          relevance: PUBLIC_RELEVANCE_WHERE,
           publishedAt: { gte: new Date(Date.now() - 7 * 86400000) },
           ...(category && category.toUpperCase() !== 'ALL' ? { category: category.toUpperCase() } : {}),
         },

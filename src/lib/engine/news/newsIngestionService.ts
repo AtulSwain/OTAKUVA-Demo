@@ -18,6 +18,7 @@ import { emitEngineEvent } from '../events/eventEngine';
 import { newsDeduplicationService } from './newsDeduplicationService';
 import { newsEntityMatcher } from './newsEntityMatcher';
 import { newsNormalizationService } from './newsNormalizationService';
+import { newsRelevanceService } from './newsRelevanceService';
 import { NewsProviderAdapter } from './newsProvider.interface';
 import {
   IngestionJobStatus,
@@ -161,6 +162,20 @@ export class NewsIngestionService {
     // Entity Matching
     const entityMatches = await newsEntityMatcher.matchEntities(raw);
 
+    // Anime-relevance gate. Sources cover general gaming and entertainment
+    // alongside anime; off-topic articles are still stored (so the decision
+    // stays auditable and reversible) but withheld from the public feed.
+    const verdict = await newsRelevanceService.classifyRelevance(
+      normalized.title,
+      normalized.summary,
+      {
+        hasConfirmedEntityMatch:
+          entityMatches.matchedAnime.length > 0 ||
+          entityMatches.matchedStudios.length > 0 ||
+          entityMatches.matchedPeople.length > 0,
+      }
+    );
+
     // Atomic Prisma Transaction
     const createdArticle = await prisma.$transaction(async (tx) => {
       // Ensure unique slug
@@ -186,6 +201,9 @@ export class NewsIngestionService {
           language: normalized.language,
           category: normalized.category,
           status: 'PUBLISHED',
+          relevance: verdict.relevance,
+          relevanceScore: verdict.score,
+          relevanceReason: verdict.reason,
           publishedAt: normalized.publishedAt,
           discoveredAt: new Date(),
           provider: normalized.provider,

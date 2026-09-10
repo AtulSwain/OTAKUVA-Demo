@@ -192,6 +192,12 @@ export interface NewsQueryOptions {
   page?: number;
   limit?: number;
   offset?: number;
+  /**
+   * Include articles the relevance classifier marked OFF_TOPIC. Off by
+   * default so the public feed stays anime-only; admin tooling passes true to
+   * review and correct classifications.
+   */
+  includeOffTopic?: boolean;
 }
 
 export interface CreateManualArticleInput {

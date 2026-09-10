@@ -14,6 +14,7 @@ import { prisma } from '../../prisma';
 import { tasteEngine } from '../taste/tasteEngine';
 import { newsTrendingService } from './newsTrendingService';
 import { NewsCategory } from './newsTypes';
+import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
 
 export interface PersonalizedFeedItem {
   id: string;
@@ -136,6 +137,8 @@ export class NewsPersonalizationService {
         where.publishedAt = { lt: cursorArticle.publishedAt };
       }
     }
+
+    where.relevance = PUBLIC_RELEVANCE_WHERE;
 
     const candidatePool = await prisma.newsArticle.findMany({
       where,
@@ -302,6 +305,8 @@ export class NewsPersonalizationService {
         where.publishedAt = { lt: cursorArticle.publishedAt };
       }
     }
+
+    where.relevance = PUBLIC_RELEVANCE_WHERE;
 
     const articles = await prisma.newsArticle.findMany({
       where,

@@ -20,6 +20,7 @@ import { animeCornerNewsAdapter } from './adapters/animeCornerNewsAdapter';
 import { animeHeraldNewsAdapter } from './adapters/animeHeraldNewsAdapter';
 import { newsIngestionService } from './newsIngestionService';
 import { NewsProviderAdapter } from './newsProvider.interface';
+import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
 import {
   AdminOverrideInput,
   CreateManualArticleInput,
@@ -72,6 +73,7 @@ export class NewsEngine {
       page = 1,
       limit = 20,
       offset,
+      includeOffTopic = false,
     } = options;
 
     const skip = offset !== undefined ? offset : (Math.max(1, page) - 1) * limit;
@@ -79,6 +81,14 @@ export class NewsEngine {
     const where: any = {
       status,
     };
+
+    // Keep general gaming/entertainment coverage out of the anime feed.
+    // OFF_TOPIC rows are retained in the DB and remain reachable through admin
+    // tooling, they are just not surfaced publicly. REVIEW stays visible: an
+    // unclassifiable article is better shown than silently hidden.
+    if (!includeOffTopic) {
+      where.relevance = PUBLIC_RELEVANCE_WHERE;
+    }
 
     if (category && category.toUpperCase() !== 'ALL') {
       where.category = category.toUpperCase();
