@@ -12,7 +12,6 @@
 
 import { prisma } from './prisma';
 import { slugifyTitle } from './jikan';
-import { FIXTURE_ANIMES } from '../fixtures/anime.fixture';
 
 const JIKAN_BASE_URL = process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4';
 
@@ -381,25 +380,13 @@ export async function searchJikanAnime(query: string, limit = 20, page = 1) {
     };
   }
 
-  // Fallback search across local database & fixtures
-  const lowerQ = query.toLowerCase();
-  const matched = FIXTURE_ANIMES.filter(
-    (a) =>
-      (a.title && a.title.toLowerCase().includes(lowerQ)) ||
-      (a.slug && a.slug.toLowerCase().includes(lowerQ)) ||
-      (a.id && a.id.toLowerCase().includes(lowerQ))
-  ).slice(0, limit);
-
+  // No provider results means no provider results. This previously
+  // synthesised matches from bundled sample data and stamped every one with
+  // a single hardcoded mal_id, which would attribute unrelated titles to one
+  // real MAL entry if anything downstream imported by that id.
   return {
-    animes: matched.map((a) => ({
-      mal_id: 52991,
-      title: a.title,
-      score: a.score ? a.score / 10 : 8.5,
-      episodes: a.episodes || 24,
-      type: a.type || 'TV',
-      images: { jpg: { large_image_url: a.posterImage } },
-    })),
-    pagination: { has_next_page: false, current_page: 1 },
+    animes: [],
+    pagination: { has_next_page: false, current_page: page },
   };
 }
 

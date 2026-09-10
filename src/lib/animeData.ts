@@ -1,6 +1,5 @@
 import { prisma } from './prisma';
 import { getAnimeDisplayTitle } from './animeTitleResolver';
-import { FIXTURE_ANIMES } from '../fixtures/anime.fixture';
 import {
   getJikanAnimeCharacters,
   getJikanAnimeStaff,
@@ -71,8 +70,10 @@ export async function getAnimeBySlugOrId(slugOrId: string): Promise<AnimeDetailD
   const englishTitle = anime.titles.find((t) => t.type === 'english')?.title || displayTitle;
   const japaneseTitle = anime.titles.find((t) => t.type === 'japanese')?.title || '';
 
-  const matchedFixture = FIXTURE_ANIMES.find((a) => a.id === slugOrId || a.slug === slugOrId || a.id === anime.id);
-  const resolvedMalId = anime.malId || (anime.externalSource === 'mal' && anime.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null) || (matchedFixture?.externalId && !isNaN(Number(matchedFixture.externalId)) ? Number(matchedFixture.externalId) : null);
+  // Resolve the MAL id from the canonical row only. It was previously also
+  // read from bundled sample data and then persisted below — writing a
+  // fixture-derived external id onto a canonical row with no provenance.
+  const resolvedMalId = anime.malId || (anime.externalSource === 'mal' && anime.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null);
 
   // Backfill malId if missing in DB
   if (!anime.malId && resolvedMalId) {
@@ -165,11 +166,9 @@ export async function getAnimeEpisodesData(animeId: string, page = 1, limit = 50
   }
 
   // Fallback: Query Jikan API if MAL ID exists
-  const matchedFixture = FIXTURE_ANIMES.find((a) => a.id === animeId || a.slug === animeId || a.id === targetAnimeId);
   const targetMalId =
     anime?.malId ||
-    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null) ||
-    (matchedFixture?.externalId && !isNaN(Number(matchedFixture.externalId)) ? Number(matchedFixture.externalId) : null);
+    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null);
 
   if (targetMalId) {
     const jikanEp = await getJikanAnimeEpisodes(targetMalId, page);
@@ -241,11 +240,9 @@ export async function getAnimeCharactersData(animeId: string) {
     select: { id: true, malId: true, externalId: true, externalSource: true },
   });
 
-  const matchedFixture = FIXTURE_ANIMES.find((a) => a.id === animeId || a.slug === animeId || a.id === anime?.id);
   const targetMalId =
     anime?.malId ||
-    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null) ||
-    (matchedFixture?.externalId && !isNaN(Number(matchedFixture.externalId)) ? Number(matchedFixture.externalId) : null);
+    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null);
 
   if (targetMalId) {
     if (anime && !anime.malId) {
@@ -291,11 +288,9 @@ export async function getAnimeStaffData(animeId: string) {
     select: { id: true, malId: true, externalId: true, externalSource: true },
   });
 
-  const matchedFixture = FIXTURE_ANIMES.find((a) => a.id === animeId || a.slug === animeId || a.id === anime?.id);
   const targetMalId =
     anime?.malId ||
-    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null) ||
-    (matchedFixture?.externalId && !isNaN(Number(matchedFixture.externalId)) ? Number(matchedFixture.externalId) : null);
+    (anime?.externalSource === 'mal' && anime?.externalId && !isNaN(Number(anime.externalId)) ? Number(anime.externalId) : null);
 
   if (targetMalId) {
     if (anime && !anime.malId) {
