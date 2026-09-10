@@ -800,9 +800,17 @@ export async function deleteCommunity(userId: string, communityIdOrSlug: string)
  */
 
 /**
- * Notifies everyone who can act on a join request — the owner plus any
- * ADMIN/MODERATOR members. Uses the existing Notification model; the link
- * points at the community's own join-request management view.
+ * Notifies the community creator that someone asked to join.
+ *
+ * Recipients are exactly the people who can act on the request: the creator
+ * (always), plus any ADMIN members, who share approval rights. MODERATORs are
+ * deliberately excluded — getMemberPermission grants canManageMembers to
+ * admins and owners only, so notifying a moderator would send them to a view
+ * that answers 403.
+ *
+ * This fires on one event only: the creation of a new PENDING join request.
+ * Repeat clicks on an existing pending request return early before reaching
+ * here, so a creator is never notified twice for the same request.
  *
  * Notification failure must never fail the join request itself: the request
  * row is already committed, and a missing notification is recoverable from the
@@ -821,7 +829,7 @@ async function notifyCommunityManagers(
         where: {
           communityId,
           status: 'ACTIVE',
-          role: { in: ['OWNER', 'ADMIN', 'MODERATOR'] },
+          role: { in: ['OWNER', 'ADMIN'] },
         },
         select: { userId: true },
       }),
