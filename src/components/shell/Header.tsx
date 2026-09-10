@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -27,6 +27,7 @@ import {
   Heart,
   Star,
   MessageSquare,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Header.module.css';
@@ -34,6 +35,27 @@ import styles from './Header.module.css';
 interface HeaderProps {
   onOpenSearch: () => void;
   onQuickAdd: () => void;
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  linkUrl: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function relativeTime(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
@@ -45,9 +67,55 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const headerRef = useRef<HTMLDivElement>(null);
   const megaMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Notifications are per-user and server-owned. Fetched only for a signed-in
+  // user and cleared on sign-out, so one account's tray never leaks to the next.
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+    try {
+      const res = await fetch('/api/notifications', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  // Opening the tray marks everything read via the POST the API already exposes.
+  const handleToggleNotifications = async () => {
+    const opening = !isNotifOpen;
+    setIsNotifOpen(opening);
+    if (!opening || !user) return;
+
+    await loadNotifications();
+    if (unreadCount > 0) {
+      try {
+        await fetch('/api/notifications', { method: 'POST' });
+        setUnreadCount(0);
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      } catch (err) {
+        console.error('Failed to mark notifications read:', err);
+      }
+    }
+  };
 
   // Scroll listener for sticky compacting
   useEffect(() => {
@@ -66,6 +134,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
       }
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -202,6 +273,68 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
             <Bookmark size={14} />
             <span>Library</span>
           </Link>
+
+          {/* Notification tray — where a community owner sees join requests */}
+          {user && (
+            <div className={styles.notifWrapper} ref={notifRef}>
+              <button
+                type="button"
+                className={styles.notifTrigger}
+                onClick={handleToggleNotifications}
+                aria-expanded={isNotifOpen}
+                aria-label={
+                  unreadCount > 0
+                    ? `Notifications, ${unreadCount} unread`
+                    : 'Notifications'
+                }
+              >
+                <Bell size={14} />
+                {unreadCount > 0 && (
+                  <span className={styles.notifBadge}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div className={styles.notifDropdown}>
+                  <div className={styles.notifHeader}>
+                    <span>Notifications</span>
+                    <span className={styles.notifHeaderMeta}>
+                      {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
+                    </span>
+                  </div>
+
+                  {notifications.length === 0 ? (
+                    <div className={styles.notifEmpty}>Nothing here yet.</div>
+                  ) : (
+                    <div className={styles.notifList}>
+                      {notifications.map((n) =>
+                        n.linkUrl ? (
+                          <Link
+                            key={n.id}
+                            href={n.linkUrl}
+                            className={styles.notifItem}
+                            onClick={() => setIsNotifOpen(false)}
+                          >
+                            <span className={styles.notifItemTitle}>{n.title}</span>
+                            {n.body && <span className={styles.notifItemBody}>{n.body}</span>}
+                            <span className={styles.notifItemTime}>{relativeTime(n.createdAt)}</span>
+                          </Link>
+                        ) : (
+                          <div key={n.id} className={styles.notifItem}>
+                            <span className={styles.notifItemTitle}>{n.title}</span>
+                            {n.body && <span className={styles.notifItemBody}>{n.body}</span>}
+                            <span className={styles.notifItemTime}>{relativeTime(n.createdAt)}</span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {user ? (
             <div className={styles.userMenuWrapper} ref={userMenuRef}>

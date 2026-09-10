@@ -483,3 +483,128 @@
   color: var(--text-primary);
   background-color: var(--surface-hover);
 }
+
+/* ── Notification tray ──────────────────────────────────────────────────
+   Reuses the header's dropdown surface, radii and easing so the bell reads
+   as part of the existing chrome rather than a bolted-on panel. */
+.notifWrapper {
+  position: relative;
+}
+
+.notifTrigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle, #2A2A2E);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.notifTrigger:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.notifBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill, 999px);
+  background-color: var(--accent-primary, #E5484D);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
+.notifDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background-color: var(--surface-base, #171719);
+  border: 1px solid var(--border-default, #2A2A2E);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+  padding: 6px;
+  z-index: 100;
+  animation: dropdownEnter 180ms var(--ease-out-cubic, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.notifHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 6px 8px 8px;
+  border-bottom: 1px solid var(--border-subtle, #2A2A2E);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notifHeaderMeta {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notifList {
+  display: flex;
+  flex-direction: column;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.notifItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 8px;
+  border-radius: var(--radius-xs, 4px);
+  text-decoration: none;
+  transition: background-color var(--transition-fast, 150ms ease);
+}
+
+.notifItem + .notifItem {
+  border-top: 1px solid var(--border-subtle, #2A2A2E);
+}
+
+a.notifItem:hover {
+  background-color: var(--surface-hover);
+}
+
+.notifItemTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.notifItemBody {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.notifItemTime {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.notifEmpty {
+  padding: 14px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}
