@@ -1,0 +1,60 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-caption);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+/* Sizes */
+.sm {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.md {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Neutral States */
+.neutral,
+.completed,
+.finished {
+  background-color: var(--surface-main);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.watching,
+.airing {
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-elevated);
+}
+
+.plan_to_watch,
+.upcoming {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.on_hold,
+.dropped {
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Active / Selected Interactive State (Uses the Accent) */
+.active {
+  background-color: var(--accent-subtle);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}

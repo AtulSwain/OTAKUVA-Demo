@@ -1,0 +1,110 @@
+.section {
+  padding: 42px 0;
+  border-bottom: 1px solid var(--border-default, #202020);
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 22px;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+.subtitle {
+  color: var(--text-muted, #777777);
+  font-size: 13px;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 600px) {
+  .cardsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .cardsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .cardsGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.card {
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: var(--surface-base, #101010);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-hover, #3E3E44);
+  background-color: var(--surface-elevated, #18181B);
+}
+
+.thumbWrapper {
+  aspect-ratio: 2/3;
+  position: relative;
+  background-color: var(--surface-elevated, #18181B);
+}
+
+.cardBody {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.animeTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted, #8E8E8E);
+}
+
+.scoreBadge {
+  color: #F59E0B;
+  font-weight: 700;
+}
+
+.reasonBadge {
+  font-size: 10px;
+  color: var(--accent-primary-hover, #818CF8);
+  background-color: rgba(99, 102, 241, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-top: 2px;
+}

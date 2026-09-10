@@ -1,0 +1,143 @@
+.section {
+  padding: var(--section-gap, 48px) 0 0;
+}
+
+.featureCard {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  min-height: 320px;
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--surface-base, #101010);
+  transition: all var(--transition-normal, 200ms ease);
+}
+
+.featureCard:hover {
+  border-color: var(--border-hover, #383838);
+}
+
+@media (max-width: 900px) {
+  .featureCard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.artWrapper {
+  position: relative;
+  min-height: 240px;
+  background-color: var(--surface-elevated, #18181B);
+  overflow: hidden;
+}
+
+.artImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.75);
+  transition: transform 600ms ease;
+}
+
+.featureCard:hover .artImage {
+  transform: scale(1.02);
+}
+
+.artOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(16, 16, 16, 0.4) 0%, rgba(16, 16, 16, 0.95) 100%);
+}
+
+@media (max-width: 900px) {
+  .artOverlay {
+    background: linear-gradient(180deg, rgba(16, 16, 16, 0.2) 0%, rgba(16, 16, 16, 0.95) 100%);
+  }
+}
+
+.copyArea {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .copyArea {
+    padding: 24px;
+  }
+}
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted, #8E8E8E);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin: 0;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -1.2px;
+  color: var(--text-primary, #F4F4F2);
+  margin: 0;
+  line-height: 1.1;
+}
+
+@media (max-width: 600px) {
+  .title {
+    font-size: 24px;
+  }
+}
+
+.synopsis {
+  color: var(--text-secondary, #BDBDBD);
+  line-height: 1.7;
+  font-size: 14px;
+  margin: 0;
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px 0;
+}
+
+.tag {
+  display: inline-block;
+  border: 1px solid var(--border-default, #292929);
+  background-color: var(--surface-elevated, #161618);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #BDBDBD);
+  font-weight: 500;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  padding: 11px 20px;
+  border-radius: 8px;
+  background-color: #F4F4F2;
+  color: #070707;
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.btnPrimary:hover {
+  background-color: #FFFFFF;
+  transform: translateY(-1px);
+}

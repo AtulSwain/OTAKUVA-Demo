@@ -1,0 +1,400 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 150ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background-color: #121214;
+  border: 1px solid #28282C;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #222226;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.headerBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #F4F4F2;
+  margin: 0;
+}
+
+.editingTag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.18);
+  color: #818CF8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.headerSubtitle {
+  font-size: 13px;
+  color: #888888;
+  margin: 4px 0 0 0;
+}
+
+.closeBtn {
+  color: #777777;
+  padding: 6px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 150ms, background-color 150ms;
+}
+
+.closeBtn:hover {
+  color: #F4F4F2;
+  background-color: #222226;
+}
+
+.form {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #A0A0A0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.optionalTag {
+  text-transform: none;
+  font-weight: 400;
+  color: #666666;
+}
+
+.ratingValueBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ratingVal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #F59E0B;
+}
+
+.ratingVal strong {
+  font-size: 15px;
+  color: #FBBF24;
+}
+
+.noRatingVal {
+  font-size: 12px;
+  color: #666666;
+  font-style: italic;
+}
+
+.clearRatingBtn {
+  background: none;
+  border: none;
+  color: #888888;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  transition: color 150ms;
+}
+
+.clearRatingBtn:hover {
+  color: #F43F5E;
+}
+
+.sliderContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rangeSlider {
+  width: 100%;
+  accent-color: #F59E0B;
+  cursor: pointer;
+}
+
+.ratingChipsRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ratingChip {
+  flex: 1;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid #2A2A2E;
+  background-color: #1A1A1E;
+  color: #A0A0A0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ratingChip:hover {
+  border-color: #44444C;
+  color: #F4F4F2;
+}
+
+.ratingChipActive {
+  background-color: #F59E0B;
+  color: #070707;
+  border-color: #F59E0B;
+}
+
+.charCount {
+  font-size: 11.5px;
+  color: #666666;
+}
+
+.charCountWarning {
+  color: #F59E0B;
+}
+
+.input {
+  background-color: #161619;
+  border: 1px solid #28282C;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: #F4F4F2;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 150ms;
+}
+
+.input:focus {
+  border-color: #6366F1;
+}
+
+.textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.spoilerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.spoilerCard {
+  background-color: #161619;
+  border: 1px solid #28282C;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 150ms;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spoilerCard:hover {
+  border-color: #3E3E44;
+}
+
+.spoilerCardActive {
+  border-color: #6366F1;
+  background-color: rgba(99, 102, 241, 0.08);
+}
+
+.spoilerCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spoilerLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #E2E2E0;
+}
+
+.spoilerDesc {
+  font-size: 11px;
+  color: #777777;
+  line-height: 1.3;
+}
+
+.iconSafe {
+  color: #10B981;
+}
+
+.iconWarning {
+  color: #F59E0B;
+}
+
+.iconFull {
+  color: #EF4444;
+}
+
+.errorBox {
+  padding: 10px 14px;
+  background-color: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: 8px;
+  color: #F43F5E;
+  font-size: 12.5px;
+}
+
+.footer {
+  padding: 16px 24px 20px;
+  border-top: 1px solid #222226;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #EF4444;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: #EF4444;
+}
+
+.cancelBtn {
+  padding: 9px 16px;
+  border-radius: 6px;
+  border: 1px solid #2A2A2E;
+  background-color: transparent;
+  color: #B0B0B0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.cancelBtn:hover {
+  background-color: #1E1E22;
+  color: #F4F4F2;
+}
+
+.submitBtn {
+  padding: 9px 20px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-color: #F4F4F2;
+  color: #070707;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background-color: #FFFFFF;
+}
+
+.submitBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 500px) {
+  .spoilerGrid {
+    grid-template-columns: 1fr;
+  }
+}

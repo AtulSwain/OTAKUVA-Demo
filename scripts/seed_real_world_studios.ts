@@ -1,0 +1,676 @@
+/**
+ * OTAKUVA — REAL-WORLD ANIME STUDIOS CATALOG & ANIME LINKAGE SEEDER
+ * 
+ * Seeds canonical real-world anime animation studios with authentic:
+ * - Japanese Native Name (Kanji)
+ * - Founded Year
+ * - Headquarters Location
+ * - Official Website
+ * - Editorial Synopsis / Description
+ * - Verified & Published Status
+ * - Automatic Linkage to all matching canonical anime titles in the OTAKUVA database!
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+interface StudioSeedData {
+  name: string;
+  slug: string;
+  nativeName: string;
+  romanizedName?: string;
+  foundedYear: number;
+  city: string;
+  region: string;
+  website: string;
+  about: string;
+  shortDescription: string;
+  imageUrl?: string;
+  bannerUrl?: string;
+  associatedAnimeSlugs: string[]; // Slugs or keywords to link
+}
+
+const REAL_WORLD_STUDIOS: StudioSeedData[] = [
+  {
+    name: 'MAPPA',
+    slug: 'mappa',
+    nativeName: '株式会社MAPPA',
+    romanizedName: 'Kabushiki-gaisha MAPPA',
+    foundedYear: 2011,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://www.mappa.co.jp',
+    about: 'MAPPA Co., Ltd. is a premier Japanese animation studio founded on June 14, 2011, by Masao Maruyama, the founder and former producer of Madhouse. Known for high-octane action sequences, cinematic compositing, and industry-defining productions.',
+    shortDescription: 'Acclaimed Tokyo-based animation studio renowned for high-production action spectacles and modern masterpieces.',
+    imageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&q=80',
+    bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=1200&q=80',
+    associatedAnimeSlugs: [
+      'jujutsu-kaisen',
+      'chainsaw-man',
+      'attack-on-titan-final-season',
+      'attack-on-titan',
+      'vinland-saga',
+      'hells-paradise',
+      'jigokuraku',
+      'yuri-on-ice',
+      'dororo',
+      'banana-fish',
+    ],
+  },
+  {
+    name: 'Wit Studio',
+    slug: 'wit-studio',
+    nativeName: '株式会社ウィットスタジオ',
+    romanizedName: 'Kabushiki-gaisha Witto Sutajio',
+    foundedYear: 2012,
+    city: 'Musashino',
+    region: 'Tokyo',
+    website: 'https://www.witstudio.co.jp',
+    about: 'WIT STUDIO, Inc. was founded on June 1, 2012, by producers from Production I.G as a subsidiary of IG Port. Celebrated globally for fluid sakuga animation, bold linework, and expressive character acting.',
+    shortDescription: 'Pioneering animation studio famous for the early seasons of Attack on Titan, Vinland Saga, and Spy × Family.',
+    imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&q=80',
+    associatedAnimeSlugs: [
+      'attack-on-titan',
+      'vinland-saga',
+      'spy-x-family',
+      'ranking-of-kings',
+      'great-pretender',
+      'vivy-fluorite-eyes-song',
+      'kabaneri-of-the-iron-fortress',
+    ],
+  },
+  {
+    name: 'Madhouse',
+    slug: 'madhouse',
+    nativeName: '株式会社マッドハウス',
+    romanizedName: 'Kabushiki-gaisha Maddohausu',
+    foundedYear: 1972,
+    city: 'Nakano',
+    region: 'Tokyo',
+    website: 'https://www.madhouse.co.jp',
+    about: 'Madhouse Inc. is a legendary Japanese animation studio founded on October 17, 1972, by former Mushi Production animators including Masao Maruyama, Osamu Dezaki, Rintaro, and Yoshiaki Kawajiri. A titan of psychological thrillers, dark fantasy, and genre-defining classics.',
+    shortDescription: 'Historic Japanese powerhouse behind Frieren, Monster, Death Note, and Hunter × Hunter.',
+    imageUrl: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400&q=80',
+    associatedAnimeSlugs: [
+      'frieren-beyond-journeys-end',
+      'frieren',
+      'monster',
+      'death-note',
+      'hunter-x-hunter',
+      'one-punch-man',
+      'parasyte',
+      'black-lagoon',
+      'hajime-no-ippo',
+      'trigun',
+    ],
+  },
+  {
+    name: 'ufotable',
+    slug: 'ufotable',
+    nativeName: 'ユーフォーテーブル有限会社',
+    romanizedName: 'Yūfōtēburu yūgen-gaisha',
+    foundedYear: 2000,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'http://www.ufotable.com',
+    about: 'ufotable, Inc. is a Japanese animation studio founded in October 2000 by former TMS Entertainment staff. Renowned for its in-house digital production division and revolutionary integration of 3D CGI and hand-drawn 2D animation.',
+    shortDescription: 'World-renowned studio behind Demon Slayer: Kimetsu no Yaiba and the Fate/stay night Heaven\'s Feel trilogy.',
+    imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=400&q=80',
+    associatedAnimeSlugs: [
+      'demon-slayer-kimetsu',
+      'demon-slayer',
+      'kimetsu-no-yaiba',
+      'fate-zero',
+      'fate-stay-night-unlimited-blade-works',
+      'kara-no-kyoukai',
+      'garden-of-sinners',
+    ],
+  },
+  {
+    name: 'Bones',
+    slug: 'bones',
+    nativeName: '株式会社ボンズ',
+    romanizedName: 'Kabushiki-gaisha Bonzu',
+    foundedYear: 1998,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://www.bones.co.jp',
+    about: 'Bones Inc. is an esteemed Japanese animation studio founded in October 1998 by Sunrise staff members Masahiko Minami, Hiroshi Ōsaka, and Toshihiro Kawamoto. Renowned for extraordinary hand-drawn mechanical and kinetic action animation.',
+    shortDescription: 'Legendary animation studio creator of Fullmetal Alchemist: Brotherhood, My Hero Academia, and Mob Psycho 100.',
+    imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80',
+    associatedAnimeSlugs: [
+      'fullmetal-alchemist-brotherhood',
+      'fullmetal-alchemist',
+      'mob-psycho-100',
+      'my-hero-academia',
+      'bungo-stray-dogs',
+      'noragami',
+      'soul-eater',
+      'eureka-seven',
+      'space-dandy',
+    ],
+  },
+  {
+    name: 'Kyoto Animation',
+    slug: 'kyoto-animation',
+    nativeName: '株式会社京都アニメーション',
+    romanizedName: 'Kabushiki-gaisha Kyōto Animēshon',
+    foundedYear: 1981,
+    city: 'Uji',
+    region: 'Kyoto',
+    website: 'https://www.kyotoanimation.co.jp',
+    about: 'Kyoto Animation Co., Ltd., often abbreviated KyoAni, is an internationally revered animation studio founded in 1981 by Yoko Hatta and Hideaki Hatta. Celebrated for unprecedented attention to emotional subtlety, character animation, and in-house employee welfare.',
+    shortDescription: 'Beloved animation studio known for Violet Evergarden, A Silent Voice, Hyouka, and Sound! Euphonium.',
+    imageUrl: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&q=80',
+    associatedAnimeSlugs: [
+      'violet-evergarden',
+      'a-silent-voice',
+      'koe-no-katachi',
+      'hyouka',
+      'clannad-after-story',
+      'clannad',
+      'sound-euphonium',
+      'k-on',
+      'the-melancholy-of-haruhi-suzumiya',
+      'free',
+      'nichijou',
+    ],
+  },
+  {
+    name: 'A-1 Pictures',
+    slug: 'a-1-pictures',
+    nativeName: '株式会社A-1 Pictures',
+    romanizedName: 'Kabushiki-gaisha Ewan Pikuchāzu',
+    foundedYear: 2005,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://a1p.jp',
+    about: 'A-1 Pictures Inc. is a leading Japanese animation studio established on May 9, 2005, by Sony Music Entertainment Japan\'s anime production division, Aniplex. Produces a prolific range of blockbuster television series and feature films.',
+    shortDescription: 'Premier studio behind Solo Leveling, Kaguya-sama: Love is War, Sword Art Online, and 86: Eighty-Six.',
+    imageUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80',
+    associatedAnimeSlugs: [
+      'solo-leveling',
+      'kaguya-sama-love-is-war',
+      'kaguya-sama',
+      '86-eighty-six',
+      'sword-art-online',
+      'your-lie-in-april',
+      'shigatsu-wa-kimi-no-uso',
+      'erased',
+      'boku-dake-ga-inai-machi',
+      'fate-apocrypha',
+      'mashle',
+    ],
+  },
+  {
+    name: 'CloverWorks',
+    slug: 'cloverworks',
+    nativeName: '株式会社CloverWorks',
+    romanizedName: 'Kabushiki-gaisha KurōbāWākusu',
+    foundedYear: 2018,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://cloverworks.co.jp',
+    about: 'CloverWorks Inc. is a Japanese animation studio rebranded from A-1 Pictures\' Koenji Studio on October 1, 2018, operating under Aniplex. Celebrated for vibrant aesthetics, modern youthful storytelling, and stylish cinematography.',
+    shortDescription: 'Dynamic studio behind Bocchi the Rock!, Spy × Family, The Promised Neverland, and My Dress-Up Darling.',
+    imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400&q=80',
+    associatedAnimeSlugs: [
+      'bocchi-the-rock',
+      'spy-x-family',
+      'the-promised-neverland',
+      'my-dress-up-darling',
+      'sono-bisque-doll',
+      'rascal-does-not-dream-of-bunny-girl-senpai',
+      'horimiya',
+      'wind-breaker',
+    ],
+  },
+  {
+    name: 'Production I.G',
+    slug: 'production-i-g',
+    nativeName: '株式会社プロダクション・アイジー',
+    romanizedName: 'Kabushiki-gaisha Purodakushon Ai Jī',
+    foundedYear: 1987,
+    city: 'Musashino',
+    region: 'Tokyo',
+    website: 'https://www.production-ig.co.jp',
+    about: 'Production I.G, Inc. is an acclaimed Japanese animation studio founded on December 15, 1987, by Mitsuhisa Ishikawa and Takayuki Goto. Known worldwide for sci-fi landmarks, cinematic realism, and premier sports anime.',
+    shortDescription: 'World-renowned studio behind Ghost in the Shell, Psycho-Pass, Haikyu!!, and Kaiju No. 8.',
+    imageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=400&q=80',
+    associatedAnimeSlugs: [
+      'ghost-in-the-shell',
+      'psycho-pass',
+      'haikyu',
+      'haikyuu',
+      'kaiju-no-8',
+      'kuroko-no-basket',
+      'vinland-saga',
+      'guilty-crown',
+      'heavenly-delusion',
+      'tengoku-daimakyou',
+    ],
+  },
+  {
+    name: 'Shaft',
+    slug: 'shaft',
+    nativeName: '株式会社シャフト',
+    romanizedName: 'Kabushiki-gaisha Shafuto',
+    foundedYear: 1975,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://www.shaft-web.co.jp',
+    about: 'Shaft Inc. is a Japanese animation studio founded on September 1, 1975, by Hiroshi Wakao. Renowned for its avant-garde visual style, distinct head tilts, typography integration, and artistic collaborations with director Akiyuki Shinbo.',
+    shortDescription: 'Avant-garde animation studio famous for the Monogatari series and Puella Magi Madoka Magica.',
+    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80',
+    associatedAnimeSlugs: [
+      'bakemonogatari',
+      'monogatari',
+      'madoka-magica',
+      'puella-magi-madoka-magica',
+      'march-comes-in-like-a-lion',
+      '3-gatsu-no-lion',
+      'nisekoi',
+      'sayonara-zetsubou-sensei',
+    ],
+  },
+  {
+    name: 'Studio Ghibli',
+    slug: 'studio-ghibli',
+    nativeName: '株式会社スタジオジブリ',
+    romanizedName: 'Kabushiki-gaisha Sutajio Jiburi',
+    foundedYear: 1985,
+    city: 'Koganei',
+    region: 'Tokyo',
+    website: 'https://www.ghibli.jp',
+    about: 'Studio Ghibli, Inc. is a legendary Japanese animation film studio founded on June 15, 1985, by directors Hayao Miyazaki and Isao Takahata and producer Toshio Suzuki. Creator of Academy Award-winning cinematic masterpieces.',
+    shortDescription: 'Historic feature film studio behind Spirited Away, Princess Mononoke, and The Boy and the Heron.',
+    imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80',
+    associatedAnimeSlugs: [
+      'spirited-away',
+      'princess-mononoke',
+      'howls-moving-castle',
+      'my-neighbor-totoro',
+      'the-boy-and-the-heron',
+      'grave-of-the-fireflies',
+      'kikis-delivery-service',
+      'castle-in-the-sky',
+    ],
+  },
+  {
+    name: 'Studio Trigger',
+    slug: 'studio-trigger',
+    nativeName: '株式会社トリガー',
+    romanizedName: 'Kabushiki-gaisha Torigā',
+    foundedYear: 2011,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'http://st-trigger.co.jp',
+    about: 'Studio Trigger Inc. is a high-energy Japanese animation studio founded on August 22, 2011, by former Gainax animators Hiroyuki Imaishi and Masahiko Otsuka. Famous for explosive action, vibrant color styling, and bold character expressiveness.',
+    shortDescription: 'High-energy creative studio behind Kill la Kill, Cyberpunk: Edgerunners, and Delicious in Dungeon.',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&q=80',
+    associatedAnimeSlugs: [
+      'cyberpunk-edgerunners',
+      'kill-la-kill',
+      'delicious-in-dungeon',
+      'dungeon-meshi',
+      'little-witch-academia',
+      'promare',
+      'ssss-gridman',
+      'darling-in-the-franxx',
+    ],
+  },
+  {
+    name: 'White Fox',
+    slug: 'white-fox',
+    nativeName: '株式会社WHITE FOX',
+    romanizedName: 'Kabushiki-gaisha Howaito Fokkusu',
+    foundedYear: 2007,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'http://whitefox.co.jp',
+    about: 'White Fox Co., Ltd. is a Japanese animation studio founded in April 2007 by Gaku Iwasa following the dissolution of OLM\'s Team Iwasa. Highly regarded for faithful visual adaptations of intricate light novels and visual novels.',
+    shortDescription: 'Acclaimed studio behind Steins;Gate, Re:Zero - Starting Life in Another World, and Akame ga Kill!.',
+    imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&q=80',
+    associatedAnimeSlugs: [
+      'steins-gate',
+      're-zero-starting-life-in-another-world',
+      're-zero',
+      'akame-ga-kill',
+      'katanagatari',
+      'the-devil-is-a-part-timer',
+      'goblin-slayer',
+      'cautious-hero',
+    ],
+  },
+  {
+    name: 'David Production',
+    slug: 'david-production',
+    nativeName: '株式会社デイヴィッドプロダクション',
+    romanizedName: 'Kabushiki-gaisha Deividdo Purodakushon',
+    foundedYear: 2007,
+    city: 'Kodaira',
+    region: 'Tokyo',
+    website: 'https://davidproduction.jp',
+    about: 'David Production Inc. is a Japanese animation studio founded in September 2007 by former Gonzo president Kōji Kajita. Celebrated for faithful manga adaptations, stylized sound effect visuals, and sound design.',
+    shortDescription: 'Masterful studio behind JoJo\'s Bizarre Adventure, Fire Force, and Cells at Work!.',
+    imageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80',
+    associatedAnimeSlugs: [
+      'jojos-bizarre-adventure',
+      'jojo',
+      'fire-force',
+      'enn-enn-no-shouboutai',
+      'cells-at-work',
+      'undead-unluck',
+      'urusei-yatsura',
+    ],
+  },
+  {
+    name: 'Sunrise',
+    slug: 'sunrise',
+    nativeName: '株式会社サンライズ',
+    romanizedName: 'Kabushiki-gaisha Sanraizu',
+    foundedYear: 1972,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://www.sunrise-inc.co.jp',
+    about: 'Sunrise (now Bandai Namco Filmworks) is a historic Japanese animation studio founded in September 1972 by former Mushi Production members. Renowned for pioneering the real robot genre and creating global pop-culture icons.',
+    shortDescription: 'Legendary animation studio creator of Cowboy Bebop, Code Geass, Mobile Suit Gundam, and Gintama.',
+    imageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&q=80',
+    associatedAnimeSlugs: [
+      'cowboy-bebop',
+      'code-geass-lelouch-of-the-rebellion',
+      'code-geass',
+      'gintama',
+      'mobile-suit-gundam',
+      'gundam',
+      'inuyasha',
+      'love-live',
+    ],
+  },
+  {
+    name: 'Toei Animation',
+    slug: 'toei-animation',
+    nativeName: '東映アニメーション株式会社',
+    romanizedName: 'Tōei Animēshon Kabushiki-gaisha',
+    foundedYear: 1948,
+    city: 'Nerima',
+    region: 'Tokyo',
+    website: 'https://www.toei-anim.co.jp',
+    about: 'Toei Animation Co., Ltd. is Japan\'s oldest and most iconic animation studio, founded on January 23, 1948. Producer of historical shonen anime franchises and global cultural phenomenons.',
+    shortDescription: 'Japan\'s landmark animation titan behind One Piece, Dragon Ball Z, Sailor Moon, and Slam Dunk.',
+    imageUrl: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400&q=80',
+    associatedAnimeSlugs: [
+      'one-piece',
+      'dragon-ball-z',
+      'dragon-ball',
+      'sailor-moon',
+      'slam-dunk',
+      'digimon-adventure',
+      'world-trigger',
+      'girls-band-cry',
+    ],
+  },
+  {
+    name: 'Pierrot',
+    slug: 'pierrot',
+    nativeName: '株式会社ぴえろ',
+    romanizedName: 'Kabushiki-gaisha Piero',
+    foundedYear: 1979,
+    city: 'Mitaka',
+    region: 'Tokyo',
+    website: 'https://pierrot.jp',
+    about: 'Pierrot Co., Ltd. is a leading Japanese animation studio established in May 1979 by former Tatsunoko Production and Mushi Production staff. Renowned for action choreography, long-running shonen adaptations, and modern supernatural hits.',
+    shortDescription: 'Powerhouse studio behind Naruto, Bleach, Tokyo Ghoul, Black Clover, and Yu Yu Hakusho.',
+    imageUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=400&q=80',
+    associatedAnimeSlugs: [
+      'naruto-shippuden',
+      'naruto',
+      'bleach-thousand-year-blood-war',
+      'bleach',
+      'tokyo-ghoul',
+      'black-clover',
+      'yu-yu-hakusho',
+      'kingdom',
+    ],
+  },
+  {
+    name: 'Doga Kobo',
+    slug: 'doga-kobo',
+    nativeName: '株式会社動画工房',
+    romanizedName: 'Kabushiki-gaisha Dōga Kōbō',
+    foundedYear: 1973,
+    city: 'Nerima',
+    region: 'Tokyo',
+    website: 'https://www.dogakobo.com',
+    about: 'Doga Kobo, Inc. is a Japanese animation studio established on July 11, 1973, by former Toei Animation animators Hideo Furusawa and Megumu Ishiguro. Celebrated for vibrant color direction, expressive facial animation, and chart-topping drama.',
+    shortDescription: 'Renowned animation studio behind Oshi no Ko, Plastic Memories, and Monthly Girls\' Nozaki-kun.',
+    imageUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400&q=80',
+    associatedAnimeSlugs: [
+      'oshi-no-ko',
+      'plastic-memories',
+      'monthly-girls-nozaki-kun',
+      'gekan-shoujo-nozaki-kun',
+      'himouto-umaru-chan',
+      'new-game',
+      'yuru-yuri',
+    ],
+  },
+  {
+    name: 'Studio Bind',
+    slug: 'studio-bind',
+    nativeName: '株式会社スタジオバインド',
+    romanizedName: 'Kabushiki-gaisha Sutajio Baindo',
+    foundedYear: 2018,
+    city: 'Suginami',
+    region: 'Tokyo',
+    website: 'https://st-bind.jp',
+    about: 'Studio Bind Co., Ltd. was established in November 2018 as a joint venture between animation studio White Fox and production company Egg Firm. Known for world-building, high-fidelity background art, and cinematic character acting.',
+    shortDescription: 'Specialist animation studio behind the acclaimed Mushoku Tensei: Jobless Reincarnation.',
+    imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&q=80',
+    associatedAnimeSlugs: [
+      'mushoku-tensei-jobless-reincarnation',
+      'mushoku-tensei',
+      'onimai-im-now-your-sister',
+    ],
+  },
+  {
+    name: 'CoMix Wave Films',
+    slug: 'comix-wave-films',
+    nativeName: 'コミックス・ウェーブ・フィルム',
+    romanizedName: 'Komikkusu Wēbu Firumu',
+    foundedYear: 2007,
+    city: 'Chiyoda',
+    region: 'Tokyo',
+    website: 'https://www.cwfilms.jp',
+    about: 'CoMix Wave Films Inc. is a Japanese animation film studio and distribution company established in March 2007. Globally renowned for producing the breathtaking theatrical films of visionary director Makoto Shinkai.',
+    shortDescription: 'Breathtaking film studio behind Your Name., Weathering With You, and Suzume.',
+    imageUrl: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&q=80',
+    associatedAnimeSlugs: [
+      'your-name',
+      'kimi-no-na-wa',
+      'weathering-with-you',
+      'tenki-no-ko',
+      'suzume',
+      'suzume-no-tojimari',
+      '5-centimeters-per-second',
+      'the-garden-of-words',
+    ],
+  },
+  {
+    name: 'Science SARU',
+    slug: 'science-saru',
+    nativeName: '株式会社サイエンスSARU',
+    romanizedName: 'Kabushiki-gaisha Saiensu SARU',
+    foundedYear: 2013,
+    city: 'Musashino',
+    region: 'Tokyo',
+    website: 'https://www.sciencesaru.com',
+    about: 'Science SARU Inc. is a Japanese animation studio founded on February 4, 2013, by director Masaaki Yuasa and producer Eunyoung Choi. Pioneering hybrid digital Flash/hand-drawn pipelines, delivering avant-garde, kinetic animation.',
+    shortDescription: 'Innovative studio behind Dandadan, Devilman Crybaby, Keep Your Hands Off Eizouken!, and Ping Pong.',
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&q=80',
+    associatedAnimeSlugs: [
+      'dandadan',
+      'devilman-crybaby',
+      'keep-your-hands-off-eizouken',
+      'ping-pong-the-animation',
+      'the-tatami-galaxy',
+      'the-heike-story',
+    ],
+  },
+  {
+    name: 'P.A. Works',
+    slug: 'p-a-works',
+    nativeName: '株式会社ピーエーワークス',
+    romanizedName: 'Kabushiki-gaisha Pī Ē Wākusu',
+    foundedYear: 2000,
+    city: 'Nanto',
+    region: 'Toyama',
+    website: 'https://www.pa-works.jp',
+    about: 'P.A. Works Corporation (Progressive Animation Works) is a Japanese animation studio founded on November 10, 2000, by Kenji Horikawa in Toyama Prefecture. Celebrated for lavish background art, slice-of-life working series, and poignant emotional dramas.',
+    shortDescription: 'Prestige animation studio behind Angel Beats!, Shirobako, Charlotte, and Ya Boy Kongming!.',
+    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80',
+    associatedAnimeSlugs: [
+      'angel-beats',
+      'shirobako',
+      'charlotte',
+      'ya-boy-kongming',
+      'paripi-koumei',
+      'another',
+      'nagi-no-asukara',
+      'hanasaku-iroha',
+    ],
+  },
+  {
+    name: 'J.C.Staff',
+    slug: 'j-c-staff',
+    nativeName: '株式会社ジェー・シー・スタッフ',
+    romanizedName: 'Kabushiki-gaisha Jē Shī Sutaffu',
+    foundedYear: 1986,
+    city: 'Musashino',
+    region: 'Tokyo',
+    website: 'http://www.jcstaff.co.jp',
+    about: 'J.C.Staff Co., Ltd. (Japan Creative Staff) is a prolific Japanese animation studio founded on January 18, 1986, by Tomoyuki Miyata. Known for an expansive catalog spanning romance, light novel fantasy, and comedy.',
+    shortDescription: 'Prolific studio behind Toradora!, A Certain Scientific Railgun, and DanMachi.',
+    imageUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80',
+    associatedAnimeSlugs: [
+      'toradora',
+      'a-certain-scientific-railgun',
+      'a-certain-magical-index',
+      'danmachi',
+      'is-it-wrong-to-try-to-pick-up-girls-in-a-dungeon',
+      'food-wars',
+      'shokugeki-no-souma',
+      'saiki-k',
+      'the-disastrous-life-of-saiki-k',
+      'golden-time',
+    ],
+  },
+];
+
+async function seedRealWorldStudios() {
+  console.log('========================================================================');
+  console.log('  OTAKUVA — SEEDING CANONICAL REAL-WORLD ANIME STUDIOS');
+  console.log('========================================================================\n');
+
+  let insertedOrUpdatedCount = 0;
+  let linkedAnimeCount = 0;
+
+  for (const studioData of REAL_WORLD_STUDIOS) {
+    // 1. Upsert Studio
+    const studio = await prisma.studio.upsert({
+      where: { name: studioData.name },
+      update: {
+        slug: studioData.slug,
+        nativeName: studioData.nativeName,
+        romanizedName: studioData.romanizedName || studioData.name,
+        foundedYear: studioData.foundedYear,
+        city: studioData.city,
+        region: studioData.region,
+        country: 'Japan',
+        website: studioData.website,
+        about: studioData.about,
+        shortDescription: studioData.shortDescription,
+        imageUrl: studioData.imageUrl,
+        bannerUrl: studioData.bannerUrl,
+        verificationStatus: 'VERIFIED',
+        publicationState: 'PUBLISHED',
+        status: 'ACTIVE',
+      },
+      create: {
+        name: studioData.name,
+        slug: studioData.slug,
+        nativeName: studioData.nativeName,
+        romanizedName: studioData.romanizedName || studioData.name,
+        foundedYear: studioData.foundedYear,
+        city: studioData.city,
+        region: studioData.region,
+        country: 'Japan',
+        website: studioData.website,
+        about: studioData.about,
+        shortDescription: studioData.shortDescription,
+        imageUrl: studioData.imageUrl,
+        bannerUrl: studioData.bannerUrl,
+        verificationStatus: 'VERIFIED',
+        publicationState: 'PUBLISHED',
+        status: 'ACTIVE',
+      },
+    });
+
+    insertedOrUpdatedCount++;
+    console.log(`✓ Studio: ${studio.name} (${studio.nativeName}) — Founded ${studio.foundedYear} in ${studio.city}, ${studio.region}`);
+
+    // 2. Link associated anime in the database
+    for (const animeSlugOrKeyword of studioData.associatedAnimeSlugs) {
+      const matchingAnimes = await prisma.anime.findMany({
+        where: {
+          OR: [
+            { slug: { contains: animeSlugOrKeyword } },
+            { canonicalTitle: { contains: animeSlugOrKeyword } },
+            { titles: { some: { title: { contains: animeSlugOrKeyword } } } },
+          ],
+        },
+      });
+
+      for (const anime of matchingAnimes) {
+        // Upsert AnimeStudio link
+        await prisma.animeStudio.upsert({
+          where: {
+            animeId_studioId: {
+              animeId: anime.id,
+              studioId: studio.id,
+            },
+          },
+          update: {
+            isMain: true,
+            isPrimary: true,
+            role: 'MAIN_STUDIO',
+          },
+          create: {
+            animeId: anime.id,
+            studioId: studio.id,
+            isMain: true,
+            isPrimary: true,
+            role: 'MAIN_STUDIO',
+          },
+        });
+        linkedAnimeCount++;
+        console.log(`    ↳ Linked to Anime: "${anime.canonicalTitle}"`);
+      }
+    }
+  }
+
+  console.log('\n========================================================================');
+  console.log(`  COMPLETED: ${insertedOrUpdatedCount} Real-World Studios Seeded & ${linkedAnimeCount} Anime Linkages established!`);
+  console.log('========================================================================\n');
+}
+
+seedRealWorldStudios()
+  .catch((e) => {
+    console.error('Failed to seed real-world studios:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

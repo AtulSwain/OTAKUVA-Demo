@@ -1,0 +1,126 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-10);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  font-size: var(--font-heading);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+
+.viewAllLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-body-small);
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+.viewAllLink:hover {
+  color: var(--text-primary);
+}
+
+.scheduleList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+}
+
+.scheduleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.scheduleRow:hover {
+  background-color: var(--surface-elevated);
+  border-color: var(--border-default);
+}
+
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.timeBadge {
+  font-size: var(--font-meta);
+  font-weight: var(--weight-bold);
+  color: var(--accent-primary-hover);
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  min-width: 60px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumbWrapper {
+  width: 36px;
+  height: 48px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--border-default);
+}
+
+.animeTitle {
+  font-size: var(--font-body-small);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.episodeBadge {
+  font-size: var(--font-meta);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+}
+
+.countdownTag {
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+}

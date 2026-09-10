@@ -1,0 +1,2441 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// WORLD 1 — ANIME CATALOG DATA MODELS
+// ==========================================
+
+model Anime {
+  id             String    @id @default(cuid())
+  externalSource String    @default("anilist") // "anilist" (primary) or "mal"
+  externalId     String?
+  malId          Int?
+  anilistId      Int?
+  slug           String    @unique
+
+  canonicalTitle String
+  synopsis       String
+  background     String?
+
+  type           String    @default("TV") // TV, MOVIE, OVA, ONA, SPECIAL, MUSIC, TV_SPECIAL, OTHER, UNKNOWN
+  source         String?   // MANGA, LIGHT_NOVEL, ORIGINAL, etc.
+  status         String    @default("Finished") // NOT_YET_AIRED, AIRING, FINISHED, CANCELLED, HIATUS, UNKNOWN
+  country        String?   @default("JP")
+  isAdult        Boolean   @default(false)
+
+  episodes       Int?
+  duration       String?
+  rating         String?
+
+  // Date representation with exact precision tracking
+  airedFrom      DateTime?
+  airedTo        DateTime?
+  startDate      DateTime?
+  endDate        DateTime?
+  startYear      Int?
+  startMonth     Int?
+  startDay       Int?
+  endYear        Int?
+  endMonth       Int?
+  endDay         Int?
+  datePrecision  String    @default("UNKNOWN") // "YEAR", "MONTH", "DAY", "UNKNOWN"
+
+  season         String?
+  seasonYear     Int?
+  year           Int?
+
+  broadcastDay      String?
+  broadcastTime     String?
+  broadcastTimezone String?
+
+  nextAiringEpisode Int?
+  nextAiringAt      DateTime?
+  timeUntilAiring   Int?
+
+  score          Float?
+  scoredBy       Int?      @default(0)
+  rank           Int?
+  popularity     Int?
+  members        Int?      @default(0)
+  favoritesCount Int?      @default(0)
+
+  posterUrl      String
+  largePosterUrl String?
+  bannerUrl      String?
+  trailerUrl     String?
+
+  metadataHash          String?
+  dataCompletenessScore Float?    @default(0.0)
+
+  firstImportedAt DateTime  @default(now())
+  lastSyncedAt   DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relational Entities
+  externalIds     AnimeExternalId[]
+  titles          AnimeTitle[]
+  seasons         Season[]
+  episodesList    Episode[]
+  animeGenres     AnimeGenre[]
+  animeThemes     AnimeTheme[]
+  animeTags       AnimeTag[]
+  animeStudios    AnimeStudio[]
+  animeProducers  AnimeProducer[]
+  animeLicensors  AnimeLicensor[]
+  characters      AnimeCharacter[]
+  staff           AnimeStaff[]
+  relationsFrom   AnimeRelation[]  @relation("SourceAnime")
+  relationsTo     AnimeRelation[]  @relation("TargetAnime")
+  franchiseItems  FranchiseAnime[]
+  videos          AnimeVideo[]
+  airingSchedules AiringSchedule[]
+  externalStats   ExternalAnimeStats?
+  conflicts       DataConflict[]
+  history         AnimeMetadataHistory[]
+  contentWarnings ContentWarning[]
+  mediaAssets     MediaAsset[]
+  externalLinks   AnimeExternalLink[]
+  newsRelations   NewsArticleAnime[]
+  studioHistoryEvents StudioHistoryEvent[]
+
+  // World 2 & 3 Relationships
+  userAnimes          UserAnime[]
+  userEpisodeProgress UserEpisodeProgress[]
+  ratings             AnimeRating[]
+  ratingAggregate     RatingAggregate?
+  ratingCategoryAggregates RatingCategoryAggregate[]
+  ratingEvents        RatingEvent[]
+  ratingRiskSignals   RatingRiskSignal[]
+  favorites           Favorite[]
+  reviews             Review[]
+  discussions         Discussion[]
+  communities         Community[]
+  listItems           UserListItem[]
+  communityOpinion    AnimeCommunityOpinion?
+  trendMetric         AnimeTrendMetric?
+  streamingAvailability StreamingAvailability[]
+  recommendationItems   RecommendationItem[]
+  recommendationFeedback RecommendationFeedback[]
+  recommendationPredictions RecommendationPrediction[]
+
+  @@unique([externalSource, externalId])
+  @@index([year, season])
+  @@index([score])
+  @@index([popularity])
+  @@index([malId])
+  @@index([anilistId])
+  @@index([startYear])
+  @@index([status])
+  @@index([type])
+}
+
+model AnimeExternalId {
+  id         String   @id @default(cuid())
+  animeId    String
+  provider   String   // "anilist", "mal", "kitsu", "crunchyroll"
+  externalId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([animeId])
+  @@index([provider, externalId])
+}
+
+model AnimeTitle {
+  id              String  @id @default(cuid())
+  animeId         String
+  type            String  // "official", "english", "japanese", "romaji", "synonym", "alternative"
+  title           String
+  language        String? // ISO language code (e.g. "en", "ja", "ro")
+  isPrimary       Boolean @default(false)
+  searchableTitle String? // normalized title for search indexing
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+  @@index([title])
+  @@index([searchableTitle])
+}
+
+model Season {
+  id            String    @id @default(cuid())
+  animeId       String
+  seasonNumber  Int       @default(1)
+  title         String    // e.g. "Season 1", "Entertainment District Arc", "Specials"
+  slug          String?
+  description   String?
+  coverImage    String?
+  year          Int?
+  seasonType    String    @default("MAIN") // "MAIN", "SPECIAL", "OVA", "ONA", "MOVIE", "RECAP"
+  startDate     DateTime?
+  endDate       DateTime?
+  episodeCount  Int?      @default(0)
+  sortOrder     Int       @default(1)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  anime           Anime            @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  episodes        Episode[]
+  airingSchedules AiringSchedule[]
+
+  @@unique([animeId, seasonNumber])
+  @@index([animeId, sortOrder])
+}
+
+model Episode {
+  id                    String    @id @default(cuid())
+  animeId               String
+  seasonId              String?
+  externalId            String?
+  number                Float     @default(1.0) // Float to safely support decimals e.g. 0.5, 12.5
+  absoluteEpisodeNumber Float?
+  canonicalOrder        Int?
+  title                 String?
+  titleJapanese         String?
+  synopsis              String?
+  airedAt               DateTime?
+  duration              String?
+  filler                Boolean   @default(false)
+  recap                 Boolean   @default(false)
+  status                String    @default("RELEASED") // "UPCOMING", "RELEASED", "AIRING", "DELAYED", "CANCELLED"
+  imageUrl              String?
+  externalUrl           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  anime   Anime   @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  season  Season? @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+
+  externalSources EpisodeExternalSource[]
+  userProgress    UserEpisodeProgress[]
+  episodeRatings  EpisodeRating[]
+  discussions     Discussion[]
+  reviews         Review[]
+  scheduleEntries AiringSchedule[]
+
+  @@unique([animeId, number])
+  @@index([animeId])
+  @@index([seasonId])
+}
+
+model EpisodeExternalSource {
+  id                    String    @id @default(cuid())
+  episodeId             String
+  provider              String    // "jikan", "anilist", "mal", "kitsu"
+  externalId            String
+  externalEpisodeNumber Float?
+  lastSyncedAt          DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId])
+  @@index([episodeId])
+}
+
+model Genre {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  animeGenres AnimeGenre[]
+}
+
+model AnimeGenre {
+  animeId String
+  genreId String
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, genreId])
+  @@index([genreId])
+}
+
+model Theme {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  animeThemes AnimeTheme[]
+}
+
+model AnimeTheme {
+  animeId String
+  themeId String
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  theme Theme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, themeId])
+  @@index([themeId])
+}
+
+model AnimeTag {
+  id             String   @id @default(cuid())
+  animeId        String
+  name           String
+  description    String?
+  rank           Int?     @default(0)
+  isMediaSpoiler Boolean  @default(false)
+  source         String   @default("anilist")
+  createdAt      DateTime @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, name])
+  @@index([animeId])
+  @@index([name])
+}
+
+model Studio {
+  id                      String    @id @default(cuid())
+  externalId              String?
+  externalSource          String?   // "anilist", "mal", "kitsu", "manual"
+  name                    String    @unique // Canonical public display name
+  nativeName              String?   // Japanese or native Kanji / Kana
+  romanizedName           String?   // Romanized Japanese name
+  alternativeNamesJson    String?   // JSON array of strings: former names, abbreviations, aliases
+  slug                    String?   @unique
+  about                   String?   // Full editorial description
+  shortDescription        String?   // 1-2 sentence synopsis
+  descriptionSource       String    @default("EDITORIAL") // "ADMIN", "PROVIDER", "EDITORIAL"
+  
+  foundedDate             DateTime?
+  foundedYear             Int?
+  dissolvedDate           DateTime?
+  status                  String    @default("ACTIVE") // "ACTIVE", "INACTIVE", "CLOSED", "MERGED", "ACQUIRED", "UNKNOWN"
+  
+  country                 String?   @default("Japan")
+  region                  String?   // Prefecture/State, e.g. "Tokyo", "Suginami", "Kyoto"
+  city                    String?   // City/Ward, e.g. "Mitaka", "Uji", "Musashino"
+  
+  website                 String?   // Canonical official website URL
+  wikipediaUrl            String?
+  twitterUrl              String?
+  youtubeUrl              String?
+  externalLinksJson       String?   // JSON array of { provider, externalId, url, lastVerifiedAt }
+  
+  imageUrl                String?   // Primary Logo URL
+  bannerUrl               String?   // Banner / Key Visual URL
+  logoAssetId             String?   // MediaAsset reference if uploaded
+  bannerAssetId           String?   // MediaAsset reference if uploaded
+  
+  verificationStatus      String    @default("UNVERIFIED") // "UNVERIFIED", "PARTIALLY_VERIFIED", "VERIFIED", "NEEDS_REVIEW"
+  publicationState        String    @default("PUBLISHED")  // "DRAFT", "PUBLISHED", "HIDDEN", "ARCHIVED"
+  
+  // Admin Overrides (preserves raw provider data while allowing manual corrections)
+  adminOverrideName        String?
+  adminOverrideDescription String?
+  adminOverrideFoundedYear Int?
+  adminOverrideImageUrl    String?
+  adminOverrideWebsite     String?
+  hasAdminOverride         Boolean   @default(false)
+  adminNotes               String?
+  
+  metadataJson            String?   // JSON object with DNA, primaryGenres, artisticPhilosophy, etc.
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @default(now()) @updatedAt
+
+  // Relationships
+  animeStudios            AnimeStudio[]
+  staffRelations          StudioPerson[]
+  newsRelations           NewsArticleStudio[]
+  parentRelationships     StudioRelationship[] @relation("ChildStudio")
+  childRelationships      StudioRelationship[] @relation("ParentStudio")
+  auditLogs               StudioAuditLog[]
+  historyEvents           StudioHistoryEvent[]
+  eras                    StudioEra[]
+  referencedByHistoryEvents StudioHistoryEvent[] @relation("EventRelatedStudio")
+  communities             Community[]
+  versions                StudioVersion[]
+  mediaItems              StudioMedia[]
+  analyticsSnapshots      StudioAnalyticsSnapshot[]
+  aliases                 StudioAlias[]
+  mergesAsCanonical       StudioMerge[]             @relation("CanonicalStudioMerges")
+  mergesAsMerged          StudioMerge[]             @relation("MergedStudioMerges")
+  redirects               StudioRedirect[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([verificationStatus])
+  @@index([publicationState])
+  @@index([foundedYear])
+}
+
+model AnimeStudio {
+  animeId          String
+  studioId         String
+  role             String   @default("MAIN_STUDIO") // "MAIN_STUDIO", "CO_PRODUCER", "ANIMATION", "PRODUCTION_ASSISTANCE", "CG", "BACKGROUND", "OTHER"
+  isMain           Boolean  @default(true) // Backwards compatibility with existing queries
+  isPrimary        Boolean  @default(true) // Designated lead studio among multiple studios
+  productionStatus String?  @default("COMPLETED")
+  source           String?  @default("CANONICAL") // "CANONICAL", "ANILIST", "MAL", "ADMIN_OVERRIDE"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  anime  Anime  @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, studioId])
+  @@index([studioId])
+  @@index([animeId])
+  @@index([isPrimary])
+}
+
+model StudioPerson {
+  id              String   @id @default(cuid())
+  studioId        String
+  personId        String
+  role            String   // "FOUNDER", "CO_FOUNDER", "CEO", "DIRECTOR", "PRODUCER", "EXECUTIVE", "KEY_STAFF"
+  tenureStartYear Int?
+  tenureEndYear   Int?
+  isCurrent       Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, personId, role])
+  @@index([studioId])
+  @@index([personId])
+  @@index([role])
+}
+
+model StudioRelationship {
+  id               String   @id @default(cuid())
+  parentStudioId   String
+  childStudioId    String
+  relationshipType String   // "SUBSIDIARY", "PARENT_COMPANY", "SISTER_STUDIO", "MERGED_INTO", "SUCCESSOR", "SPIN_OFF"
+  establishedYear  Int?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  parentStudio Studio @relation("ParentStudio", fields: [parentStudioId], references: [id], onDelete: Cascade)
+  childStudio  Studio @relation("ChildStudio", fields: [childStudioId], references: [id], onDelete: Cascade)
+
+  @@unique([parentStudioId, childStudioId, relationshipType])
+  @@index([parentStudioId])
+  @@index([childStudioId])
+}
+
+model StudioEra {
+  id           String   @id @default(cuid())
+  studioId     String
+  name         String   // e.g. "Founding & Dezaki Era", "Golden Era", "Modern Expansion"
+  description  String?
+  startDate    DateTime?
+  startYear    Int?
+  endDate      DateTime?
+  endYear      Int?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  events StudioHistoryEvent[]
+
+  @@index([studioId, displayOrder])
+}
+
+model StudioHistoryEvent {
+  id                 String    @id @default(cuid())
+  studioId           String
+  eraId              String?
+  title              String
+  shortDescription   String?
+  fullDescription    String?
+  
+  eventDate          DateTime?
+  eventYear          Int?
+  eventEndDate       DateTime?
+  eventEndYear       Int?
+  
+  eventType          String    @default("MILESTONE") // "FOUNDING", "NAME_CHANGE", "LEADERSHIP", "MAJOR_PROJECT", "COMPANY_CHANGE", "ACQUISITION", "MERGER", "EXPANSION", "OFFICE_CHANGE", "AWARD", "MILESTONE", "STAFF_CHANGE", "PRODUCTION_EVENT", "OTHER"
+  importance         String    @default("NORMAL")    // "LOW", "NORMAL", "IMPORTANT", "MAJOR", "CRITICAL"
+  displayOrder       Int       @default(0)
+  
+  imageUrl           String?
+  imageCaption       String?
+  imageAltText       String?
+  
+  personId           String?
+  animeId            String?
+  relatedStudioId    String?
+  
+  source             String?   // Source Name
+  sourceUrl          String?   // Source Link
+  sourceType         String    @default("OFFICIAL") // "OFFICIAL", "DATABASE", "ARCHIVE", "INTERVIEW", "NEWS", "BOOK", "PUBLICATION", "OTHER"
+  
+  verificationStatus String    @default("UNVERIFIED") // "UNVERIFIED", "NEEDS_REVIEW", "PARTIALLY_VERIFIED", "VERIFIED"
+  publicationState   String    @default("PUBLISHED")  // "DRAFT", "PUBLISHED", "HIDDEN", "ARCHIVED"
+  
+  createdById        String?
+  updatedById        String?
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  studio        Studio     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  era           StudioEra? @relation(fields: [eraId], references: [id], onDelete: SetNull)
+  person        Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
+  anime         Anime?     @relation(fields: [animeId], references: [id], onDelete: SetNull)
+  relatedStudio Studio?    @relation("EventRelatedStudio", fields: [relatedStudioId], references: [id], onDelete: SetNull)
+
+  @@index([studioId, eventYear, displayOrder])
+  @@index([studioId, publicationState])
+  @@index([studioId, importance])
+  @@index([studioId, eventType])
+  @@index([animeId])
+  @@index([personId])
+}
+
+model StudioAuditLog {
+  id         String   @id @default(cuid())
+  studioId   String
+  actorId    String
+  action     String   // "CREATE", "UPDATE", "ARCHIVE", "RESTORE", "IMAGE_UPDATE", "ANIME_LINK", "ANIME_UNLINK", "PERSON_LINK", "PERSON_UNLINK", "MERGE", "OVERRIDE_APPLY", "OVERRIDE_RESET", "VERIFICATION_CHANGE", "HISTORY_EVENT_CREATE", "HISTORY_EVENT_UPDATE", "HISTORY_EVENT_PUBLISH", "HISTORY_EVENT_ARCHIVE", "HISTORY_EVENT_VERIFY"
+  oldValues  String?  // JSON snapshot of previous values
+  newValues  String?  // JSON snapshot of new values
+  reason     String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([studioId, createdAt])
+  @@index([actorId])
+  @@index([action])
+}
+
+model StudioVersion {
+  id             String   @id @default(cuid())
+  studioId       String
+  versionNumber  Int
+  authorId       String
+  snapshotJson   String   // Serialized Studio metadata snapshot
+  changesSummary String?
+  createdAt      DateTime @default(now())
+
+  studio         Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  author         User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, versionNumber])
+  @@index([studioId])
+  @@index([authorId])
+}
+
+model StudioMedia {
+  id             String   @id @default(cuid())
+  studioId       String
+  mediaType      String   // "LOGO", "BANNER", "MAIN_IMAGE", "GALLERY"
+  url            String
+  assetId        String?
+  source         String?
+  attribution    String?
+  status         String   @default("APPROVED") // "PENDING", "APPROVED", "REJECTED"
+  uploadedById   String
+  mimeType       String?
+  fileSizeBytes  Int?
+  width          Int?
+  height         Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  studio         Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  uploadedBy     User     @relation("StudioMediaUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([studioId])
+  @@index([mediaType])
+  @@index([status])
+}
+
+model StudioAnalyticsSnapshot {
+  id                String   @id @default(cuid())
+  studioId          String
+  period            String   // "ALL_TIME", "LAST_12_MONTHS", "LAST_90_DAYS", "LAST_30_DAYS", "LAST_7_DAYS"
+  metricVersion     String   @default("v1")
+  projectCount      Int      @default(0)
+  averageScore      Float?
+  ratingCount       Int      @default(0)
+  watchCount        Int      @default(0)
+  completionCount   Int      @default(0)
+  communityActivity Int      @default(0)
+  newsActivity      Int      @default(0)
+  momentumScore     Float    @default(0.0)
+  snapshotDataJson  String   // Complete serialized snapshot payload
+  generatedAt       DateTime @default(now())
+
+  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, period, metricVersion])
+  @@index([studioId])
+  @@index([period])
+  @@index([generatedAt])
+}
+
+model StudioAlias {
+  id              String   @id @default(cuid())
+  studioId        String
+  alias           String
+  normalizedAlias String
+  language        String?  @default("en") // "en", "ja", "ja-ro", etc.
+  aliasType       String   @default("ALTERNATIVE") // "OFFICIAL", "NATIVE", "ROMANIZED", "FORMER", "ABBREVIATION", "ALTERNATIVE", "COMMON_NAME", "IMPORT_NAME"
+  source          String?  @default("MANUAL")
+  verified        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([studioId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@index([studioId])
+  @@index([aliasType])
+}
+
+model StudioMerge {
+  id                         String   @id @default(cuid())
+  canonicalStudioId          String
+  mergedStudioId             String
+  initiatedById              String
+  reason                     String?
+  confidenceScore            Float    @default(1.0)
+  relationshipsMigratedCount Int      @default(0)
+  status                     String   @default("COMPLETED") // "COMPLETED", "ROLLED_BACK", "FAILED"
+  rollbackAvailable          Boolean  @default(true)
+  snapshotDataJson           String   // Serialized state before merge for exact rollback
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @default(now()) @updatedAt
+
+  canonicalStudio            Studio   @relation("CanonicalStudioMerges", fields: [canonicalStudioId], references: [id], onDelete: Cascade)
+  mergedStudio               Studio   @relation("MergedStudioMerges", fields: [mergedStudioId], references: [id], onDelete: Cascade)
+  initiatedBy                User     @relation("StudioMergeInitiator", fields: [initiatedById], references: [id], onDelete: Cascade)
+
+  @@index([canonicalStudioId])
+  @@index([mergedStudioId])
+  @@index([initiatedById])
+  @@index([status])
+}
+
+model StudioRedirect {
+  id                String   @id @default(cuid())
+  sourceIdentifier  String   @unique // Source ID or Slug (e.g. old/merged studio ID or slug)
+  canonicalStudioId String
+  redirectType      String   @default("MERGE") // "MERGE", "SLUG_CHANGE", "LEGACY_ID"
+  createdAt         DateTime @default(now())
+
+  canonicalStudio   Studio   @relation(fields: [canonicalStudioId], references: [id], onDelete: Cascade)
+
+  @@index([sourceIdentifier])
+  @@index([canonicalStudioId])
+}
+
+model Producer {
+  id         String  @id @default(cuid())
+  externalId String?
+  name       String  @unique
+  slug       String? @unique
+  about      String?
+  website    String?
+  imageUrl   String?
+
+  animeProducers AnimeProducer[]
+}
+
+model AnimeProducer {
+  animeId    String
+  producerId String
+
+  anime    Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  producer Producer @relation(fields: [producerId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, producerId])
+  @@index([producerId])
+}
+
+model Licensor {
+  id   String @id @default(cuid())
+  name String @unique
+
+  animeLicensors AnimeLicensor[]
+}
+
+model AnimeLicensor {
+  animeId    String
+  licensorId String
+
+  anime    Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  licensor Licensor @relation(fields: [licensorId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, licensorId])
+  @@index([licensorId])
+}
+
+model Person {
+  id         String  @id @default(cuid())
+  externalId String?
+  name       String
+  slug       String? @unique
+  nameKanji  String?
+  about      String?
+  birthday   String?
+  website    String?
+  imageUrl   String?
+
+  staffRoles      AnimeStaff[]
+  voiceRoles      CharacterVoiceActor[]
+  newsRelations   NewsArticlePerson[]
+  studioRelations StudioPerson[]
+  historyEvents   StudioHistoryEvent[]
+}
+
+model Character {
+  id         String  @id @default(cuid())
+  externalId String?
+  name       String
+  slug       String? @unique
+  nameKanji  String?
+  about      String?
+  imageUrl   String?
+
+  animeRoles AnimeCharacter[]
+  voiceRoles CharacterVoiceActor[]
+}
+
+model AnimeCharacter {
+  animeId     String
+  characterId String
+  role        String @default("Main") // "Main", "Supporting", "Background"
+
+  anime     Anime     @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, characterId])
+  @@index([characterId])
+}
+
+model CharacterVoiceActor {
+  id          String  @id @default(cuid())
+  characterId String
+  personId    String
+  language    String  @default("Japanese") // "Japanese", "English"
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, personId, language])
+}
+
+model AnimeStaff {
+  id       String @id @default(cuid())
+  animeId  String
+  personId String
+  role     String // "Director", "Original Creator", "Music", "Character Design", etc.
+
+  anime  Anime  @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+  @@index([personId])
+}
+
+model AnimeRelation {
+  id            String @id @default(cuid())
+  sourceAnimeId String
+  targetAnimeId String
+  relationType  String // "Sequel", "Prequel", "Side Story", "Spin-off", "Alternative", "Adaptation", "Summary", "Other"
+
+  sourceAnime Anime @relation("SourceAnime", fields: [sourceAnimeId], references: [id], onDelete: Cascade)
+  targetAnime Anime @relation("TargetAnime", fields: [targetAnimeId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceAnimeId, targetAnimeId, relationType])
+}
+
+model Franchise {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items FranchiseAnime[]
+}
+
+model FranchiseAnime {
+  id           String    @id @default(cuid())
+  franchiseId  String
+  animeId      String
+  position     Int       @default(0)
+  relationship String    @default("MAIN") // "MAIN", "PREQUEL", "SEQUEL", "SPIN_OFF", "MOVIE", "OVA"
+  createdAt    DateTime  @default(now())
+
+  franchise Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  anime     Anime     @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([franchiseId, animeId])
+  @@index([franchiseId, position])
+}
+
+model AnimeVideo {
+  id           String  @id @default(cuid())
+  animeId      String
+  externalId   String?
+  title        String
+  type         String  @default("Trailer") // "Trailer", "PV", "Promo"
+  url          String
+  thumbnailUrl String?
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+}
+
+model AiringSchedule {
+  id                 String             @id @default(cuid())
+  animeId            String
+  seasonId           String?
+  episodeId          String?
+  episode            Int
+  airingAt           DateTime
+  originalAiringAt   DateTime?
+  originalTimezone   String?
+  releaseType        String             @default("BROADCAST") // "BROADCAST", "STREAMING", "SIMULCAST", "THEATRICAL", "DIGITAL"
+  timezone           String?
+  scheduleStatus     String             @default("UPCOMING") // "UPCOMING", "AIRING", "RELEASED", "DELAYED", "CANCELLED", "HIATUS"
+  delayReason        String?
+  notes              String?
+  region             String?            @default("GLOBAL")
+  isVerified         Boolean            @default(true)
+  sourceProvider     String?            @default("anilist")
+  timeUntilAiring    Int?
+  source             String             @default("anilist")
+  externalScheduleId String?
+  lastVerifiedAt     DateTime           @default(now())
+
+  anime              Anime              @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  season             Season?            @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  episodeRecord      Episode?           @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  reminders          ScheduleReminder[]
+
+  @@unique([animeId, episode, releaseType])
+  @@index([airingAt])
+  @@index([animeId, airingAt])
+  @@index([episodeId, airingAt])
+  @@index([seasonId, airingAt])
+  @@index([airingAt, scheduleStatus])
+  @@index([source, externalScheduleId])
+}
+
+model ScheduleReminder {
+  id                  String         @id @default(cuid())
+  userId              String
+  scheduleId          String
+  remindBeforeMinutes Int            @default(10)
+  status              String         @default("PENDING") // "PENDING", "SENT", "CANCELLED"
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedule            AiringSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scheduleId])
+  @@index([userId, status])
+  @@index([scheduleId])
+}
+
+model ExternalAnimeStats {
+  id                String   @id @default(cuid())
+  animeId           String   @unique
+  source            String   @default("mal")
+
+  // MyAnimeList (MAL) Specific Metrics
+  malScore          Float?
+  malScoredBy       Int?     @default(0)
+  malRank           Int?
+  malPopularity     Int?
+  malMembers        Int?     @default(0)
+  malFavorites      Int?     @default(0)
+
+  // AniList Specific Metrics
+  anilistScore      Int?     // 0-100 percentage
+  anilistPopularity Int?
+  anilistFavorites  Int?
+
+  // Distribution
+  watching          Int      @default(0)
+  completed         Int      @default(0)
+  onHold            Int      @default(0)
+  dropped           Int      @default(0)
+  planToWatch       Int      @default(0)
+  total             Int      @default(0)
+  score1            Int      @default(0)
+  score2            Int      @default(0)
+  score3            Int      @default(0)
+  score4            Int      @default(0)
+  score5            Int      @default(0)
+  score6            Int      @default(0)
+  score7            Int      @default(0)
+  score8            Int      @default(0)
+  score9            Int      @default(0)
+  score10           Int      @default(0)
+  capturedAt        DateTime @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// DATA ENGINE & OBSERVABILITY MODELS
+// ==========================================
+
+model SyncJob {
+  id             String    @id @default(cuid())
+  provider       String    @default("anilist") // "anilist", "jikan"
+  jobType        String    // "FULL_CATALOG", "INCREMENTAL", "AIRING", "SEASONAL", "UPCOMING", "HISTORICAL", "REPAIR"
+  status         String    @default("PENDING") // "PENDING", "RUNNING", "COMPLETED", "FAILED", "PAUSED"
+  totalItems     Int?      @default(0)
+  processedCount Int       @default(0)
+  createdCount   Int       @default(0)
+  updatedCount   Int       @default(0)
+  failedCount    Int       @default(0)
+  error          String?
+  cursor         String?
+  page           Int?      @default(1)
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  checkpoints SyncCheckpoint[]
+
+  @@index([provider, jobType])
+  @@index([status])
+}
+
+model SyncCheckpoint {
+  id              String    @id @default(cuid())
+  syncJobId       String?
+  provider        String
+  jobType         String
+  page            Int       @default(1)
+  cursor          String?
+  lastProcessedId String?
+  processedCount  Int       @default(0)
+  createdCount    Int       @default(0)
+  updatedCount    Int       @default(0)
+  failedCount     Int       @default(0)
+  metadata        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  syncJob SyncJob? @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, jobType])
+  @@index([provider, jobType])
+}
+
+model DataSourceRecord {
+  id             String    @id @default(cuid())
+  entityType     String    // "ANIME", "EPISODE", "CHARACTER", "STAFF"
+  entityId       String
+  provider       String
+  externalId     String
+  sourceVersion  String?
+  rawHash        String?
+  payload        String?   // JSON representation
+  retrievedAt    DateTime  @default(now())
+  lastVerifiedAt DateTime  @default(now())
+
+  @@unique([entityType, entityId, provider])
+  @@index([provider, externalId])
+}
+
+model DataConflict {
+  id         String    @id @default(cuid())
+  entityType String    @default("ANIME")
+  entityId   String
+  field      String
+  providerA  String
+  valueA     String
+  providerB  String
+  valueB     String
+  status     String    @default("OPEN") // "OPEN", "RESOLVED", "IGNORED"
+  resolution String?
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  anime Anime? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, field])
+  @@index([status])
+}
+
+model EditorialOverride {
+  id         String    @id @default(cuid())
+  entityType String    // "ANIME", "EPISODE", "STUDIO", "PERSON"
+  entityId   String
+  field      String
+  value      String
+  reason     String?
+  createdBy  String
+  approvedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([entityType, entityId, field])
+}
+
+model DataCorrectionRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  entityType     String    @default("ANIME")
+  entityId       String
+  field          String
+  currentValue   String?
+  suggestedValue String
+  reason         String
+  status         String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, status])
+  @@index([userId])
+}
+
+model AnimeMetadataHistory {
+  id        String   @id @default(cuid())
+  animeId   String
+  field     String
+  oldValue  String?
+  newValue  String?
+  source    String   @default("sync")
+  changedAt DateTime @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+  @@index([changedAt])
+}
+
+// ==========================================
+// WORLD 2 — USER TRACKING & PERSONAL DATA
+// ==========================================
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String?
+  avatarUrl     String?
+  avatarAssetId String?
+  bannerUrl     String?
+  bannerAssetId String?
+  bio           String?
+  // Platform-level RBAC role. One of: USER, MODERATOR, NEWS_EDITOR,
+  // DATA_EDITOR, MEDIA_MANAGER, ADMIN, SUPER_ADMIN. See src/lib/roles.ts
+  // for the canonical list and hierarchy. Distinct from per-community
+  // roles (see CommunityMember.role), which are scoped to one community.
+  role         String   @default("USER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Tracking & Library
+  library             UserAnime[]
+  episodeProgress     UserEpisodeProgress[]
+  ratings             AnimeRating[]
+  ratingEvents        RatingEvent[]
+  ratingRiskSignals   RatingRiskSignal[]
+  episodeRatings      EpisodeRating[]
+  favorites           Favorite[]
+  reviews             Review[]
+  reviewLikes         ReviewLike[]
+  reviewReports       ReviewReport[]
+  customLists         UserList[]
+  activities          Activity[]
+  mediaAssets         MediaAsset[]
+  notifications       Notification[]
+  followers           Follow[] @relation("Following")
+  following           Follow[] @relation("Followers")
+
+  // Social & Community Layer
+  ownedCommunities   Community[]            @relation("CommunityOwner")
+  communityMemberships CommunityMember[]
+  joinRequests       CommunityJoinRequest[]
+  communityBans      CommunityBan[]
+  discussions        Discussion[]           @relation("DiscussionAuthor")
+  discussionComments DiscussionComment[]    @relation("CommentAuthor")
+  discussionFollows  DiscussionFollower[]
+  discussionReactions DiscussionReaction[]
+  commentReactions   CommentReaction[]
+  communityMessages  CommunityMessage[]
+  reportsCreated     Report[]               @relation("UserReports")
+  moderatorActions   ModerationAction[]     @relation("ModeratorActions")
+  correctionRequests DataCorrectionRequest[]
+  auditLogs          AuditLog[]             @relation("AuditActor")
+  studioAuditLogs    StudioAuditLog[]
+  authoredStudioVersions StudioVersion[]
+  uploadedStudioMedia    StudioMedia[]          @relation("StudioMediaUploader")
+  studioMergesInitiated  StudioMerge[]          @relation("StudioMergeInitiator")
+  pollVotes          PollVote[]
+
+  // Direct & Group Real-time Messaging
+  conversationMemberships ConversationParticipant[]
+  messagesSent            Message[]
+  messageReactions        MessageReaction[]
+
+  // Standardized Event Stream
+  eventLogs               EventLog[]
+  tasteProfile            UserTasteProfile?
+  interestClusters        UserInterestCluster[]
+  recommendationSessions  RecommendationSession[]
+  recommendationFeedback    RecommendationFeedback[]
+  recommendationPredictions RecommendationPrediction[]
+  scheduleReminders         ScheduleReminder[]
+
+  @@index([role])
+}
+
+// Records sensitive/privileged actions (role changes today; extend as more
+// admin actions need a trail). Do not log secrets or password data here.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String // e.g. "USER_ROLE_CHANGE"
+  entityType String // e.g. "User"
+  entityId   String
+  beforeJson String? // JSON-encoded prior state, when applicable
+  afterJson  String? // JSON-encoded new state, when applicable
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model UserAnime {
+  id              String    @id @default(cuid())
+  userId          String
+  animeId         String
+  status          String    // "WATCHING", "COMPLETED", "ON_HOLD", "DROPPED", "PLAN_TO_WATCH"
+  episodesWatched Int       @default(0)
+  score           Float?
+  notes           String?
+  startDate       DateTime?
+  finishDate      DateTime?
+  favorite        Boolean   @default(false)
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([userId, status])
+  @@index([animeId])
+}
+
+model UserEpisodeProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  animeId       String
+  episodeId     String
+  episodeNumber Float     @default(1)
+  status        String    @default("COMPLETED") // "STARTED", "COMPLETED"
+  startedAt     DateTime?
+  completedAt   DateTime?
+  watchedAt     DateTime  @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime   Anime   @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([userId, animeId])
+  @@index([userId, status])
+}
+
+model AnimeRating {
+  id        String    @id @default(cuid())
+  userId    String
+  animeId   String
+  rating    Float     // 1.0 to 10.0 in 0.1 increments
+  deletedAt DateTime? // Soft delete support for audit and historical preservation
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime          Anime                 @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  categoryScores RatingCategoryScore[]
+  events         RatingEvent[]
+
+  @@unique([userId, animeId])
+  @@index([animeId])
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model RatingCategoryScore {
+  id        String   @id @default(cuid())
+  ratingId  String
+  category  String   // "STORY", "CHARACTERS", "ANIMATION", "DIRECTION", "MUSIC", "ENJOYMENT"
+  score     Float    // 1.0 to 10.0 in 0.1 increments
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rating AnimeRating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+
+  @@unique([ratingId, category])
+  @@index([category, score])
+  @@index([ratingId])
+}
+
+model RatingEvent {
+  id                  String   @id @default(cuid())
+  ratingId            String?
+  userId              String
+  animeId             String
+  previousScore       Float?
+  newScore            Float
+  eventType           String   // "CREATED", "UPDATED", "DELETED", "FLAGGED", "RESTORED"
+  categoryScoresJson  String?  // Serialized JSON of category scores snapshot
+  ipHash              String?
+  userAgent           String?
+  createdAt           DateTime @default(now())
+
+  rating AnimeRating? @relation(fields: [ratingId], references: [id], onDelete: SetNull)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime  Anime        @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId, createdAt])
+  @@index([userId])
+  @@index([eventType])
+}
+
+model RatingAggregate {
+  id                 String   @id @default(cuid())
+  animeId            String   @unique
+  ratingCount        Int      @default(0)
+  rawAverage         Float?
+  medianScore        Float?
+  bayesianScore      Float?   // OTAKUVA Official Score
+  variance           Float?
+  standardDeviation  Float?
+  confidence         String   @default("NO_DATA") // "NO_DATA", "EARLY", "LOW", "MEDIUM", "HIGH"
+  distributionJson   String?  // JSON bucket counts { "1": 0, "2": 0, ... "10": 0 }
+  algorithmVersion   Int      @default(1)
+  updatedAt          DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([bayesianScore])
+  @@index([ratingCount])
+}
+
+model RatingCategoryAggregate {
+  id                String   @id @default(cuid())
+  animeId           String
+  category          String   // "STORY", "CHARACTERS", "ANIMATION", "DIRECTION", "MUSIC", "ENJOYMENT"
+  responseCount     Int      @default(0)
+  averageScore      Float?
+  medianScore       Float?
+  variance          Float?
+  standardDeviation Float?
+  percentageShare   Float?   // Normalized percentage (deterministic Hare-Niemeyer adjusted)
+  confidence        String   @default("NO_DATA") // "NO_DATA", "EARLY", "LOW", "MEDIUM", "HIGH"
+  updatedAt         DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([animeId, category])
+  @@index([animeId])
+  @@index([category])
+}
+
+model RatingRiskSignal {
+  id          String   @id @default(cuid())
+  userId      String
+  animeId     String
+  riskScore   Float    @default(0.0)
+  signalType  String   // "VELOCITY_SPIKE", "UNUSUAL_PATTERN", "SUSPICIOUS_BURST"
+  detailsJson String?
+  status      String   @default("PENDING") // "PENDING", "REVIEWED", "DISMISSED"
+  createdAt   DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([animeId])
+  @@index([userId])
+}
+
+
+model EpisodeRating {
+  id        String   @id @default(cuid())
+  userId    String
+  episodeId String
+  rating    Float
+  review    String?  // Optional micro-review for this specific episode
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode Episode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([episodeId])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([userId])
+}
+
+model Review {
+  id                    String         @id @default(cuid())
+  userId                String
+  animeId               String
+  episodeId             String?
+  seasonId              String?
+  ratingId              String?
+  reviewType            String         @default("ANIME_REVIEW") // "ANIME_REVIEW", "EPISODE_REVIEW", "SEASON_REVIEW"
+  title                 String
+  body                  String
+  rating                Float?
+  containsSpoiler       Boolean        @default(false)
+  spoilerLevel          String         @default("SPOILER_FREE") // "SPOILER_FREE", "MILD_SPOILERS", "SPOILERS", "FULL_SPOILERS"
+  watchStatusAtReview   String?
+  episodeProgressAtReview Int?
+  edited                Boolean        @default(false)
+  likesCount            Int            @default(0)
+  status                String         @default("PUBLISHED") // "PUBLISHED", "PENDING_REVIEW", "HIDDEN", "REMOVED", "DELETED"
+  language              String         @default("en")
+  languageConfidence    Float          @default(1.0)
+  overallSentiment      String         @default("POSITIVE") // "POSITIVE", "MIXED", "NEGATIVE", "NEUTRAL"
+  sentimentConfidence   Float          @default(1.0)
+  analysisModelVersion  Int            @default(1)
+  analysisStatus        String         @default("COMPLETED") // "PENDING", "COMPLETED", "FAILED"
+  deletedAt             DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime                 Anime          @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  episode               Episode?       @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  likes                 ReviewLike[]
+  aspects               ReviewAspect[]
+  reports               ReviewReport[]
+  reviewAnalysis        ReviewAnalysis?
+
+  @@unique([userId, animeId])
+  @@index([animeId, createdAt])
+  @@index([userId, createdAt])
+  @@index([animeId, rating])
+  @@index([episodeId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ReviewLike {
+  id           String   @id @default(cuid())
+  reviewId     String
+  userId       String
+  reactionType String   @default("HELPFUL") // "HELPFUL", "LIKE", "DISAGREE"
+  createdAt    DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([reviewId])
+}
+
+model ReviewReport {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  reason    String   // "SPAM", "HARASSMENT", "SPOILER", "HATEFUL_CONTENT", "MISINFORMATION", "OTHER"
+  details   String?
+  status    String   @default("PENDING") // "PENDING", "RESOLVED", "DISMISSED"
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([status])
+  @@index([reviewId])
+}
+
+// ==========================================
+// WORLD 3 — COMMUNITIES & SOCIAL LAYER
+// ==========================================
+
+model Community {
+  id           String   @id @default(cuid())
+  ownerId      String
+  name         String
+  slug         String   @unique
+  description  String
+  iconUrl      String?
+  iconSource   String?  @default("URL") // "URL", "UPLOAD"
+  bannerUrl    String?
+  bannerSource String?  @default("URL") // "URL", "UPLOAD"
+  category     String   @default("ANIME") // "ANIME", "GENRE", "MANGA", "REGIONAL", "INTEREST"
+  communityType String  @default("GENERAL") // "ANIME", "SEASON", "GENRE", "STUDIO", "CREATOR", "GENERAL", "CREATOR_EXCLUSIVE"
+  visibility   String   @default("PUBLIC") // "PUBLIC", "REQUEST_TO_JOIN", "PRIVATE"
+  joinPolicy   String   @default("OPEN") // "OPEN", "APPROVAL_REQUIRED", "INVITE_ONLY", "CREATOR_ONLY"
+  status       String   @default("ACTIVE") // "ACTIVE", "ARCHIVED", "DELETED"
+  memberCount  Int      @default(1)
+  animeId      String?  // Optional relation to specific Anime
+  studioId     String?  // Optional relation to specific Studio
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner        User                   @relation("CommunityOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  anime        Anime?                 @relation(fields: [animeId], references: [id], onDelete: SetNull)
+  studio       Studio?                @relation(fields: [studioId], references: [id], onDelete: SetNull)
+  members      CommunityMember[]
+  channels     CommunityChannel[]
+  rules        CommunityRule[]
+  discussions  Discussion[]
+  joinRequests CommunityJoinRequest[]
+  bans         CommunityBan[]
+  invites      CommunityInvite[]
+
+  @@index([category])
+  @@index([visibility])
+  @@index([communityType])
+  @@index([studioId])
+  @@index([status])
+  @@index([memberCount])
+  @@index([createdAt])
+}
+
+model CommunityMember {
+  id                   String   @id @default(cuid())
+  communityId          String
+  userId               String
+  role                 String   @default("MEMBER") // "OWNER", "ADMIN", "MODERATOR", "MEMBER"
+  status               String   @default("ACTIVE") // "ACTIVE", "PENDING", "BANNED", "LEFT"
+  creatorVerified      Boolean  @default(false)
+  verificationProvider String?  // "YOUTUBE", "TWITCH", "CUSTOM"
+  mutedUntil           DateTime?
+  joinedAt             DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([communityId, role])
+  @@index([userId, status])
+}
+
+model CommunityRule {
+  id          String   @id @default(cuid())
+  communityId String
+  position    Int      @default(0)
+  title       String
+  content     String
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([communityId, position])
+}
+
+model CommunityChannel {
+  id          String   @id @default(cuid())
+  communityId String
+  name        String
+  slug        String
+  type        String   @default("TEXT") // "TEXT", "ANNOUNCEMENT"
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  community   Community          @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  discussions Discussion[]
+  messages    CommunityMessage[]
+
+  @@unique([communityId, slug])
+  @@index([communityId, position])
+}
+
+model CommunityJoinRequest {
+  id          String    @id @default(cuid())
+  communityId String
+  userId      String
+  message     String?
+  status      String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([communityId, status])
+}
+
+model CommunityBan {
+  id          String    @id @default(cuid())
+  communityId String
+  userId      String
+  reason      String?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+}
+
+model CommunityInvite {
+  id          String    @id @default(cuid())
+  communityId String
+  createdBy   String
+  token       String    @unique
+  expiresAt   DateTime?
+  maxUses     Int?
+  uses        Int       @default(0)
+  revokedAt   DateTime?
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+// ==========================================
+// WORLD 4 — DISCUSSIONS & MESSAGING
+// ==========================================
+
+model Discussion {
+  id           String   @id @default(cuid())
+  authorId     String   @default("user_default")
+  animeId      String?
+  episodeId    String?
+  communityId  String?  // null => PUBLIC DISCUSSION!
+  channelId    String?
+  title        String
+  body         String
+  type         String   @default("GENERAL") // "GENERAL", "QUESTION", "THEORY", "REACTION", "RECOMMENDATION", "ANALYSIS", "EPISODE_DISCUSSION"
+  spoilerLevel String   @default("NO_SPOILER") // "NO_SPOILER", "ANIME_SPOILER", "EPISODE_SPOILER", "MANGA_SPOILER"
+  status       String   @default("ACTIVE") // "ACTIVE", "PINNED", "LOCKED", "HIDDEN"
+  replyCount   Int      @default(0)
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  author    User                @relation("DiscussionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  anime     Anime?              @relation(fields: [animeId], references: [id], onDelete: SetNull)
+  episode   Episode?            @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  community Community?          @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  channel   CommunityChannel?   @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  comments  DiscussionComment[]
+  followers DiscussionFollower[]
+  reactions DiscussionReaction[]
+  poll      DiscussionPoll?
+
+  @@index([animeId])
+  @@index([episodeId])
+  @@index([communityId])
+  @@index([channelId])
+  @@index([createdAt])
+  @@index([helpfulCount])
+}
+
+model DiscussionPoll {
+  id           String       @id @default(cuid())
+  discussionId String       @unique
+  question     String
+  expiresAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  discussion Discussion   @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  options    PollOption[]
+}
+
+model PollOption {
+  id       String     @id @default(cuid())
+  pollId   String
+  text     String
+  position Int        @default(0)
+  votes    PollVote[]
+
+  poll DiscussionPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, userId])
+  @@index([userId])
+}
+
+model DiscussionComment {
+  id           String    @id @default(cuid())
+  discussionId String
+  authorId     String    @default("user_default")
+  parentId     String?
+  body         String
+  spoilerLevel String    @default("NO_SPOILER") // "NO_SPOILER", "ANIME_SPOILER", "EPISODE_SPOILER", "MANGA_SPOILER"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  discussion Discussion          @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  author     User                @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent     DiscussionComment?  @relation("ThreadedReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    DiscussionComment[] @relation("ThreadedReplies")
+  reactions  CommentReaction[]
+
+  @@index([discussionId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+model DiscussionFollower {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+}
+
+model DiscussionReaction {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  type         String   @default("HELPFUL") // "HELPFUL", "LIKE"
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId, type])
+}
+
+model CommentReaction {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  type      String   @default("LIKE")
+  createdAt DateTime @default(now())
+
+  comment DiscussionComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, type])
+}
+
+model CommunityMessage {
+  id           String    @id @default(cuid())
+  channelId    String
+  authorId     String    @default("user_default")
+  body         String
+  replyToId    String?
+  spoilerLevel String    @default("NO_SPOILER")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  channel CommunityChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author  User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  reporterId  String    @default("user_default")
+  targetType  String    // "USER", "COMMUNITY", "DISCUSSION", "COMMENT", "MESSAGE"
+  targetId    String
+  reason      String    // "SPAM", "HARASSMENT", "HATE", "SPOILER_MISUSE", "PIRACY", "OTHER"
+  description String?
+  status      String    @default("OPEN") // "OPEN", "REVIEWED", "DISMISSED", "ACTIONED"
+  actionTaken String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  reporter User @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([targetType, targetId])
+}
+
+model ModerationAction {
+  id           String   @id @default(cuid())
+  moderatorId  String
+  targetUserId String?
+  communityId  String?
+  targetType   String
+  targetId     String
+  action       String   // "WARN", "DELETE", "HIDE", "TIMEOUT", "BAN", "UNBAN", "LOCK"
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  moderator User @relation("ModeratorActions", fields: [moderatorId], references: [id], onDelete: Cascade)
+
+  @@index([communityId])
+  @@index([targetUserId])
+}
+
+model UserList {
+  id          String   @id @default(cuid())
+  userId      String   @default("user_default")
+  name        String
+  description String?
+  visibility  String   @default("PUBLIC") // "PUBLIC", "PRIVATE", "FOLLOWERS_ONLY"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items UserListItem[]
+
+  @@index([userId])
+}
+
+model UserListItem {
+  id       String   @id @default(cuid())
+  listId   String
+  animeId  String
+  position Int      @default(0)
+  notes    String?
+  addedAt  DateTime @default(now())
+
+  list  UserList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  anime Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, animeId])
+  @@index([listId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String   @default("user_default")
+  type      String   // "ADDED_TO_LIBRARY", "STATUS_CHANGED", "EPISODE_WATCHED", "ANIME_COMPLETED", "ANIME_RATED", "REVIEW_CREATED", "LIST_CREATED", "ANIME_FAVORITED", "JOINED_COMMUNITY", "DISCUSSION_CREATED"
+  animeId   String?
+  metadata  String?  // JSON string
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Followers", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @default("user_default")
+  type      String   // "REPLY_REVIEW", "REPLY_DISCUSSION", "NEW_FOLLOWER", "NEW_EPISODE", "COMMUNITY_JOIN_APPROVED", "COMMUNITY_INVITE", "MENTION", "MODERATION_ACTION"
+  title     String
+  body      String?
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+// ==========================================
+// CANONICAL DATA ENGINE & PROVENANCE MODELS
+// ==========================================
+
+model ContentWarning {
+  id             String    @id @default(cuid())
+  animeId        String
+  type           String    // Violence, Gore, Sexual Content, Strong Language, Self Harm Themes, etc.
+  severity       String?   // MILD, MODERATE, SEVERE
+  source         String    @default("anilist")
+  provider       String    @default("anilist")
+  lastVerifiedAt DateTime? @default(now())
+  createdAt      DateTime  @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+  @@index([type])
+}
+
+model MediaAsset {
+  id             String    @id @default(cuid())
+  userId         String?
+  animeId        String?
+  type           String    // AVATAR, BANNER, POSTER, COVER, THUMBNAIL, TRAILER, PROMOTIONAL_IMAGE
+  source         String    // r2, anilist, jikan, local
+  sourceUrl      String
+  storedUrl      String?
+  storageKey     String?
+  width          Int?
+  height         Int?
+  size           Int?
+  mimeType       String?
+  format         String?   // webp, jpg, png
+  lastVerifiedAt DateTime? @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime? @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([animeId])
+  @@index([type])
+}
+
+model AnimeExternalLink {
+  id         String   @id @default(cuid())
+  animeId    String
+  provider   String   // AniList, MyAnimeList, Official Website, Streaming Service, Wikipedia
+  url        String
+  type       String?  // STREAMING, OFFICIAL, INFO, SOCIAL
+  createdAt  DateTime @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId])
+}
+
+model DeadLetterQueue {
+  id            String    @id @default(cuid())
+  provider      String
+  entityType    String
+  externalId    String
+  error         String
+  attempts      Int       @default(1)
+  lastAttemptAt DateTime  @default(now())
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([provider, entityType])
+}
+
+model PotentialDuplicate {
+  id               String    @id @default(cuid())
+  primaryAnimeId   String
+  secondaryAnimeId String?
+  provider         String
+  externalId       String
+  similarityScore  Float
+  reason           String
+  status           String    @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  createdAt        DateTime  @default(now())
+  resolvedAt       DateTime?
+
+  @@index([primaryAnimeId])
+  @@index([status])
+}
+
+model ProviderPayload {
+  id          String   @id @default(cuid())
+  provider    String   // "anilist", "jikan"
+  entityType  String   // "anime", "character", "staff", "episode"
+  externalId  String
+  payload     String   // Raw JSON string
+  hash        String?
+  retrievedAt DateTime @default(now())
+
+  @@unique([provider, entityType, externalId])
+  @@index([provider, entityType])
+}
+
+// ==========================================
+// WORLD 5 — NEWS & INDUSTRY AGGREGATION
+// ==========================================
+
+model NewsProvider {
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  baseUrl            String
+  domain             String?
+  feedUrl            String?
+  sourceType         String    @default("NEWS_PUBLICATION") // "OFFICIAL", "NEWS_PUBLICATION", "STUDIO", "CREATOR", "ORGANIZER", "LOCAL_MEDIA"
+  trustLevel         String    @default("HIGH") // "HIGH", "MEDIUM", "LOW"
+  language           String    @default("en")
+  country            String?
+  active             Boolean   @default(true)
+  status             String    @default("HEALTHY") // "HEALTHY", "DEGRADED", "FAILED", "DISABLED"
+  lastSuccessfulSync DateTime?
+  lastFailedSync     DateTime?
+  failureCount       Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model NewsStoryCluster {
+  id           String        @id @default(cuid())
+  canonicalKey String?       @unique
+  topicTitle   String
+  slug         String        @unique
+  summary      String?
+  eventType    String?       // "SEASON_ANNOUNCEMENT", "RELEASE_DATE", "TRAILER", "CAST_ANNOUNCEMENT", "STAFF_ANNOUNCEMENT", "DELAY_OR_HIATUS", "BOX_OFFICE", "LICENSING", "EVENT"
+  occurredAt   DateTime?
+  createdAt    DateTime      @default(now())
+
+  articles     NewsArticle[]
+}
+
+model NewsArticle {
+  id                    String    @id @default(cuid())
+  title                 String
+  subtitle              String?
+  slug                  String    @unique
+  summary               String?
+  content               String?
+  contentType           String    @default("SOURCE_METADATA") // "SOURCE_METADATA", "OTAKUVA_SUMMARY", "LICENSED_CONTENT", "USER_GENERATED_CONTENT"
+  sourceName            String    // "Anime News Network", "Crunchyroll News", "Official Press"
+  sourceUrl             String
+  canonicalUrl          String?
+  imageUrl              String?
+  author                String?
+  language              String    @default("en")
+  country               String?
+  category              String    @default("ANIME") // "ANIME", "MANGA", "STUDIOS", "INDUSTRY", "ANNOUNCEMENTS", "CASTING", "PRODUCTION", "TRAILERS"
+  status                String    @default("PUBLISHED") // "DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED", "REMOVED", "FAILED", "PUBLISH_BLOCKED"
+  verificationStatus    String    @default("VERIFIED") // "UNVERIFIED", "VERIFIED", "DISPUTED", "CORRECTED", "RETRACTED"
+  moderationState       String    @default("APPROVED") // "PENDING_REVIEW", "APPROVED", "REJECTED", "PUBLISH_BLOCKED"
+  isFeatured            Boolean   @default(false)
+  featuredPriority      Int       @default(0)
+  featuredUntil         DateTime?
+  scheduledPublishAt    DateTime?
+  deletedAt             DateTime?
+  publishedAt           DateTime  @default(now())
+  discoveredAt          DateTime  @default(now())
+  provider              String    @default("ANN")
+  externalId            String?
+  contentHash           String?
+  ingestedAt            DateTime  @default(now())
+  lastSyncedAt          DateTime  @default(now())
+  clusterId             String?
+  adminOverrideTitle    String?
+  adminOverrideSummary  String?
+  adminOverrideCategory String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  cluster          NewsStoryCluster?   @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  animeRelations   NewsArticleAnime[]
+  studioRelations  NewsArticleStudio[]
+  personRelations  NewsArticlePerson[]
+  reviewQueueItems NewsReviewQueue[]
+
+  @@unique([provider, externalId])
+  @@index([publishedAt])
+  @@index([category])
+  @@index([sourceName])
+  @@index([provider])
+  @@index([status])
+  @@index([isFeatured])
+  @@index([scheduledPublishAt])
+  @@index([clusterId])
+}
+
+model NewsArticleAnime {
+  articleId       String
+  animeId         String
+  confidenceScore Float    @default(1.0)
+  matchMethod     String   @default("EXACT_TITLE") // "EXACT_TITLE", "ALIAS", "NORMALIZED", "MANUAL"
+  status          String   @default("CONFIRMED") // "CONFIRMED", "REVIEW_REQUIRED", "REJECTED"
+  relationType    String   @default("RELATED") // "PRIMARY", "RELATED", "MENTIONED"
+  createdAt       DateTime @default(now())
+
+  article NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  anime   Anime       @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, animeId])
+  @@index([animeId])
+  @@index([status])
+}
+
+model NewsArticleStudio {
+  articleId       String
+  studioId        String
+  confidenceScore Float    @default(1.0)
+  matchMethod     String   @default("EXACT_NAME") // "EXACT_NAME", "ALIAS", "NORMALIZED", "MANUAL"
+  status          String   @default("CONFIRMED") // "CONFIRMED", "REVIEW_REQUIRED", "REJECTED"
+  relationType    String   @default("PRODUCED_BY") // "PRODUCED_BY", "RELATED", "MENTIONED"
+  createdAt       DateTime @default(now())
+
+  article NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  studio  Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, studioId])
+  @@index([studioId])
+  @@index([status])
+}
+
+model NewsArticlePerson {
+  articleId String
+  personId  String
+  createdAt DateTime @default(now())
+
+  article NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  person  Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, personId])
+  @@index([personId])
+}
+
+model NewsReviewQueue {
+  id              String    @id @default(cuid())
+  articleId       String
+  entityType      String    // "ANIME", "STUDIO", "PERSON"
+  entityName      String
+  matchedEntityId String?
+  confidenceScore Float
+  status          String    @default("PENDING") // "PENDING", "APPROVED", "DISMISSED"
+  createdAt       DateTime  @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?
+
+  article NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([articleId])
+}
+
+model NewsIngestionJob {
+  id              String    @id @default(cuid())
+  providerSlug    String
+  status          String    @default("RUNNING") // "QUEUED", "RUNNING", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED"
+  articlesFetched Int       @default(0)
+  articlesCreated Int       @default(0)
+  articlesUpdated Int       @default(0)
+  duplicatesCount Int       @default(0)
+  matchesCreated  Int       @default(0)
+  reviewRequired  Int       @default(0)
+  failedCount     Int       @default(0)
+  errorSummary    String?
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  @@index([providerSlug, status])
+  @@index([startedAt])
+}
+
+// ==========================================
+// WORLD 6 — REAL-TIME MESSAGING & CHAT
+// ==========================================
+
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   @default("DIRECT") // "DIRECT", "GROUP"
+  title       String?
+  avatarUrl   String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([type])
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String    @default("MEMBER") // "ADMIN", "MEMBER"
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+  isMuted        Boolean   @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  messageType    String    @default("TEXT") // "TEXT", "IMAGE", "GIF", "MEME", "SYSTEM"
+  mediaUrl       String?
+  replyToId      String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reactions    MessageReaction[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+// ==========================================
+// WORLD 7 — OTAKUVA ENGINE & INTELLIGENCE
+// ==========================================
+
+model ReviewAspect {
+  id             String   @id @default(cuid())
+  reviewId       String
+  aspect         String   // "STORY", "ANIMATION", "CHARACTERS", "MUSIC", "DIRECTION", "PACING", "WORLD_BUILDING", "ENJOYMENT"
+  sentiment      String   // "POSITIVE", "MIXED", "NEGATIVE"
+  sentimentScore Float    // -1.0 to 1.0
+  confidence     Float    @default(1.0)
+  snippetsJson   String?  // JSON array of supporting quote snippets
+  createdAt      DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@index([aspect, sentiment])
+}
+
+model AnimeCommunityOpinion {
+  id                       String   @id @default(cuid())
+  animeId                  String   @unique
+  overallSentiment         String   @default("POSITIVE") // "POSITIVE", "MIXED", "NEGATIVE"
+  storyScore               Float?
+  animationScore           Float?
+  charactersScore          Float?
+  musicScore               Float?
+  directionScore           Float?
+  pacingScore              Float?
+  worldBuildingScore       Float?
+  enjoymentScore           Float?
+  positivePercentage       Float    @default(0.0)
+  mixedPercentage          Float    @default(0.0)
+  negativePercentage       Float    @default(0.0)
+  frequentlyPraisedJson    String?  // JSON array of strings
+  frequentlyCriticizedJson String?  // JSON array of strings
+  analyzedReviewCount      Int      @default(0)
+  confidence               String   @default("NO_DATA")
+  updatedAt                DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([overallSentiment])
+}
+
+model EventLog {
+  id         String   @id @default(cuid())
+  eventType  String   // "ANIME_BOOKMARKED", "EPISODE_COMPLETED", "ANIME_COMPLETED", "EPISODE_RATED", "ANIME_RATED", "REVIEW_CREATED", "COMMUNITY_CREATED", "COMMUNITY_JOINED", "POST_CREATED", "COMMENT_CREATED", "MESSAGE_SENT"
+  userId     String?
+  entityType String   // "ANIME", "EPISODE", "COMMUNITY", "REVIEW", "DISCUSSION", "MESSAGE"
+  entityId   String
+  metadata   String?  // JSON serialized context
+  version    Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([entityType, entityId])
+}
+
+model AnimeTrendMetric {
+  id                  String   @id @default(cuid())
+  animeId             String   @unique
+  interactionVolume   Int      @default(0)
+  interactionVelocity Float    @default(0.0)
+  growthRatePercent   Float    @default(0.0)
+  momentumScore       Float    @default(0.0)
+  trendTier           String   @default("POPULAR") // "POPULAR", "TRENDING", "RISING"
+  timeDecayScore      Float    @default(0.0)
+  updatedAt           DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([momentumScore])
+  @@index([trendTier])
+}
+
+model StreamingAvailability {
+  id               String    @id @default(cuid())
+  animeId          String
+  provider         String    // "Crunchyroll", "Netflix", "Hulu", "HIDIVE", "Disney+", "Amazon Prime"
+  region           String    @default("GLOBAL") // "GLOBAL", "US", "JP", "EU", "LATAM", etc.
+  availabilityType String    @default("SUBSCRIPTION") // "SUBSCRIPTION", "FREE_WITH_ADS", "PURCHASE"
+  url              String?
+  source           String    @default("OFFICIAL")
+  lastVerifiedAt   DateTime? @default(now())
+  createdAt        DateTime  @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([animeId, region])
+  @@index([provider])
+}
+
+model UserTasteProfile {
+  id                         String            @id @default(cuid())
+  userId                     String            @unique
+  profileVersion             Int               @default(1)
+  confidenceTier             String            @default("NEW_USER") // "NEW_USER", "LOW_CONFIDENCE", "LEARNING", "ESTABLISHED"
+  overallConfidence          Float             @default(0.0)
+  totalSignalsCount          Int               @default(0)
+  topGenresJson              String?           // JSON array of strings
+  topThemesJson              String?           // JSON array of strings
+  topStudiosJson             String?           // JSON array of strings
+  aspectProfileJson          String?           // JSON object of aspect scores
+  shortTermProfileJson       String?           // JSON object of 30-day window preferences
+  formatPreferencesJson      String?           // JSON object of format preferences (TV, Movie, OVA, etc.)
+  lengthPreferencesJson      String?           // JSON object of length preferences (Short, Medium, Long)
+  seasonalityPreferencesJson String?           // JSON object of seasonality preferences (Current, Classic)
+  creatorPreferencesJson     String?           // JSON object of director/creator affinities
+  derivedExplanationsJson    String?           // JSON array of human-readable insights
+  updatedAt                  DateTime          @updatedAt
+  createdAt                  DateTime          @default(now())
+
+  user                       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signals                    UserTasteSignal[]
+
+  @@index([userId])
+  @@index([confidenceTier])
+}
+
+model UserTasteSignal {
+  id              String           @id @default(cuid())
+  profileId       String
+  signalType      String           // "GENRE", "THEME", "STUDIO", "PRODUCER", "ASPECT", "FORMAT", "LENGTH", "CREATOR"
+  targetName      String           // e.g. "Psychological", "Madhouse", "STORY", "TV", "SHORT"
+  preferenceScore Float            // -1.0 to 1.0 bounded normalized score
+  confidenceScore Float            @default(0.0)
+  evidenceCount   Int              @default(1)
+  evidenceJson    String?          // JSON metadata e.g. { ratingCount: 5, avgRating: 9.2, completionCount: 4 }
+  lastUpdated     DateTime         @default(now())
+
+  profile         UserTasteProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, signalType, targetName])
+  @@index([profileId, signalType])
+  @@index([preferenceScore])
+}
+
+model RecommendationSession {
+  id               String               @id @default(cuid())
+  userId           String
+  algorithmVersion Int                  @default(1)
+  context          String               @default("HOME") // "HOME", "ANIME_PAGE", "EXPLORE", "FOR_YOU"
+  targetAnimeId    String?              // Contextual target anime if context is ANIME_PAGE
+  items            RecommendationItem[]
+  createdAt        DateTime             @default(now())
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([context])
+}
+
+model RecommendationItem {
+  id         String                @id @default(cuid())
+  sessionId  String
+  animeId    String
+  position   Int
+  score      Float
+  source     String                // "TASTE", "CONTENT", "SIMILAR", "POPULAR", "TRENDING", "EXPLORATION", "COMMUNITY", "NEWS", "SEASONAL", "CREATOR", "THEME", "STUDIO"
+  reasonType String                // "TASTE_GENRE", "TASTE_STUDIO", "TASTE_ASPECT", "SIMILAR_ANIME", "POPULAR", "EXPLORATION", "COMMUNITY", "NEWS", "CREATOR"
+  reasonText String
+  reasonData String?               // JSON metadata
+  status     String                @default("DELIVERED") // "DELIVERED", "CLICKED", "DISMISSED", "SAVED"
+  createdAt  DateTime              @default(now())
+
+  session    RecommendationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  anime      Anime                 @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, position])
+  @@index([animeId])
+}
+
+model RecommendationFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   String
+  feedback  String   // "MORE_LIKE_THIS", "LESS_LIKE_THIS", "NOT_INTERESTED", "DISMISSED", "CLICKED", "WATCH_STARTED", "COMPLETED"
+  context   String?  @default("HOME")
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime     Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId, feedback])
+  @@index([userId, feedback])
+  @@index([animeId])
+}
+
+// ==========================================
+// WORLD 8 — ADVANCED AI / ML INTELLIGENCE LAYER
+// ==========================================
+
+model EntityEmbedding {
+  id              String   @id @default(cuid())
+  entityId        String
+  entityType      String   // "ANIME", "CHARACTER", "STUDIO", "PERSON", "REVIEW", "COMMUNITY", "USER_TASTE"
+  modelName       String   @default("otakuva-semantic-v1")
+  modelVersion    String   @default("v1")
+  dimension       Int      @default(64)
+  vectorJson      String   // JSON serialized array of floats e.g. [0.12, -0.45, ...]
+  documentDigest  String?  // Deterministic hash of source semantic document
+  status          String   @default("ACTIVE") // "ACTIVE", "STALE", "FAILED", "DELETED"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([entityType, entityId, modelVersion])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([modelName, modelVersion])
+}
+
+model ReviewAnalysis {
+  id                  String   @id @default(cuid())
+  reviewId            String   @unique
+  language            String   @default("en")
+  overallSentiment    String   // "POSITIVE", "NEGATIVE", "NEUTRAL", "MIXED"
+  sentimentScore      Float    // -1.0 to 1.0
+  confidence          Float    @default(1.0)
+  aspectsJson         String   // JSON array of extracted aspects with sentiment & confidence
+  topicsJson          String?  // JSON array of key topic keywords
+  summaryText         String?  // AI-derived analytical summary
+  analysisModel       String   @default("review-aspect-v1")
+  analysisVersion     String   @default("v1")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  review              Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([overallSentiment])
+  @@index([analysisVersion])
+}
+
+model UserInterestCluster {
+  id           String   @id @default(cuid())
+  userId       String
+  clusterIndex Int      // 0, 1, 2...
+  clusterLabel String   // e.g. "Psychological Mystery", "Slice of Life Comedy"
+  weight       Float    @default(1.0)
+  genresJson   String   // JSON array of genres
+  themesJson   String   // JSON array of themes
+  vectorJson   String?  // Centroid vector snapshot
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ModelRegistry {
+  id                String    @id @default(cuid())
+  modelName         String    // e.g. "hybrid-ranking-model", "start-probability-predictor"
+  modelVersion      String    // e.g. "v1.0", "v1.1"
+  taskType          String    // "RANKING", "PREDICTION", "EMBEDDING", "REVIEW_ASPECT"
+  status            String    @default("READY") // "TRAINING", "VALIDATING", "READY", "PRODUCTION", "ARCHIVED", "FAILED"
+  featureVersion    String    @default("v1")
+  metricsJson       String?   // JSON metrics: precision, recall, ndcg, auc, latency
+  configJson        String?   // JSON hyperparams / weights
+  trafficPercentage Int       @default(0) // For canary / A/B testing: 0 to 100
+  deployedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([modelName, modelVersion])
+  @@index([taskType, status])
+}
+
+model RecommendationPrediction {
+  id                    String   @id @default(cuid())
+  userId                String
+  animeId               String
+  predictionType        String   // "START_PROBABILITY", "COMPLETION_PROBABILITY", "RATING_PROBABILITY"
+  predictedProbability  Float    // 0.0 to 1.0
+  modelVersion          String
+  featuresJson          String?  // Snapshot of feature values at prediction time
+  outcomeRecorded       String?  // "CLICKED", "STARTED", "COMPLETED", "DISMISSED", "NONE"
+  createdAt             DateTime @default(now())
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime                 Anime    @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, animeId])
+  @@index([predictionType])
+}
+
+
+
+
+
+

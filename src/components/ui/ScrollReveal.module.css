@@ -1,0 +1,20 @@
+.revealItem {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--duration-reveal, 400ms) var(--ease-out-cubic, cubic-bezier(0.22, 1, 0.36, 1)),
+              transform var(--duration-reveal, 400ms) var(--ease-out-cubic, cubic-bezier(0.22, 1, 0.36, 1));
+  will-change: opacity, transform;
+}
+
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revealItem {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

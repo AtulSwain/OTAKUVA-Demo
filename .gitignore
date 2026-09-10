@@ -1,0 +1,50 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+.env.production
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# build archives (manual backups — do not version, 400MB+)
+*.next.zip
+.next.zip
+
+# local dev database (SQLite). Canonical data lives in the DB, not in git.
+# Back this up separately — git is not a backup for a live database.
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# scratch / local working notes
+/scratch
+
+# runtime user-uploaded media (avatars, banners, community icons).
+# User data, not source. Production target is Cloudflare R2 (§46-§54).
+/public/uploads

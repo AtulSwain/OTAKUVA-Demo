@@ -1,0 +1,48 @@
+.card {
+  background-color: var(--surface-base, #101010);
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 13px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.heading {
+  margin: 0 0 14px 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-default, #222222);
+  font-size: 13px;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  color: var(--text-muted, #818181);
+}
+
+.value {
+  color: var(--text-primary, #F4F4F2);
+  font-weight: 700;
+}
+
+.activeValue {
+  color: #10B981;
+}
+
+.guestPrompt {
+  font-size: 12px;
+  color: var(--text-muted, #71717A);
+  margin-top: 6px;
+}

@@ -1,0 +1,399 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metricCard {
+  position: relative;
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.metricCard:hover {
+  background: var(--surface-elevated);
+  border-color: var(--border-elevated);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.goalHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.goalEditBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.goalEditBtn:hover {
+  color: var(--text-primary);
+}
+
+.cardTitle {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cardIcon {
+  color: var(--text-muted);
+}
+
+.streakIcon {
+  color: var(--text-primary);
+}
+
+.trophyIcon {
+  color: #FFFFFF;
+}
+
+.valRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.mainVal {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.subVal {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.progressBar {
+  width: 100%;
+  height: 3px;
+  background: var(--surface-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progressComplete {
+  background: #FFFFFF;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.cardFooter {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Goal Selector Popover */
+.goalSelectorPopover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-main);
+  border: 1px solid var(--border-elevated);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  z-index: 30;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: dropIn 0.15s ease-out;
+}
+
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popoverTitle {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.goalOptions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.goalOptionBtn {
+  padding: 2px 6px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.goalOptionBtn:hover {
+  background: var(--dark-graphite);
+  color: var(--text-primary);
+}
+
+.goalOptionActive {
+  background: var(--dark-graphite);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Week Dots */
+.weekDots {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.dayDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.dayDotActive {
+  background: var(--dark-graphite);
+  border-color: var(--border-elevated);
+  color: var(--text-primary);
+}
+
+.dayDotToday {
+  outline: 1px solid var(--border-strong);
+}
+
+/* Timer Controls */
+.timerControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.timerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--dark-graphite);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.timerBtn:hover {
+  background: var(--metallic-mid);
+  border-color: #FFFFFF;
+}
+
+.timerResetBtn {
+  padding: 2px 4px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timerResetBtn:hover {
+  color: var(--text-primary);
+}
+
+/* Celebration Banner */
+.celebrationBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--dark-graphite);
+  border: 1px solid var(--border-elevated);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.celebrationText {
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+/* Quick Strip */
+.quickStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.quickStrip::-webkit-scrollbar {
+  display: none;
+}
+
+.stripLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.quickItems {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.quickItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 6px 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.animeName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.epIndicator {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.plusBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  background: var(--dark-graphite);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  color: var(--text-primary);
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plusBtn:hover {
+  background: var(--metallic-mid);
+  border-color: #FFFFFF;
+}
+
+.moreBtn {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+
+.moreBtn:hover {
+  color: var(--text-primary);
+}

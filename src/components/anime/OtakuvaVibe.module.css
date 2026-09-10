@@ -1,0 +1,442 @@
+.section {
+  padding: 0;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 0;
+  }
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 17px;
+  }
+}
+
+.subtitle {
+  color: var(--text-muted, #777777);
+  font-size: 12px;
+}
+
+.vibeGrid {
+  display: grid;
+  grid-template-columns: 160px 1fr 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+@media (max-width: 1050px) {
+  .vibeGrid {
+    /* 160px, not 140px: the column must be at least as wide as the 140px
+       donut plus room for the note under it, or the circle overflows. */
+    grid-template-columns: 160px 1fr;
+    gap: 16px;
+  }
+  .insightsCard {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 680px) {
+  .vibeGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .insightsCard {
+    grid-column: span 1;
+  }
+}
+
+/* Donut Visualization */
+.donutWrapper {
+  display: flex;
+  /* Column, not row: the provisional note is a sibling of the donut and must
+     stack beneath it. As a row it competed for the grid column's width and
+     squashed the donut into an oval. */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.donut {
+  width: 140px;
+  height: 140px;
+  /* aspect-ratio + flex-shrink:0 keep it a true circle no matter how narrow
+     the column gets. */
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  /* Neutral until real ratings paint it — the live gradient is applied
+     inline from the community scores, never from a decorative default. */
+  background: conic-gradient(#27272A 0 100%);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.2s ease;
+}
+
+.donutInner {
+  width: 96px;
+  height: 96px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background-color: var(--surface-base, #0F0F0F);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.donutPercent {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text-primary, #F4F4F2);
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.donutLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted, #8E8E8E);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+  transition: color 0.2s ease;
+}
+
+.donutSubLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted, #6B6B70);
+  margin-top: 2px;
+}
+
+/* Horizontal Genre Bars */
+.barsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.barItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barLabelRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary, #BDBDBD);
+  font-weight: 500;
+}
+
+.barPercent {
+  color: var(--text-primary, #F4F4F2);
+  font-weight: 700;
+}
+
+.barTrack {
+  height: 5px;
+  background-color: var(--surface-elevated, #202024);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  background-color: var(--accent-primary, #6366F1);
+  border-radius: 6px;
+  transition: width 400ms ease;
+}
+
+.barTierChip {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Five-tier scale legend */
+.provisionalNote {
+  margin: 10px 0 0;
+  max-width: 100%;
+  font-size: 10px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--text-muted, #8A8A90);
+}
+
+.provisionalNote strong {
+  color: var(--text-secondary, #B4B4BA);
+  font-weight: 800;
+}
+
+.tierScale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.tierChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle, #2A2A2E);
+  border-radius: 999px;
+  background: var(--surface-elevated, #1B1B1F);
+  color: var(--text-muted, #8A8A90);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  transition: color 250ms ease, border-color 250ms ease, background 250ms ease;
+}
+
+.tierChipActive {
+  font-weight: 800;
+}
+
+.tierDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tierRange {
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+@media (max-width: 520px) {
+  .tierRange {
+    display: none;
+  }
+}
+
+/* Qualitative Insights Card */
+.insightsCard {
+  background-color: var(--surface-base, #101010);
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 9px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .insightsCard {
+    padding: 10px 12px;
+  }
+}
+
+.cardHeading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  margin: 0;
+}
+
+.summaryText {
+  color: var(--text-muted, #888888);
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.metricsList {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-default, #222222);
+  padding-top: 6px;
+}
+
+.metricRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default, #1C1C1E);
+  font-size: 11.5px;
+}
+
+.metricRow:last-child {
+  border-bottom: none;
+}
+
+.metricLabel {
+  color: var(--text-muted, #818181);
+}
+
+.metricValue {
+  color: var(--text-primary, #F4F4F2);
+  font-weight: 700;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badgeHigh {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.badgeMedium {
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.badgeLow {
+  background: rgba(234, 179, 8, 0.12);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.badgeEarly {
+  background: rgba(161, 161, 170, 0.12);
+  color: #a1a1aa;
+  border: 1px solid rgba(161, 161, 170, 0.25);
+}
+
+.contributeBtn {
+  margin-top: 6px;
+  width: 100%;
+  padding: 7px 11px;
+  background: var(--surface-elevated, #1b1b1f);
+  border: 1px solid var(--border-default, #2a2a2e);
+  border-radius: 6px;
+  color: var(--text-primary, #f2f2f2);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.contributeBtn:hover {
+  background: #27272f;
+  border-color: #444;
+}
+
+/* Empty / Early State */
+.emptyVibeCard {
+  background-color: var(--surface-base, #101010);
+  border: 1px dashed var(--border-default, #282828);
+  border-radius: 10px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.emptyIconWrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-secondary, #181818);
+  border: 1px solid var(--border-subtle, #282828);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #888);
+}
+
+.emptyVibeTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #f4f4f2);
+  margin: 0;
+}
+
+.emptyVibeDesc {
+  color: var(--text-muted, #808080);
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 480px;
+  margin: 0;
+}
+
+.emptyVibeActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.emptyRateBtn {
+  background: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  color: #0d0d0d;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.emptyRateBtn:hover {
+  background: #e4e4e0;
+}
+
+.emptyMetaChip {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted, #777);
+  background: var(--surface-secondary, #161616);
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #262626);
+}

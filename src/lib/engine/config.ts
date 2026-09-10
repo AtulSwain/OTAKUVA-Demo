@@ -1,0 +1,72 @@
+/**
+ * OTAKUVA ENGINE — Centralized Configuration & Versioning
+ * Centralizes all algorithm parameters, priors, weights, and version identifiers.
+ */
+
+export const ENGINE_VERSIONS = {
+  RATING_ALGORITHM_VERSION: 1,
+  RECOMMENDATION_ALGORITHM_VERSION: 1,
+  REVIEW_INTELLIGENCE_VERSION: 1,
+  TASTE_ENGINE_VERSION: 1,
+  TREND_ENGINE_VERSION: 1,
+  SAFETY_ENGINE_VERSION: 1,
+};
+
+export const RATING_CONFIG = {
+  // Bayesian prior parameters
+  BAYESIAN_MINIMUM_VOTES: 25, // m
+  GLOBAL_PRIOR_MEAN: 7.0, // C
+  // Confidence tiers
+  CONFIDENCE_TIERS: {
+    HIGH: 100,
+    MEDIUM: 25,
+    LOW: 1,
+  },
+  // 6 Aspect Categories
+  ASPECT_CATEGORIES: ['STORY', 'CHARACTERS', 'ANIMATION', 'DIRECTION', 'MUSIC', 'ENJOYMENT'] as const,
+};
+
+export const REVIEW_ASPECTS = [
+  'STORY',
+  'ANIMATION',
+  'CHARACTERS',
+  'MUSIC',
+  'DIRECTION',
+  'PACING',
+  'WORLD_BUILDING',
+  'ENJOYMENT',
+] as const;
+
+export type ReviewAspectType = (typeof REVIEW_ASPECTS)[number];
+
+export const TASTE_SIGNAL_WEIGHTS = {
+  EXPLICIT_RATING_WEIGHT: 1.0,
+  COMPLETED_ANIME_WEIGHT: 0.8,
+  COMPLETED_EPISODE_WEIGHT: 0.4,
+  FAVORITE_WEIGHT: 0.7,
+  REVIEW_CREATED_WEIGHT: 0.6,
+  WATCHLIST_WEIGHT: 0.3,
+  PAGE_VISIT_WEIGHT: 0.1,
+  DROPPED_ANIME_PENALTY: -0.5,
+};
+
+export const RECOMMENDATION_WEIGHTS = {
+  GENRE_AFFINITY: 0.30,
+  THEME_AFFINITY: 0.20,
+  STUDIO_AFFINITY: 0.15,
+  RATING_QUALITY_SIGNAL: 0.20,
+  COMMUNITY_MOMENTUM: 0.10,
+  FRESHNESS: 0.05,
+};
+
+export const TREND_CONFIG = {
+  TIME_DECAY_HALF_LIFE_HOURS: 48,
+  MOMENTUM_GROWTH_THRESHOLD_RISING: 50.0, // +50% growth rate distinguishes RISING
+  MIN_VOLUME_FOR_TRENDING: 5,
+};
+
+export const TRUST_SAFETY_CONFIG = {
+  MAX_RATINGS_PER_MINUTE: 10,
+  BURST_WINDOW_SECONDS: 60,
+  MAX_REVIEWS_PER_HOUR: 15,
+};

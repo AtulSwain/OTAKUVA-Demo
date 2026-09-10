@@ -1,0 +1,54 @@
+.imageWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.imgElement {
+  object-fit: cover;
+  object-position: center;
+}
+
+.iconFallback,
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.iconFallback {
+  border-radius: var(--radius-md);
+}
+
+.avatarFallback {
+  border-radius: 50%;
+}
+
+.initialsText {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+}
+
+.bannerFallback {
+  width: 100%;
+  height: 100%;
+  background-color: var(--surface-elevated);
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bannerPattern {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(91, 95, 239, 0.08), transparent 70%),
+              linear-gradient(180deg, #181A21 0%, #14161C 100%);
+}

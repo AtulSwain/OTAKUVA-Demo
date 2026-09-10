@@ -1,0 +1,217 @@
+.heatmapCard {
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.titleInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.subtitle strong {
+  color: var(--text-primary);
+}
+
+.yearSelector {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-elevated);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.yearBtn {
+  padding: 3px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.yearBtn:hover {
+  color: var(--text-primary);
+}
+
+.yearBtnActive {
+  background: var(--dark-graphite);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Graph Container */
+.graphContainer {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.daysAxis {
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  gap: 3px;
+  margin-top: 18px;
+  font-size: 9px;
+  color: var(--text-muted);
+  width: 24px;
+  text-align: right;
+  line-height: 10px;
+  user-select: none;
+}
+
+.graphScrollWrap {
+  flex: 1;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.graphScrollWrap::-webkit-scrollbar {
+  display: none;
+}
+
+.monthsBar {
+  position: relative;
+  height: 14px;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+.monthLabel {
+  position: absolute;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.grid {
+  display: flex;
+  gap: 3px;
+  width: max-content;
+}
+
+.weekColumn {
+  display: grid;
+  grid-template-rows: repeat(7, 10px);
+  gap: 3px;
+}
+
+.cell {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--surface-elevated);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), outline 0.15s ease;
+  cursor: pointer;
+}
+
+.cell:hover,
+.cell:focus-visible {
+  transform: scale(1.35);
+  z-index: 10;
+  outline: 1px solid var(--text-primary);
+}
+
+.cellDisabled {
+  opacity: 0.15;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Monochrome Metallic Gray Scale */
+.level0 {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.level1 {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.level2 {
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.level3 {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.level4 {
+  background: #F2F2F0;
+  box-shadow: 0 0 4px rgba(242, 242, 240, 0.4);
+}
+
+/* Footer Row */
+.footerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.footerNote {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legendLabel {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.legendCell {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+/* Floating Tooltip */
+.floatingTooltip {
+  background: var(--dark-graphite);
+  color: var(--text-primary);
+  border: 1px solid var(--border-elevated);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}

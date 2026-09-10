@@ -1,0 +1,129 @@
+.railSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  position: relative;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary-hover);
+}
+
+.title {
+  font-size: var(--font-heading);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.viewAllLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-meta);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.viewAllLink:hover {
+  color: var(--text-primary);
+}
+
+/* Track Container & Navigation Chevrons */
+.trackWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.scrollTrack {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 8px 4px 16px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.scrollTrack::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.railCardItem {
+  flex: 0 0 170px;
+  max-width: 170px;
+}
+
+@media (min-width: 768px) {
+  .railCardItem {
+    flex: 0 0 190px;
+    max-width: 190px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .railCardItem {
+    flex: 0 0 205px;
+    max-width: 205px;
+  }
+}
+
+.chevronBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 38px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  background-color: rgba(11, 11, 11, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: all var(--transition-fast);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
+.trackWrapper:hover .chevronBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chevronBtn:hover {
+  background-color: var(--surface-overlay);
+  border-color: var(--border-hover);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.chevronLeft {
+  left: -12px;
+}
+
+.chevronRight {
+  right: -12px;
+}

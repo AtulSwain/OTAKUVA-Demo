@@ -1,0 +1,96 @@
+.section {
+  padding: 26px 0;
+  border-bottom: 1px solid var(--border-default, #202020);
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 16px 0;
+  }
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 17px;
+  }
+}
+
+.subtitle {
+  color: var(--text-muted, #777777);
+  font-size: 12px;
+}
+
+.platformsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .platformsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+.platformCard {
+  padding: 10px 14px;
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 8px;
+  background-color: var(--surface-base, #101010);
+  text-decoration: none;
+  color: var(--text-primary, #F4F4F2);
+  transition: all var(--transition-fast, 150ms ease);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.platformCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover, #3E3E44);
+  background-color: var(--surface-elevated, #18181B);
+}
+
+.platformName {
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 640px) {
+  .platformName {
+    font-size: 12px;
+  }
+}
+
+.externalIcon {
+  font-size: 11px;
+  color: var(--text-muted, #888888);
+}
+
+.accessType {
+  display: block;
+  color: var(--text-muted, #777777);
+  font-size: 11px;
+  margin-top: 2px;
+}

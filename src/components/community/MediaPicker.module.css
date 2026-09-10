@@ -1,0 +1,212 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modeToggle {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-elevated);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.modeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modeBtn:hover {
+  color: var(--text-secondary);
+}
+
+.modeBtnActive {
+  background: var(--dark-graphite);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.previewArea {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-elevated);
+  border: 1px dashed var(--border-elevated);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconPreviewArea {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+}
+
+.bannerPreviewArea {
+  width: 100%;
+  height: 100px;
+}
+
+.previewImageWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.previewImage {
+  object-fit: cover;
+}
+
+.uploadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 9, 10, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  z-index: 10;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.removeBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(8, 9, 10, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  transition: all var(--transition-fast);
+}
+
+.removeBtn:hover {
+  color: var(--text-primary);
+  background: var(--dark-graphite);
+}
+
+.emptyUploadState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.uploadIcon {
+  color: var(--text-muted);
+}
+
+.uploadText {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.uploadHint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.urlInputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputWithStatus {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.urlInput {
+  width: 100%;
+  padding: 8px 32px 8px 10px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+}
+
+.urlInput:focus {
+  border-color: var(--border-elevated);
+}
+
+.statusIcon {
+  position: absolute;
+  right: 10px;
+}
+
+.validIcon {
+  color: var(--text-secondary);
+}
+
+.errorText {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.fileDetails {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}

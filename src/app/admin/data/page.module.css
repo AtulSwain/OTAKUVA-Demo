@@ -1,0 +1,97 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px 80px 24px;
+}
+
+.header {
+  margin-bottom: 28px;
+}
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-muted, #777);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text-primary, #F4F4F2);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.metricCard {
+  background-color: var(--surface-base, #101010);
+  border: 1px solid var(--border-default, #262626);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metricLabel {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text-primary, #F4F4F2);
+}
+
+.sectionBox {
+  background-color: var(--surface-base, #101010);
+  border: 1px solid var(--border-default, #262626);
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary, #F4F4F2);
+  margin: 0 0 16px 0;
+}
+
+.btnRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 13px;
+  border: 1px solid var(--border-strong, #3E3E44);
+  background-color: var(--surface-elevated, #1B1B1B);
+  color: var(--text-primary, #F4F4F2);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btnPrimary {
+  background-color: #F4F4F2;
+  color: #070707;
+  border-color: #F4F4F2;
+}

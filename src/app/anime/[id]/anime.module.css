@@ -1,0 +1,422 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: var(--bg-default, #070707);
+  color: var(--text-primary, #F4F4F2);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mainContainer {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 20px 48px 20px;
+}
+
+@media (max-width: 768px) {
+  .mainContainer {
+    padding: 0 12px 32px 12px;
+  }
+}
+
+/* 1. Overview & Structured Metadata Section */
+.section {
+  padding: 26px 0;
+  border-bottom: 1px solid var(--border-default, #202020);
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 16px 0;
+  }
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .sectionHead {
+    margin-bottom: 10px;
+  }
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+@media (max-width: 768px) {
+  .sectionTitle {
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+}
+
+.sectionSubtitle {
+  color: var(--text-muted, #777777);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .sectionSubtitle {
+    font-size: 11px;
+  }
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+}
+
+@media (max-width: 1050px) {
+  .overviewGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.descColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.desc {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary, #C2C2C2);
+  margin: 0;
+  transition: all var(--transition-normal);
+}
+
+@media (max-width: 768px) {
+  .desc {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
+
+.descCollapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.showMoreBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary-hover, #818CF8);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 0;
+  width: fit-content;
+}
+
+.showMoreBtn:hover {
+  text-decoration: underline;
+}
+
+/* Metadata Card */
+.metadataCard {
+  background-color: var(--surface-base, #101010);
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 9px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .metadataCard {
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-default, #222222);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .metaRow {
+    padding: 5px 0;
+    font-size: 11px;
+  }
+}
+
+.metaRow:last-child {
+  border-bottom: none;
+}
+
+.metaLabel {
+  color: var(--text-muted, #818181);
+}
+
+.metaValue {
+  color: var(--text-primary, #F4F4F2);
+  font-weight: 700;
+  text-align: right;
+}
+
+.metaLink {
+  color: var(--text-primary, #F4F4F2);
+  text-decoration: none;
+  font-weight: 700;
+  transition: color var(--transition-fast);
+}
+
+.metaLink:hover {
+  color: var(--accent-primary-hover, #818CF8);
+}
+
+/* Staff & Production Two-Column Grid */
+.staffProdGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+}
+
+@media (max-width: 1050px) {
+  .staffProdGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Collections & Activity Two-Column Grid */
+.collectionsActivityGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .collectionsActivityGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* Related Anime Cards Grid */
+.relatedCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (min-width: 600px) {
+  .relatedCardsGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 900px) {
+  .relatedCardsGrid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .relatedCardsGrid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+  }
+}
+
+.relatedCard {
+  border: 1px solid var(--border-default, #292929);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--surface-base, #101010);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.relatedCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover, #3E3E44);
+  background-color: var(--surface-elevated, #18181B);
+}
+
+.relatedThumb {
+  aspect-ratio: 2/3;
+  position: relative;
+  background-color: var(--surface-elevated, #18181B);
+}
+
+.relatedBody {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+@media (max-width: 768px) {
+  .relatedBody {
+    padding: 6px 8px;
+  }
+}
+
+.relatedTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 768px) {
+  .relatedTitle {
+    font-size: 11px;
+  }
+}
+
+.relatedMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--text-muted, #8E8E8E);
+}
+
+.relationChip {
+  font-size: 9.5px;
+  color: #10B981;
+  background-color: rgba(16, 185, 129, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* Loading & Not Found */
+.loadingContainer {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 50px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.notFoundContainer {
+  padding: 60px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.notFoundTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary, #F4F4F2);
+}
+
+.notFoundDesc {
+  color: var(--text-muted, #8E8E8E);
+  font-size: 13px;
+}
+
+.backHomeBtn {
+  font-size: 12px;
+  font-weight: 700;
+  background-color: var(--accent-primary, #6366F1);
+  color: #FFFFFF;
+  padding: 8px 18px;
+  border-radius: 7px;
+  text-decoration: none;
+}
+
+/* Single full-width column: main content and the former right sidebar
+   stack in one flow instead of splitting into a left/right pair. Both fill
+   the full .mainContainer width (same 1320px cap and equal left/right
+   padding as the hero above) rather than a narrower centered reading
+   column, so the page uses the full screen edge-to-edge on wide viewports. */
+.layoutGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  width: 100%;
+}
+
+.contentSection {
+  background: var(--surface-base, #101012);
+  border: 1px solid var(--border-default, #242428);
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+
+@media (max-width: 768px) {
+  .contentSection {
+    padding: 14px 14px;
+    border-radius: 8px;
+  }
+}
+
+.sidebarCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.sidebarCard {
+  background-color: var(--surface-base, #101012);
+  border: 1px solid var(--border-default, #242428);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarCardTitle {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted, #71717A);
+  margin: 0 0 10px 0;
+}
+
+.sidebarSection {
+  width: 100%;
+}

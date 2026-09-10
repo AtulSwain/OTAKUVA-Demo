@@ -1,0 +1,446 @@
+.profilePage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-bottom: var(--space-12);
+}
+
+/* Wide Cinematic Banner Hero */
+.heroCard {
+  position: relative;
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bannerWrap {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(135deg, #181818 0%, #0D0D0D 100%);
+}
+
+@media (min-width: 768px) {
+  .bannerWrap {
+    height: 220px;
+  }
+}
+
+.bannerImg {
+  object-fit: cover;
+  object-position: center 25%;
+}
+
+.bannerOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 11, 11, 0.2) 0%,
+    rgba(11, 11, 11, 0.85) 100%
+  );
+}
+
+.profileContent {
+  position: relative;
+  padding: 0 var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: -48px;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.avatarLarge {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background-color: var(--surface-overlay);
+  border: 3px solid var(--bg-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-hero);
+  font-weight: var(--weight-bold);
+  color: var(--accent-primary-hover);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatarImg {
+  object-fit: cover;
+}
+
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-body-small);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.editBtn:hover {
+  background-color: var(--surface-overlay);
+  border-color: var(--border-hover);
+}
+
+.userBioBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.displayName {
+  font-size: var(--font-hero);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+
+.handleBadge {
+  font-size: var(--font-meta);
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+.userBio {
+  font-size: var(--font-body-small);
+  color: var(--text-secondary);
+  max-width: 680px;
+  line-height: 1.5;
+}
+
+/* Stats Breakdown Bar */
+.statsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--surface-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statVal {
+  font-size: var(--font-heading);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+
+.statLabel {
+  font-size: var(--font-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.statDivider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-default);
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .statDivider {
+    display: block;
+  }
+}
+
+/* Tabs Navigation */
+.tabsNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.tabBtn {
+  font-size: var(--font-body-small);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  color: var(--text-primary);
+  background-color: var(--surface-hover);
+}
+
+.tabBtnActive {
+  color: #FFFFFF;
+  background-color: var(--surface-elevated);
+  font-weight: var(--weight-semibold);
+}
+
+/* Tab Content Sections */
+.tabContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.sectionTitle {
+  font-size: var(--font-subheading);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+/* Profile Reviews Tab */
+.emptyReviews {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 20px;
+  background-color: var(--surface-base, #121214);
+  border: 1px dashed var(--border-default, #26262A);
+  border-radius: var(--radius-md, 10px);
+  gap: 8px;
+}
+
+.emptyIcon {
+  color: #555555;
+  margin-bottom: 4px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  margin: 0;
+}
+
+.emptySub {
+  font-size: 13px;
+  color: #888888;
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.exploreBtn {
+  margin-top: 10px;
+  padding: 8px 18px;
+  background-color: #F4F4F2;
+  color: #070707;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 150ms;
+}
+
+.exploreBtn:hover {
+  opacity: 0.9;
+}
+
+.loadingReviews {
+  padding: 32px;
+  text-align: center;
+  color: #888888;
+  font-size: 14px;
+}
+
+.reviewsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profileReviewCard {
+  display: flex;
+  gap: 18px;
+  background-color: var(--surface-base, #141416);
+  border: 1px solid var(--border-default, #242428);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+
+.reviewPosterCol {
+  flex-shrink: 0;
+}
+
+.reviewPosterWrap {
+  width: 72px;
+  height: 102px;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #1A1A1E;
+  border: 1px solid #2C2C32;
+}
+
+.reviewPoster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 150ms;
+}
+
+.reviewPoster:hover {
+  transform: scale(1.04);
+}
+
+.reviewMainCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reviewTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.animeTitleLink {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 150ms;
+}
+
+.animeTitleLink:hover {
+  color: #818CF8;
+}
+
+.reviewBadgesRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.profileRatingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #F59E0B;
+}
+
+.profileUnratedBadge {
+  font-size: 11px;
+  color: #777777;
+  font-style: italic;
+}
+
+.profileSpoilerBadge {
+  font-size: 10.5px;
+  color: #EF4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 600;
+}
+
+.profileReviewHeadline {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #E2E2E0;
+  margin: 0;
+}
+
+.profileReviewBody {
+  font-size: 12.5px;
+  color: #A0A09A;
+  line-height: 1.55;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.profileReviewFooter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #202024;
+  font-size: 11px;
+  color: #777777;
+}
+
+.profileStatusBadge {
+  background-color: #1C1C20;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #9CA3AF;
+}
+
+.profileReviewDate {
+  color: #666666;
+}
+
+.profileLikesCount {
+  color: #818CF8;
+  margin-left: auto;
+}
+
+@media (max-width: 600px) {
+  .profileReviewCard {
+    flex-direction: column;
+  }
+  .reviewPosterWrap {
+    width: 60px;
+    height: 84px;
+  }
+}
+

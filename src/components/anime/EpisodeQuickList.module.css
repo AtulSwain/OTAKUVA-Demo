@@ -1,0 +1,295 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sectionIcon {
+  color: var(--accent-primary-hover, #818CF8);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text-primary, #F4F4F2);
+}
+
+.subtitle {
+  color: var(--text-muted, #71717A);
+  font-size: 11.5px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.markAllBtn {
+  background: var(--surface-elevated, #18181B);
+  border: 1px solid var(--border-default, #27272A);
+  color: var(--text-secondary, #A1A1AA);
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.markAllBtn:hover {
+  border-color: var(--border-hover, #3F3F46);
+  color: var(--text-primary, #F4F4F2);
+}
+
+.trailerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #A5B4FC;
+  padding: 4px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.trailerBtn:hover {
+  background: rgba(99, 102, 241, 0.22);
+  color: #FFFFFF;
+}
+
+/* Season Tabs */
+.seasonTabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.seasonTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-default, #27272A);
+  background-color: var(--surface-base, #121214);
+  color: var(--text-muted, #8E8E93);
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.tab:hover {
+  border-color: var(--border-hover, #3F3F46);
+  color: var(--text-primary, #F4F4F2);
+}
+
+.activeTab {
+  background-color: var(--surface-elevated, #202024);
+  color: #F4F4F2;
+  border-color: #818CF8;
+  font-weight: 600;
+}
+
+.tabSeasonName {
+  color: inherit;
+}
+
+.tabEpCount {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary, #A1A1AA);
+}
+
+.activeTab .tabEpCount {
+  background: rgba(129, 140, 248, 0.25);
+  color: #C7D2FE;
+}
+
+/* Compact Episode List Container */
+.episodesContainer {
+  border: 1px solid var(--border-default, #27272A);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--surface-base, #101012);
+  display: flex;
+  flex-direction: column;
+}
+
+.episodeRow {
+  display: grid;
+  grid-template-columns: 42px 1fr 34px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--surface-base, #101012);
+  border-bottom: 1px solid var(--border-default, #1F1F22);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.episodeRow:last-child {
+  border-bottom: none;
+}
+
+.episodeRow:hover {
+  background-color: var(--surface-elevated, #161619);
+}
+
+.selectedRow {
+  background-color: var(--surface-elevated, #18181D) !important;
+  box-shadow: inset 2px 0 0 #818CF8;
+}
+
+.epNum {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted, #71717A);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+.epDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.titleLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.epTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary, #EDEDEF);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fillerBadge {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  flex-shrink: 0;
+}
+
+.recapBadge {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #FBBF24;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  flex-shrink: 0;
+}
+
+.epMeta {
+  color: var(--text-muted, #71717A);
+  font-size: 10px;
+}
+
+/* Compact Checkmark Button */
+.checkBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-default, #3F3F46);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  justify-self: end;
+  transition: all 150ms ease;
+  padding: 0;
+}
+
+.checkBtnUnwatched:hover {
+  border-color: #818CF8;
+  background: rgba(129, 140, 248, 0.1);
+}
+
+.checkBtnWatched {
+  background: #10B981;
+  border-color: #10B981;
+  color: #FFFFFF;
+}
+
+.checkBtnWatched:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+/* Expand / Collapse Button */
+.expandToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  padding: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-primary-hover, #818CF8);
+  background: var(--surface-base, #121214);
+  border: 1px solid var(--border-default, #27272A);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.expandToggleBtn:hover {
+  background: var(--surface-elevated, #18181B);
+  border-color: var(--border-hover, #3F3F46);
+  color: #FFFFFF;
+}

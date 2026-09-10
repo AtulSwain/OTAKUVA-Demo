@@ -1,0 +1,104 @@
+.container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 380px;
+}
+
+@media (max-width: 640px) {
+  .container {
+    bottom: calc(var(--mobile-nav-height, 56px) + 16px);
+    right: 16px;
+    left: 16px;
+    max-width: none;
+  }
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background-color: var(--surface-overlay, #222222);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+  color: var(--text-primary, #F5F5F5);
+  font-size: var(--font-body-small, 13px);
+  font-weight: var(--weight-medium, 500);
+  animation: toastSlideIn var(--duration-fast, 220ms) var(--ease-out-cubic, cubic-bezier(0.22, 1, 0.36, 1));
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconSuccess {
+  color: var(--accent-emerald, #10B981);
+}
+
+.iconFavorite {
+  color: var(--accent-rose, #F43F5E);
+}
+
+.iconInfo {
+  color: var(--accent-primary-hover, #818CF8);
+}
+
+.iconError {
+  color: var(--accent-rose, #F43F5E);
+}
+
+.message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-muted, #6F6F6F);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.closeBtn:hover {
+  color: var(--text-primary, #F5F5F5);
+}
