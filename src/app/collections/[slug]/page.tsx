@@ -8,7 +8,6 @@ import { Layers, Bookmark, Share2, Star, ArrowLeft } from 'lucide-react';
 import { CURATED_COLLECTIONS } from '../../../components/home/CuratedCollectionsSection';
 import { AnimePoster } from '../../../components/ui/AnimePoster';
 import { sanitizePublicEntityName } from '../../../lib/normalizers';
-import { FIXTURE_ANIMES } from '../../../fixtures/anime.fixture';
 import styles from '../collections.module.css';
 
 export default function CollectionDetailPage() {
@@ -18,24 +17,30 @@ export default function CollectionDetailPage() {
   const collection =
     CURATED_COLLECTIONS.find((c) => c.slug === slug) || CURATED_COLLECTIONS[0];
 
-  const [animes, setAnimes] = useState<any[]>(FIXTURE_ANIMES.slice(0, 10));
+  const [animes, setAnimes] = useState<any[]>([]);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadCollectionAnime() {
       try {
         const res = await fetch(`/api/anime?limit=15&sortBy=score`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.animes && data.animes.length > 0) {
-            setAnimes(data.animes);
-          }
-        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+        const payload = await res.json();
+        if (cancelled) return;
+        setAnimes(payload.animes || payload.data || []);
       } catch (e) {
         console.error(e);
+        if (!cancelled) setAnimes([]);
       }
     }
+
     loadCollectionAnime();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   return (

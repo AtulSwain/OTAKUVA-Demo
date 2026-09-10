@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { History, Calendar, Star, Film, Sparkles, Filter } from 'lucide-react';
 import { AnimeCard } from '../../components/ui/AnimeCard';
 import { AnimeGrid } from '../../components/ui/AnimeGrid';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
+import { ErrorState } from '../../components/ui/ErrorState';
 import styles from './history.module.css';
 
 const DECADES = [
@@ -21,40 +21,43 @@ export default function HistoryPage() {
   const [selectedDecade, setSelectedDecade] = useState('2000s');
   const [animeList, setAnimeList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [formatFilter, setFormatFilter] = useState('ALL');
+  const [reloadToken, setReloadToken] = useState(0);
 
   const currentDecade = DECADES.find((d) => d.id === selectedDecade) || DECADES[2];
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadHistoricalAnime() {
       setIsLoading(true);
+      setError(false);
       try {
         const res = await fetch(`/api/anime?startYear=${currentDecade.startYear}&endYear=${currentDecade.endYear}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.anime && data.anime.length > 0) {
-            setAnimeList(data.anime);
-          } else {
-            // Filter fixture anime matching this decade if database is fresh
-            const filtered = FIXTURE_ANIMES.filter((a) => {
-              const y = a.year || 2004;
-              return y >= currentDecade.startYear && y <= currentDecade.endYear;
-            });
-            setAnimeList(filtered.length > 0 ? filtered : FIXTURE_ANIMES.slice(0, 8));
-          }
-        } else {
-          setAnimeList(FIXTURE_ANIMES);
-        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+        const payload = await res.json();
+        if (cancelled) return;
+        // /api/anime responds with { data, animes } — an earlier `payload.anime`
+        // read never matched, so this page always fell through to fixtures.
+        setAnimeList(payload.animes || payload.data || []);
       } catch (err) {
         console.error('Error fetching historical catalog:', err);
-        setAnimeList(FIXTURE_ANIMES);
+        if (!cancelled) {
+          setError(true);
+          setAnimeList([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     loadHistoricalAnime();
-  }, [selectedDecade, currentDecade.startYear, currentDecade.endYear]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDecade, currentDecade.startYear, currentDecade.endYear, reloadToken]);
 
   const displayedAnime = formatFilter === 'ALL'
     ? animeList
@@ -117,6 +120,12 @@ export default function HistoryPage() {
             <div key={i} className={styles.skeletonCard} />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Couldn't load the archive"
+          message="The historical catalog is temporarily unavailable. Your library and tracking data are unaffected."
+          onRetry={() => setReloadToken((t) => t + 1)}
+        />
       ) : displayedAnime.length === 0 ? (
         <div className={styles.emptyState}>
           <History size={32} />

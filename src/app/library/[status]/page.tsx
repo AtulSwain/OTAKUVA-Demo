@@ -12,7 +12,6 @@ import {
   XCircle,
   Tv,
 } from 'lucide-react';
-import { FIXTURE_ANIMES } from '../../../fixtures/anime.fixture';
 import { AnimeCard } from '../../../components/ui/AnimeCard';
 import { AnimeGrid } from '../../../components/ui/AnimeGrid';
 import { EmptyState } from '../../../components/ui/EmptyState';
@@ -36,19 +35,14 @@ export default function LibraryStatusPage() {
 
   const { library, counts, isLoading } = useLibrary();
 
-  const animeMap = useMemo(() => {
-    const map = new Map<string, any>();
-    FIXTURE_ANIMES.forEach((a) => map.set(a.id, a));
-    return map;
-  }, []);
-
-  // Filter items strictly from the single source of truth (LibraryContext)
+  // Filter items strictly from the single source of truth (LibraryContext).
+  // entry.anime is the canonical Anime row joined by /api/library.
   const libraryItems = useMemo(() => {
     return Object.values(library)
       .filter((entry) => entry.status === status)
-      .map((entry) => animeMap.get(entry.animeId) || entry.anime)
+      .map((entry) => entry.anime)
       .filter(Boolean);
-  }, [library, status, animeMap]);
+  }, [library, status]);
 
   return (
     <div className={styles.libraryPage}>

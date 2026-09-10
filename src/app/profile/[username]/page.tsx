@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { useLibrary } from '../../../context/LibraryContext';
 import { useAuth } from '../../../context/AuthContext';
-import { FIXTURE_ANIMES } from '../../../fixtures/anime.fixture';
 import { Anime } from '../../../types/anime';
 import { AnimeCard } from '../../../components/ui/AnimeCard';
 import { AnimeGrid } from '../../../components/ui/AnimeGrid';
@@ -138,16 +137,19 @@ export default function ProfilePage({ params }: { params: { username: string } }
     };
   }, [library, counts]);
 
+  // Resolve against the canonical Anime row joined by /api/library. Matching
+  // against fixtures here silently hid every library entry that wasn't one of
+  // the bundled sample titles.
   const favorites = useMemo(() => {
     return Object.values(library)
       .filter((i) => i.isFavorite)
-      .map((i) => FIXTURE_ANIMES.find((a) => a.id === i.animeId))
+      .map((i) => i.anime)
       .filter(Boolean) as Anime[];
   }, [library]);
 
   const libraryItems = useMemo(() => {
     return Object.values(library)
-      .map((i) => FIXTURE_ANIMES.find((a) => a.id === i.animeId))
+      .map((i) => i.anime)
       .filter(Boolean) as Anime[];
   }, [library]);
 

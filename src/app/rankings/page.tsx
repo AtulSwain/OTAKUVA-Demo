@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Trophy, Star, TrendingUp, Flame, Plus, Check, Film, Tv, Sparkles, Calendar } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { useLibrary } from '../../context/LibraryContext';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import { AnimePoster } from '../../components/ui/AnimePoster';
 import { getAnimeDisplayTitle } from '../../lib/animeTitleResolver';
 import { sanitizePublicEntityName } from '../../lib/normalizers';

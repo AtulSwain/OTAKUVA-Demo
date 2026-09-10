@@ -35,7 +35,7 @@ export interface SeasonItem {
 
 interface EpisodeQuickListProps {
   animeId: string;
-  totalEpisodes: number;
+  totalEpisodes?: number;
   episodesList?: EpisodeItem[];
   seasonsList?: SeasonItem[];
   animeTitle?: string;

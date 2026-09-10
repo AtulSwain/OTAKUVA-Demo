@@ -11,7 +11,6 @@ import {
   XCircle,
   Tv,
 } from 'lucide-react';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import { AnimeCard } from '../../components/ui/AnimeCard';
 import { AnimeGrid } from '../../components/ui/AnimeGrid';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -63,12 +62,6 @@ function LibraryContent() {
     }
   };
 
-  const animeMap = useMemo(() => {
-    const map = new Map<string, any>();
-    FIXTURE_ANIMES.forEach((a) => map.set(a.id, a));
-    return map;
-  }, []);
-
   const libraryItems = useMemo(() => {
     const entries = Object.values(library);
     const filterFn = (entry: any) => selectedTab === 'all' || entry.status === selectedTab;
@@ -76,26 +69,21 @@ function LibraryContent() {
     return entries
       .filter(filterFn)
       .map((entry) => {
-        const rawAnime = entry.anime || animeMap.get(entry.animeId);
+        // entry.anime is the canonical Anime row joined by /api/library.
+        // When it's absent the row is genuinely unresolved — carry the id and
+        // leave every other field undefined rather than inventing a score,
+        // season, year or poster for it.
+        const rawAnime = entry.anime;
         const resolvedTitle = getAnimeDisplayTitle(rawAnime || { id: entry.animeId, slug: entry.animeId });
 
-        const anime = rawAnime ? normalizeAnimeTitleFields(rawAnime) : {
-          id: entry.animeId,
-          slug: entry.animeId,
-          title: resolvedTitle,
-          canonicalTitle: resolvedTitle,
-          romajiTitle: resolvedTitle,
-          englishTitle: resolvedTitle,
-          posterImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600',
-          coverImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600',
-          score: entry.personalRating ? entry.personalRating * 10 : 80,
-          type: 'TV',
-          format: 'TV',
-          season: 'Winter',
-          year: 2024,
-          status: 'Finished',
-          genres: ['Animation'],
-        };
+        const anime = rawAnime
+          ? normalizeAnimeTitleFields(rawAnime)
+          : {
+              id: entry.animeId,
+              slug: entry.animeId,
+              title: resolvedTitle,
+              canonicalTitle: resolvedTitle,
+            };
 
         return {
           anime,
@@ -103,7 +91,7 @@ function LibraryContent() {
         };
       })
       .filter((i) => Boolean(i.anime));
-  }, [library, selectedTab, animeMap]);
+  }, [library, selectedTab]);
 
   return (
     <div className={styles.libraryPage}>

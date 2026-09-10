@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   X,
@@ -13,7 +13,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useLibrary } from '../../context/LibraryContext';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import styles from './QuickLogModal.module.css';
 
 interface QuickLogModalProps {
@@ -25,32 +24,56 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose })
   const { library, advanceOneEpisode, updateStatus } = useLibrary();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLogging, setIsLogging] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // List of active watching titles
   const watchingEntries = useMemo(() => {
-    const animeMap = new Map(FIXTURE_ANIMES.map((a) => [a.id, a]));
     return Object.values(library)
       .filter((i) => i.status === 'watching')
       .map((entry) => ({
         entry,
-        anime: entry.anime || animeMap.get(entry.animeId) || {
+        // entry.anime is the canonical row from /api/library. If it's missing,
+        // leave the episode count undefined rather than assuming a cour length.
+        anime: entry.anime || {
           id: entry.animeId,
           title: entry.animeId.replace(/-/g, ' '),
-          episodes: 24,
         },
       }));
   }, [library]);
 
-  // Search results across fixtures & library
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    return FIXTURE_ANIMES.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.englishTitle?.toLowerCase().includes(q)
-    ).slice(0, 5);
-  }, [searchQuery]);
+  // Search the canonical catalog, debounced. Previously this matched against
+  // bundled sample data, so only those titles were ever findable here.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!isOpen || !q) {
+      setSearchResults([]);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/anime/search?q=${encodeURIComponent(q)}&limit=5`);
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+        const payload = await res.json();
+        if (cancelled) return;
+        setSearchResults(payload.items || payload.animes || payload.data || []);
+      } catch (err) {
+        console.error('Quick log search failed:', err);
+        if (!cancelled) setSearchResults([]);
+      } finally {
+        if (!cancelled) setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, isOpen]);
 
   if (!isOpen) return null;
 
@@ -136,7 +159,21 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose })
             />
           </div>
 
-          {searchResults.length > 0 && (
+          {isSearching && (
+            <div className={styles.resultsList}>
+              <span className={styles.footerHint}>Searching the catalog…</span>
+            </div>
+          )}
+
+          {!isSearching && searchQuery.trim() && searchResults.length === 0 && (
+            <div className={styles.resultsList}>
+              <span className={styles.footerHint}>
+                No titles in the catalog match &ldquo;{searchQuery.trim()}&rdquo;.
+              </span>
+            </div>
+          )}
+
+          {!isSearching && searchResults.length > 0 && (
             <div className={styles.resultsList}>
               {searchResults.map((anime) => (
                 <div key={anime.id} className={styles.resultItem}>

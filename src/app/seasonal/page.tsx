@@ -6,7 +6,8 @@ import { Anime } from '../../types/anime';
 import { AnimeCard } from '../../components/ui/AnimeCard';
 import { AnimeCardSkeleton } from '../../components/ui/Skeleton';
 import { QuickViewModal } from '../../components/ui/QuickViewModal';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
 import styles from './seasonal.module.css';
 
 const SEASONS = ['Winter', 'Spring', 'Summer', 'Fall'] as const;
@@ -17,13 +18,18 @@ export default function SeasonalPage() {
   const [selectedSeason, setSelectedSeason] = useState<typeof SEASONS[number]>('Winter');
   const [selectedYear, setSelectedYear] = useState('2024');
   const [selectedType, setSelectedType] = useState<typeof TYPES[number]>('All');
-  const [animes, setAnimes] = useState<Anime[]>(FIXTURE_ANIMES);
+  const [animes, setAnimes] = useState<Anime[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [quickViewAnime, setQuickViewAnime] = useState<Anime | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchSeasonal = async () => {
       setIsLoading(true);
+      setError(false);
       try {
         const params = new URLSearchParams();
         params.set('limit', '50');
@@ -33,28 +39,29 @@ export default function SeasonalPage() {
         params.set('sortBy', 'popularity');
 
         const res = await fetch(`/api/anime?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          const list = data.animes || data.data || [];
-          if (list.length > 0) {
-            setAnimes(list);
-          } else {
-            // Fallback to popularity without strict season if data is sparse
-            const fallbackRes = await fetch(`/api/anime?limit=50&sortBy=popularity`);
-            if (fallbackRes.ok) {
-              const fallbackData = await fallbackRes.json();
-              if (fallbackData.animes) setAnimes(fallbackData.animes);
-            }
-          }
-        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+        const data = await res.json();
+        if (cancelled) return;
+        // An empty season is a legitimate result, not an error — render the
+        // empty state rather than substituting unrelated anime.
+        setAnimes(data.animes || data.data || []);
       } catch (e) {
         console.error('Error fetching seasonal anime:', e);
+        if (!cancelled) {
+          setError(true);
+          setAnimes([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
+
     fetchSeasonal();
-  }, [selectedSeason, selectedYear, selectedType]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeason, selectedYear, selectedType, reloadToken]);
 
   return (
     <div className={styles.seasonalPage}>
@@ -122,6 +129,18 @@ export default function SeasonalPage() {
             <AnimeCardSkeleton key={i} />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Couldn't load the seasonal catalog"
+          message="The seasonal schedule is temporarily unavailable. Your library and tracking data are unaffected."
+          onRetry={() => setReloadToken((t) => t + 1)}
+        />
+      ) : animes.length === 0 ? (
+        <EmptyState
+          icon={Calendar}
+          title={`No ${selectedSeason} ${selectedYear} titles yet`}
+          description="Nothing in the catalog matches this season and format yet. Try another season, year, or format."
+        />
       ) : (
         <div className={styles.grid}>
           {animes.map((anime) => (

@@ -4,10 +4,10 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search, Compass } from 'lucide-react';
 import { Anime } from '../../types/anime';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import { AnimeCard } from '../../components/ui/AnimeCard';
 import { AnimeCardSkeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
 import styles from './explore.module.css';
 
 const GENRES = [
@@ -32,12 +32,17 @@ function ExploreContent() {
 
   const [selectedGenre, setSelectedGenre] = useState(initialGenre);
   const [search, setSearch] = useState('');
-  const [animes, setAnimes] = useState<Anime[]>(FIXTURE_ANIMES);
+  const [animes, setAnimes] = useState<Anime[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchAnimes() {
       setLoading(true);
+      setError(false);
       try {
         const params = new URLSearchParams();
         params.set('limit', '50');
@@ -45,24 +50,30 @@ function ExploreContent() {
         if (selectedGenre !== 'All') params.set('genre', selectedGenre);
 
         const res = await fetch(`/api/anime?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.animes && data.animes.length > 0) {
-            setAnimes(data.animes);
-          } else if (data.data && data.data.length > 0) {
-            setAnimes(data.data);
-          }
-        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+
+        const payload = await res.json();
+        if (cancelled) return;
+        // No results is a real answer — show the empty state, never a
+        // stand-in catalog.
+        setAnimes(payload.animes || payload.data || []);
       } catch (e) {
         console.error('Failed to fetch explore anime:', e);
+        if (!cancelled) {
+          setError(true);
+          setAnimes([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     const timer = setTimeout(fetchAnimes, 200);
-    return () => clearTimeout(timer);
-  }, [selectedGenre, search]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedGenre, search, reloadToken]);
 
   return (
     <div className={styles.container}>
@@ -110,6 +121,12 @@ function ExploreContent() {
             <AnimeCardSkeleton key={i} />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title="Couldn't load the catalog"
+          message="Anime discovery is temporarily unavailable. Your library and tracking data are unaffected."
+          onRetry={() => setReloadToken((t) => t + 1)}
+        />
       ) : animes.length === 0 ? (
         <EmptyState
           icon={Compass}

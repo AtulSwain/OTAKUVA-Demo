@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { FIXTURE_ANIMES } from '../../../fixtures/anime.fixture';
 import { Anime } from '../../../types/anime';
 import { AnimeHero } from '../../../components/anime/AnimeHero';
 import { WhereToWatch } from '../../../components/anime/WhereToWatch';
@@ -51,9 +50,7 @@ export default function AnimeDetailPage() {
   const { user, openAuthModalWithIntent, consumePendingIntent, pendingIntent } = useAuth();
   const { showToast } = useToast();
 
-  const [anime, setAnime] = useState<Anime | null>(() => {
-    return FIXTURE_ANIMES.find((a) => a.id === id || a.slug === id) || null;
-  });
+  const [anime, setAnime] = useState<Anime | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [relations, setRelations] = useState<any[]>([]);
@@ -303,10 +300,9 @@ export default function AnimeDetailPage() {
     };
   }, [id]);
 
-  const relatedAnimes = useMemo(() => {
-    if (relations && relations.length > 0) return relations;
-    return FIXTURE_ANIMES.filter((a) => a.id !== id && a.slug !== id).slice(0, 5);
-  }, [id, relations]);
+  // Only genuine, resolved relations. Padding this with arbitrary titles
+  // would assert a relationship between anime that does not exist.
+  const relatedAnimes = useMemo(() => relations || [], [relations]);
 
   if (isLoading) {
     return (
@@ -332,13 +328,12 @@ export default function AnimeDetailPage() {
     );
   }
 
+  // No generic fallback video: an unrelated trailer misrepresents the title.
+  // When there's no verified trailer, there's no trailer.
   const activeTrailerUrl =
-    anime.trailerUrl ||
-    DEFAULT_TRAILERS[anime.id] ||
-    DEFAULT_TRAILERS[id] ||
-    'https://www.youtube.com/watch?v=M_OauHnAFc8';
+    anime.trailerUrl || DEFAULT_TRAILERS[anime.id] || DEFAULT_TRAILERS[id] || null;
 
-  const totalEp = anime.episodes || 25;
+  const totalEp = anime.episodes ?? undefined;
   const displayTitle = getAnimeDisplayTitle(anime);
 
   const handleDetailedRateClick = () => {

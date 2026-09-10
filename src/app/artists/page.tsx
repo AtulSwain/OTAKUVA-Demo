@@ -1,85 +1,139 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Palette, Search, ArrowRight } from 'lucide-react';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import { ScrollReveal } from '../../components/ui/ScrollReveal';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorState } from '../../components/ui/ErrorState';
 import styles from '../directory/directory.module.css';
 
 interface DirectoryEntry {
   id: string;
   name: string;
-  category: 'Artist' | 'Creator' | 'Studio' | 'Production' | 'Anime';
+  category: 'Artist' | 'Studio';
   href: string;
   subtitle: string;
 }
 
-const INITIAL_ARTISTS_ENTRIES: DirectoryEntry[] = [
-  // Creators & Key Artists
-  { id: 'keiichiro-saito', name: 'Keiichiro Saito', category: 'Creator', href: '/person/keiichiro-saito', subtitle: 'Director · Frieren, Bocchi the Rock!' },
-  { id: 'hayao-miyazaki', name: 'Hayao Miyazaki', category: 'Creator', href: '/person/hayao-miyazaki', subtitle: 'Director & Visionary · Studio Ghibli' },
-  { id: 'hiroyuki-sawano', name: 'Hiroyuki Sawano', category: 'Artist', href: '/person/hiroyuki-sawano', subtitle: 'Composer · Attack on Titan, Solo Leveling' },
-  { id: 'makoto-shinkai', name: 'Makoto Shinkai', category: 'Creator', href: '/person/makoto-shinkai', subtitle: 'Director · Your Name., Suzume' },
-  { id: 'shinichiro-watanabe', name: 'Shinichiro Watanabe', category: 'Creator', href: '/person/shinichiro-watanabe', subtitle: 'Director · Cowboy Bebop' },
-  { id: 'yoko-kanno', name: 'Yoko Kanno', category: 'Artist', href: '/person/yoko-kanno', subtitle: 'Composer · Cowboy Bebop, Ghost in the Shell' },
-  // Studios
-  { id: 'madhouse', name: 'Madhouse', category: 'Studio', href: '/studio/madhouse', subtitle: 'Est. 1972 · Tokyo, Japan' },
-  { id: 'mappa', name: 'MAPPA', category: 'Studio', href: '/studio/mappa', subtitle: 'Est. 2011 · Suginami, Tokyo' },
-  { id: 'ufotable', name: 'Ufotable', category: 'Studio', href: '/studio/ufotable', subtitle: 'Est. 2000 · Suginami, Tokyo' },
-  { id: 'kyoto-animation', name: 'Kyoto Animation', category: 'Studio', href: '/studio/kyoto-animation', subtitle: 'Est. 1981 · Uji, Kyoto' },
-  { id: 'bones', name: 'Bones', category: 'Studio', href: '/studio/bones', subtitle: 'Est. 1998 · Suginami, Tokyo' },
-  { id: 'trigger', name: 'Trigger', category: 'Studio', href: '/studio/trigger', subtitle: 'Est. 2011 · Suginami, Tokyo' },
-  { id: 'wit-studio', name: 'Wit Studio', category: 'Studio', href: '/studio/wit-studio', subtitle: 'Est. 2012 · Musashino, Tokyo' },
-  { id: 'cloverworks', name: 'CloverWorks', category: 'Studio', href: '/studio/cloverworks', subtitle: 'Est. 2018 · Suginami, Tokyo' },
-  // Production
-  { id: 'toho-animation', name: 'TOHO animation', category: 'Production', href: '/production', subtitle: 'Production & Planning · Tokyo' },
-  { id: 'aniplex', name: 'Aniplex', category: 'Production', href: '/production', subtitle: 'Planning & Distribution · Tokyo' },
-  { id: 'kadokawa', name: 'Kadokawa Corporation', category: 'Production', href: '/production', subtitle: 'Publisher & Committee Lead · Tokyo' },
-  { id: 'bandai-namco', name: 'Bandai Namco Filmworks', category: 'Production', href: '/production', subtitle: 'Production & IP Management · Tokyo' },
-  // Canonical Anime
-  ...FIXTURE_ANIMES.map((a) => ({
-    id: a.id,
-    name: (a as any).canonicalTitle || a.title || 'Untitled Anime',
-    category: 'Anime' as const,
-    href: `/anime/${a.slug || a.id}`,
-    subtitle: `${a.year || 2024} · ${a.type || 'TV'} · ★ ${(a.score || 9.0).toFixed(2)}`,
-  })),
-];
-
 const ALPHABET = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
-const CATEGORIES = ['All', 'Artist', 'Creator', 'Studio', 'Production', 'Anime'] as const;
+const CATEGORIES = ['All', 'Artist', 'Studio'] as const;
+
+// Builds the subtitle from verified fields only. Anything absent is simply
+// omitted rather than filled in with an assumed role, year, or location.
+function personSubtitle(person: any): string {
+  const parts: string[] = [];
+
+  const primaryRole = person.topStaffRoles?.[0]?.role;
+  if (primaryRole) parts.push(primaryRole);
+
+  const knownFor = (person.topStaffRoles || [])
+    .map((sr: any) => sr.anime?.canonicalTitle)
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(', ');
+  if (knownFor) parts.push(knownFor);
+
+  return parts.join(' · ');
+}
+
+function studioSubtitle(studio: any): string {
+  const parts: string[] = [];
+  if (studio.foundedYear) parts.push(`Est. ${studio.foundedYear}`);
+  if (studio.country) parts.push(studio.country);
+  if (studio.totalAnimeCount) parts.push(`${studio.totalAnimeCount} works`);
+  return parts.join(' · ');
+}
 
 export default function ArtistsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedLetter, setSelectedLetter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [entries, setEntries] = useState<DirectoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDirectory() {
+      setIsLoading(true);
+      setError(false);
+      try {
+        const q = searchQuery.trim();
+        const suffix = q ? `&q=${encodeURIComponent(q)}` : '';
+
+        const [peopleRes, studiosRes] = await Promise.all([
+          fetch(`/api/people?limit=60${suffix}`),
+          fetch(`/api/studios?limit=60${suffix}`),
+        ]);
+
+        if (!peopleRes.ok || !studiosRes.ok) {
+          throw new Error('Directory request failed');
+        }
+
+        const [peopleData, studiosData] = await Promise.all([
+          peopleRes.json(),
+          studiosRes.json(),
+        ]);
+        if (cancelled) return;
+
+        const people: DirectoryEntry[] = (peopleData.people || []).map((p: any) => ({
+          id: `person-${p.id}`,
+          name: p.name,
+          category: 'Artist' as const,
+          href: `/person/${p.slug}`,
+          subtitle: personSubtitle(p),
+        }));
+
+        const studios: DirectoryEntry[] = (studiosData.studios || []).map((s: any) => ({
+          id: `studio-${s.id}`,
+          name: s.displayTitle || s.name,
+          category: 'Studio' as const,
+          href: `/studio/${s.slug}`,
+          subtitle: studioSubtitle(s),
+        }));
+
+        setEntries(
+          [...people, ...studios].sort((a, b) => a.name.localeCompare(b.name))
+        );
+      } catch (err) {
+        console.error('Failed to load artists directory:', err);
+        if (!cancelled) {
+          setError(true);
+          setEntries([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    const timer = setTimeout(loadDirectory, searchQuery.trim() ? 250 : 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, reloadToken]);
+
+  // Category and letter narrow the fetched set client-side; the text query is
+  // served by the API so it searches the whole catalog, not just this page.
   const filteredEntries = useMemo(() => {
-    return INITIAL_ARTISTS_ENTRIES.filter((entry) => {
-      // Category filter
+    return entries.filter((entry) => {
       const matchCat = selectedCategory === 'All' || entry.category === selectedCategory;
 
-      // Letter filter
       let matchLetter = true;
       if (selectedLetter !== 'ALL') {
         const firstChar = entry.name.charAt(0).toUpperCase();
-        if (selectedLetter === '#') {
-          matchLetter = /^[0-9]/.test(firstChar);
-        } else {
-          matchLetter = firstChar === selectedLetter;
-        }
+        matchLetter = selectedLetter === '#' ? /^[0-9]/.test(firstChar) : firstChar === selectedLetter;
       }
 
-      // Search query
-      const matchSearch =
-        searchQuery.trim() === '' ||
-        entry.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        entry.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchCat && matchLetter && matchSearch;
+      return matchCat && matchLetter;
     });
-  }, [selectedCategory, selectedLetter, searchQuery]);
+  }, [entries, selectedCategory, selectedLetter]);
+
+  const handleRetry = useCallback(() => setReloadToken((t) => t + 1), []);
 
   return (
     <div className={styles.page}>
@@ -91,7 +145,7 @@ export default function ArtistsPage() {
         </div>
         <h1 className={styles.heroTitle}>Artists &amp; Creative Directory</h1>
         <p className={styles.heroSubtitle}>
-          Complete index of directors, voice actors, composers, animators, and production studios across the OTAKUVA ecosystem.
+          Index of directors, voice actors, composers, animators, and production studios recorded in the OTAKUVA catalog.
         </p>
       </div>
 
@@ -137,20 +191,34 @@ export default function ArtistsPage() {
       </div>
 
       {/* 4. Results Section */}
-      <div className={styles.resultsMeta}>
-        <span>Showing <strong>{filteredEntries.length}</strong> matching entries</span>
-        {searchQuery && (
-          <button
-            type="button"
-            className={styles.clearSearchBtn}
-            onClick={() => setSearchQuery('')}
-          >
-            Clear search
-          </button>
-        )}
-      </div>
+      {!isLoading && !error && (
+        <div className={styles.resultsMeta}>
+          <span>
+            Showing <strong>{filteredEntries.length}</strong> matching entries
+          </span>
+          {searchQuery && (
+            <button
+              type="button"
+              className={styles.clearSearchBtn}
+              onClick={() => setSearchQuery('')}
+            >
+              Clear search
+            </button>
+          )}
+        </div>
+      )}
 
-      {filteredEntries.length > 0 ? (
+      {isLoading ? (
+        <div className={styles.resultsMeta}>
+          <span>Loading directory…</span>
+        </div>
+      ) : error ? (
+        <ErrorState
+          title="Couldn't load the directory"
+          message="The artists and studios directory is temporarily unavailable. Your library and tracking data are unaffected."
+          onRetry={handleRetry}
+        />
+      ) : filteredEntries.length > 0 ? (
         <div className={styles.grid}>
           {filteredEntries.map((entry, idx) => (
             <ScrollReveal key={entry.id} delayMs={idx * 15}>
@@ -162,15 +230,23 @@ export default function ArtistsPage() {
                   <ArrowRight size={13} className={styles.arrowIcon} />
                 </div>
                 <h3 className={styles.cardName}>{entry.name}</h3>
-                <p className={styles.cardSubtitle}>{entry.subtitle}</p>
+                {entry.subtitle && <p className={styles.cardSubtitle}>{entry.subtitle}</p>}
               </Link>
             </ScrollReveal>
           ))}
         </div>
       ) : (
-        <div className={styles.emptyState}>
-          <p>No entries found matching your filter criteria.</p>
-        </div>
+        <EmptyState
+          icon={Palette}
+          title="No entries found"
+          description={
+            searchQuery.trim()
+              ? `No artists or studios in the catalog match "${searchQuery.trim()}".`
+              : 'No artists or studios have been recorded in the catalog yet.'
+          }
+          actionLabel={searchQuery.trim() ? 'Clear search' : undefined}
+          onAction={searchQuery.trim() ? () => setSearchQuery('') : undefined}
+        />
       )}
     </div>
   );

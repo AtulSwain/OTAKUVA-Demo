@@ -17,7 +17,6 @@ import {
   Trophy,
 } from 'lucide-react';
 import { useLibrary } from '../../context/LibraryContext';
-import { FIXTURE_ANIMES } from '../../fixtures/anime.fixture';
 import styles from './DailyTracker.module.css';
 
 interface DailyTrackerProps {
@@ -66,21 +65,20 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({ onOpenQuickLog }) =>
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const animeMap = useMemo(() => new Map(FIXTURE_ANIMES.map((a) => [a.id, a])), []);
-
   const watchingList = useMemo(() => {
     return Object.values(library)
       .filter((i) => i.status === 'watching')
       .map((entry) => ({
         entry,
-        anime: entry.anime || animeMap.get(entry.animeId) || {
+        // entry.anime is the canonical row from /api/library. If it's missing,
+        // leave the episode count undefined rather than assuming a cour length.
+        anime: entry.anime || {
           id: entry.animeId,
           title: entry.animeId.replace(/-/g, ' '),
-          episodes: 24,
         },
       }))
       .slice(0, 4);
-  }, [library, animeMap]);
+  }, [library]);
 
   // Set default timer anime
   useEffect(() => {
