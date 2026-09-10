@@ -106,7 +106,11 @@ export async function PATCH(
       if (episodesWatched !== undefined) updateData.episodesWatched = episodesWatched;
 
       if (normalizedStatus === 'COMPLETED' && (!existing || !existing.finishDate)) {
-        updateData.finishDate = new Date().toISOString().split('T')[0];
+        // finishDate is a DateTime column. Sending a date-only string made
+        // Prisma reject the whole update ("premature end of input. Expected
+        // ISO-8601 DateTime"), so marking anything Completed returned a 500
+        // and the status never persisted.
+        updateData.finishDate = new Date();
       }
 
       let updatedRecord;
@@ -123,7 +127,8 @@ export async function PATCH(
             status: normalizedStatus || 'PLAN_TO_WATCH',
             episodesWatched: episodesWatched || 0,
             notes: notes || null,
-            startDate: normalizedStatus === 'WATCHING' ? new Date().toISOString().split('T')[0] : null,
+            // Same DateTime requirement as finishDate above.
+            startDate: normalizedStatus === 'WATCHING' ? new Date() : null,
           },
         });
       }

@@ -543,7 +543,7 @@ export default function StudioDetailPage() {
                                 )}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                   <span style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff' }}>
-                                    🎬 {event.anime.canonicalTitle}
+                                    <Film size={12} aria-hidden="true" /> {event.anime.canonicalTitle}
                                   </span>
                                   {event.anime.score && (
                                     <span style={{ fontSize: '11px', color: '#fbbf24' }}>
@@ -562,7 +562,7 @@ export default function StudioDetailPage() {
                                 )}
                                 {event.person && (
                                   <div style={{ fontSize: '12px', color: '#a78bfa' }}>
-                                    👤 Key Personnel: <strong>{event.person.name}</strong>
+                                    <Users size={12} aria-hidden="true" /> Key Personnel: <strong>{event.person.name}</strong>
                                   </div>
                                 )}
                                 {event.source && (

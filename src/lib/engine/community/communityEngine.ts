@@ -472,21 +472,40 @@ export async function getCommunityByIdOrSlug(idOrSlug: string, userId?: string |
   let membershipStatus: string | null = null;
 
   if (userId) {
-    const membership = await prisma.communityMember.findUnique({
-      where: {
-        communityId_userId: {
-          communityId: community.id,
-          userId,
-        },
-      },
-    });
+    // Membership lives in two places: an approved member has a CommunityMember
+    // row, while someone awaiting approval only has a CommunityJoinRequest.
+    // Reading just the member table reported PENDING users as non-members, so
+    // their "Request Pending" button reverted to "Join" on every refresh.
+    const [membership, joinRequest, ban] = await Promise.all([
+      prisma.communityMember.findUnique({
+        where: { communityId_userId: { communityId: community.id, userId } },
+      }),
+      prisma.communityJoinRequest.findUnique({
+        where: { communityId_userId: { communityId: community.id, userId } },
+      }),
+      prisma.communityBan.findUnique({
+        where: { communityId_userId: { communityId: community.id, userId } },
+      }),
+    ]);
 
-    if (membership) {
+    if (ban) {
+      // A ban outranks any membership or request record.
+      userRole = null;
+      membershipStatus = 'BANNED';
+    } else if (membership && membership.status === 'ACTIVE') {
       userRole = membership.role;
       membershipStatus = membership.status;
     } else if (community.ownerId === userId) {
       userRole = 'OWNER';
       membershipStatus = 'ACTIVE';
+    } else if (joinRequest && joinRequest.status === 'PENDING') {
+      membershipStatus = 'PENDING';
+    } else if (joinRequest && joinRequest.status === 'REJECTED') {
+      membershipStatus = 'REJECTED';
+    } else if (membership) {
+      // BANNED/LEFT/PENDING rows on the member table itself.
+      userRole = membership.role;
+      membershipStatus = membership.status;
     }
   }
 
@@ -780,6 +799,62 @@ export async function deleteCommunity(userId: string, communityIdOrSlug: string)
  * =========================================================================
  */
 
+/**
+ * Notifies everyone who can act on a join request — the owner plus any
+ * ADMIN/MODERATOR members. Uses the existing Notification model; the link
+ * points at the community's own join-request management view.
+ *
+ * Notification failure must never fail the join request itself: the request
+ * row is already committed, and a missing notification is recoverable from the
+ * pending list, so this logs and moves on.
+ */
+async function notifyCommunityManagers(
+  communityId: string,
+  communitySlug: string,
+  communityName: string,
+  requesterId: string
+): Promise<void> {
+  try {
+    const [requester, managers, community] = await Promise.all([
+      prisma.user.findUnique({ where: { id: requesterId }, select: { username: true } }),
+      prisma.communityMember.findMany({
+        where: {
+          communityId,
+          status: 'ACTIVE',
+          role: { in: ['OWNER', 'ADMIN', 'MODERATOR'] },
+        },
+        select: { userId: true },
+      }),
+      prisma.community.findUnique({ where: { id: communityId }, select: { ownerId: true } }),
+    ]);
+
+    const recipients = new Set(managers.map((m) => m.userId));
+    if (community?.ownerId) recipients.add(community.ownerId);
+    // A user never needs to be told about their own request.
+    recipients.delete(requesterId);
+
+    if (recipients.size === 0) return;
+
+    const who = requester?.username ? `@${requester.username}` : 'A user';
+
+    await prisma.notification.createMany({
+      data: Array.from(recipients).map((userId) => ({
+        userId,
+        type: 'COMMUNITY_JOIN_REQUEST',
+        title: 'New join request',
+        body: `${who} requested to join ${communityName}.`,
+        linkUrl: `/community/${communitySlug}?tab=requests`,
+      })),
+    });
+  } catch (err) {
+    console.error('[community] Failed to notify managers of join request', {
+      communityId,
+      requesterId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export async function joinCommunity(
   userId: string,
   communitySlug: string,
@@ -819,6 +894,37 @@ export async function joinCommunity(
 
   // Approval required workflow
   if (community.joinPolicy === 'APPROVAL_REQUIRED' || community.visibility === 'REQUEST_TO_JOIN') {
+    // Already an approved member — nothing to request. Return the canonical
+    // state instead of downgrading an active membership back to PENDING.
+    const existingMember = await prisma.communityMember.findUnique({
+      where: { communityId_userId: { communityId: community.id, userId } },
+    });
+    if (existingMember && existingMember.status === 'ACTIVE') {
+      return {
+        success: true,
+        status: 'ACTIVE',
+        role: existingMember.role,
+        memberCount: community.memberCount,
+      };
+    }
+
+    const existingRequest = await prisma.communityJoinRequest.findUnique({
+      where: { communityId_userId: { communityId: community.id, userId } },
+    });
+
+    // Repeated clicks must not stack requests or reset the queue position.
+    // The unique constraint already guarantees one row per (community, user);
+    // this keeps an existing PENDING row untouched rather than re-stamping it.
+    if (existingRequest && existingRequest.status === 'PENDING') {
+      return {
+        success: true,
+        status: 'PENDING',
+        role: 'MEMBER',
+        memberCount: community.memberCount,
+        alreadyRequested: true,
+      };
+    }
+
     await prisma.communityJoinRequest.upsert({
       where: {
         communityId_userId: {
@@ -826,13 +932,15 @@ export async function joinCommunity(
           userId,
         },
       },
-      update: { status: 'PENDING', createdAt: new Date() },
+      update: { status: 'PENDING', createdAt: new Date(), reviewedAt: null, reviewedBy: null },
       create: {
         communityId: community.id,
         userId,
         status: 'PENDING',
       },
     });
+
+    await notifyCommunityManagers(community.id, community.slug, community.name, userId);
 
     await emitEngineEvent({
       eventType: 'JOIN_REQUEST_CREATED',
@@ -955,6 +1063,21 @@ export async function reviewJoinRequest(
     throw new Error('Unauthorized: Admin privileges required to review join requests');
   }
 
+  // The permission check above is scoped to this communityId, so an admin of
+  // another community fails here rather than reaching another community's
+  // request. Confirm the request exists and is still actionable before
+  // mutating: without this, a second approval would throw a raw Prisma error
+  // and a already-decided request could be silently re-decided.
+  const request = await prisma.communityJoinRequest.findUnique({
+    where: { communityId_userId: { communityId, userId: targetUserId } },
+  });
+  if (!request) {
+    throw new Error('Join request not found');
+  }
+  if (request.status !== 'PENDING') {
+    throw new Error(`Join request has already been ${request.status.toLowerCase()}`);
+  }
+
   if (action === 'APPROVE') {
     await prisma.$transaction(async (tx) => {
       await tx.communityJoinRequest.update({
@@ -978,12 +1101,20 @@ export async function reviewJoinRequest(
       });
 
       // Notification to user
+      const approvedCommunity = await tx.community.findUnique({
+        where: { id: communityId },
+        select: { name: true, slug: true },
+      });
+
       await tx.notification.create({
         data: {
           userId: targetUserId,
           type: 'COMMUNITY_JOIN_APPROVED',
           title: 'Join Request Approved',
-          body: 'Your request to join the community has been approved!',
+          body: approvedCommunity
+            ? `Your request to join ${approvedCommunity.name} was approved.`
+            : 'Your request to join the community has been approved!',
+          linkUrl: approvedCommunity ? `/community/${approvedCommunity.slug}` : null,
         },
       });
     });
@@ -1003,6 +1134,32 @@ export async function reviewJoinRequest(
       data: { status: 'REJECTED', reviewedAt: new Date(), reviewedBy: moderatorId },
     });
 
+    // Mirror the approval path so the outcome is visible in the same place,
+    // rather than the request silently disappearing from the user's view.
+    try {
+      const rejectedCommunity = await prisma.community.findUnique({
+        where: { id: communityId },
+        select: { name: true, slug: true },
+      });
+      await prisma.notification.create({
+        data: {
+          userId: targetUserId,
+          type: 'COMMUNITY_JOIN_REJECTED',
+          title: 'Join Request Declined',
+          body: rejectedCommunity
+            ? `Your request to join ${rejectedCommunity.name} was not approved.`
+            : 'Your request to join the community was not approved.',
+          linkUrl: rejectedCommunity ? `/community/${rejectedCommunity.slug}` : null,
+        },
+      });
+    } catch (err) {
+      console.error('[community] Failed to notify user of join rejection', {
+        communityId,
+        targetUserId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     await emitEngineEvent({
       eventType: 'JOIN_REQUEST_REJECTED',
       userId: moderatorId,
@@ -1013,6 +1170,51 @@ export async function reviewJoinRequest(
 
     return { success: true, status: 'REJECTED' };
   }
+}
+
+/**
+ * Pending join requests for a community, for the owner/admin review UI.
+ * Authorization is the caller's responsibility boundary — enforced here rather
+ * than in the route so every caller gets the same check.
+ */
+export async function listJoinRequests(
+  moderatorId: string,
+  communityIdOrSlug: string,
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING'
+) {
+  const community = await prisma.community.findFirst({
+    where: { OR: [{ slug: communityIdOrSlug }, { id: communityIdOrSlug }] },
+    select: { id: true },
+  });
+  if (!community) {
+    throw new Error('Community not found');
+  }
+
+  const perm = await getMemberPermission(moderatorId, community.id);
+  if (!perm.canManageMembers) {
+    throw new Error('Unauthorized: Admin privileges required to view join requests');
+  }
+
+  const requests = await prisma.communityJoinRequest.findMany({
+    where: { communityId: community.id, status },
+    include: {
+      user: { select: { id: true, username: true, avatarUrl: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return {
+    communityId: community.id,
+    requests: requests.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      username: r.user.username,
+      avatarUrl: r.user.avatarUrl,
+      message: r.message,
+      status: r.status,
+      createdAt: r.createdAt.toISOString(),
+    })),
+  };
 }
 
 export async function createCommunityInvite(

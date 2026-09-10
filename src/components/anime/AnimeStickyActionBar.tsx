@@ -48,7 +48,8 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
 
   const handleLibraryClick = async () => {
     if (!isInLibrary) {
-      await updateStatus(targetKey, 'watching');
+      // Matches AnimeHero: a first add is Plan to Watch, not Watching.
+      await updateStatus(targetKey, 'plan_to_watch');
     } else {
       // Toggle or advance status
       await updateStatus(targetKey, currentStatus === 'watching' ? 'completed' : 'watching');

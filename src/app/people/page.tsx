@@ -154,7 +154,7 @@ export default function PeopleDirectoryPage() {
                     <span className={styles.creditsCategory}>Key Production:</span>
                     {person.topStaffRoles.map((sr: any, idx: number) => (
                       <span key={idx} className={styles.creditItem}>
-                        🎬 {sr.role} — <em>{sr.anime.canonicalTitle}</em>
+                        <Film size={12} aria-hidden="true" /> {sr.role} — <em>{sr.anime.canonicalTitle}</em>
                       </span>
                     ))}
                   </div>
@@ -165,7 +165,7 @@ export default function PeopleDirectoryPage() {
                     <span className={styles.creditsCategory}>Voice Roles:</span>
                     {person.topVoiceRoles.map((vr: any, idx: number) => (
                       <span key={idx} className={styles.creditItem}>
-                        🎙️ {vr.character.name}
+                        <Mic size={12} aria-hidden="true" /> {vr.character.name}
                       </span>
                     ))}
                   </div>

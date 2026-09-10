@@ -92,7 +92,10 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
 
   const handleLibraryToggle = async () => {
     if (!isInLibrary) {
-      await updateStatus(targetKey, 'watching');
+      // Adding to the library is a bookmark, not a declaration that you have
+      // started watching. Defaulting to 'watching' filed new entries under the
+      // wrong tab, which read as the anime not being added at all.
+      await updateStatus(targetKey, 'plan_to_watch');
     } else {
       await updateStatus(targetKey, currentStatus === 'watching' ? 'completed' : 'watching');
     }
@@ -235,8 +238,11 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
               onClick={onOpenRatingModal}
               title={effectiveRating !== null ? `Your rating: ★ ${effectiveRating.toFixed(1)}/10. Click to edit.` : 'Rate anime'}
             >
+              {/* One icon per control: the Lucide star is the icon, so the
+                  label carries the number only. It previously also prefixed a
+                  ★ character, rendering two stars side by side. */}
               <Star size={13} fill={effectiveRating !== null ? 'currentColor' : 'none'} />
-              <span>{effectiveRating !== null ? `★ ${effectiveRating.toFixed(1)}` : 'Rate'}</span>
+              <span>{effectiveRating !== null ? effectiveRating.toFixed(1) : 'Rate'}</span>
             </button>
           )}
 

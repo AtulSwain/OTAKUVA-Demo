@@ -337,11 +337,13 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       nextLibrary[idOrSlug] = updatedItem;
     }
 
+    // Optimistic paint only. The success toast is deferred until the server
+    // confirms the write — previously it fired here, so a failed mutation
+    // still told the user their library had been updated.
     setLibrary(nextLibrary);
     setCounts(calculateCounts(nextLibrary));
 
     const statusLabel = newStatus.replace(/_/g, ' ');
-    showToast(`Updated to ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`, 'success');
 
     try {
       const res = await fetch(`/api/library/${encodeURIComponent(idOrSlug)}`, {
@@ -364,10 +366,18 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
           episodesWatched: serverItem.episodesWatched ?? updatedItem.episodesWatched,
         };
 
-        const committedLibrary = {
-          ...library,
+        // Build on the optimistic snapshot, not the `library` captured in this
+        // closure — that value predates the optimistic update and dropped any
+        // other change made while this request was in flight.
+        const committedLibrary: Record<string, UserAnimeState> = {
+          ...nextLibrary,
           [verifiedAnimeId]: finalItem,
         };
+        // The optimistic pass may have written a duplicate under the slug;
+        // the canonical id is the only key that should survive.
+        if (idOrSlug !== verifiedAnimeId) {
+          delete committedLibrary[idOrSlug];
+        }
         const committedAlias = {
           ...aliasMap,
           [idOrSlug]: verifiedAnimeId,
@@ -393,6 +403,10 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       if (data.counts) setCounts(data.counts);
+      showToast(
+        `Updated to ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`,
+        'success'
+      );
       return true;
     } catch (err) {
       console.error('Status mutation failed, rolling back:', err);

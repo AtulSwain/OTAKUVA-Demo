@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Search } from 'lucide-react';
 import { AnimeCard, AnimeCardItem } from './AnimeCard';
 import styles from './AnimeLibraryView.module.css';
 
@@ -229,7 +230,7 @@ export const AnimeLibraryView: React.FC = () => {
         <div className={styles.searchSortRow}>
           {/* Search Input */}
           <form onSubmit={handleSearchSubmit} className={styles.searchWrapper}>
-            <span className={styles.searchIcon}>🔍</span>
+            <Search size={14} className={styles.searchIcon} aria-hidden="true" />
             <input
               type="text"
               className={styles.searchInput}

@@ -25,6 +25,7 @@ import {
   Edit,
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import { SocketProvider } from '../../../context/SocketContext';
 import { SpoilerBlock } from '../../../components/community/SpoilerBlock';
 import { CommunityImage } from '../../../components/ui/CommunityImage';
@@ -73,6 +74,7 @@ export default function CommunitySlugPage() {
   const params = useParams();
   const slug = params?.slug as string;
   const { user, openAuthModal } = useAuth();
+  const { showToast } = useToast();
 
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'discussions' | 'members' | 'about' | 'manage'>('discussions');
@@ -88,6 +90,9 @@ export default function CommunitySlugPage() {
   const [newSpoiler, setNewSpoiler] = useState('NO_SPOILER');
   const [newChannelId, setNewChannelId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isJoinPending, setIsJoinPending] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<any[]>([]);
+  const [reviewingUserId, setReviewingUserId] = useState<string | null>(null);
 
   // Manage / Edit Form State
   const [editName, setEditName] = useState('');
@@ -151,6 +156,61 @@ export default function CommunitySlugPage() {
     if (community) fetchDiscussions();
   }, [community, selectedChannel]);
 
+  // Load pending requests when a manager opens the manage tab.
+  useEffect(() => {
+    if (
+      community &&
+      activeTab === 'manage' &&
+      (community.userRole === 'ADMIN' || community.userRole === 'OWNER' || community.ownerId === user?.id)
+    ) {
+      fetchJoinRequests();
+    }
+  }, [community, activeTab, user?.id]);
+
+  // Join requests are admin-only; the endpoint returns 403 for everyone else,
+  // so this is only called once the server has confirmed a managing role.
+  const fetchJoinRequests = async () => {
+    if (!community) return;
+    try {
+      const res = await fetch(`/api/communities/${community.slug}/requests`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setJoinRequests(data.requests || []);
+    } catch (err) {
+      console.error('Error loading join requests:', err);
+    }
+  };
+
+  const handleReviewRequest = async (targetUserId: string, action: 'APPROVE' | 'REJECT') => {
+    if (!community) return;
+    setReviewingUserId(targetUserId);
+    try {
+      const res = await fetch(`/api/communities/${community.slug}/requests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: targetUserId, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Leave the row in place — the request was not actually decided.
+        showToast(data?.error || 'Could not update that request.', 'error');
+        return;
+      }
+
+      setJoinRequests((prev) => prev.filter((r) => r.userId !== targetUserId));
+      showToast(action === 'APPROVE' ? 'Request approved.' : 'Request declined.', 'success');
+      // Member count and membership state are server-owned; re-read rather
+      // than deriving them locally.
+      await fetchCommunity();
+    } catch (err) {
+      console.error('Error reviewing join request:', err);
+      showToast('Could not update that request.', 'error');
+    } finally {
+      setReviewingUserId(null);
+    }
+  };
+
   const handleJoinToggle = async () => {
     if (!user) {
       openAuthModal('login');
@@ -158,26 +218,45 @@ export default function CommunitySlugPage() {
     }
 
     if (!community) return;
-    const isMember = community.membershipStatus === 'ACTIVE';
+    const status = community.membershipStatus;
+
+    // Pending and banned are terminal for this control — there is nothing to
+    // toggle, and re-posting would only bounce off the server guards.
+    if (status === 'PENDING' || status === 'BANNED') return;
+
+    const isMember = status === 'ACTIVE';
     const endpoint = `/api/communities/${community.slug}/${isMember ? 'leave' : 'join'}`;
 
+    setIsJoinPending(true);
     try {
       const res = await fetch(endpoint, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setCommunity((prev) =>
-          prev
-            ? {
-                ...prev,
-                membershipStatus: data.status,
-                userRole: data.role || (data.status === 'ACTIVE' ? 'MEMBER' : null),
-                memberCount: data.memberCount ?? prev.memberCount,
-              }
-            : null
-        );
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Never show a membership state the server did not confirm.
+        showToast(data?.error || 'Could not update your membership. Try again.', 'error');
+        return;
+      }
+
+      setCommunity((prev) =>
+        prev
+          ? {
+              ...prev,
+              membershipStatus: data.status,
+              userRole: data.role || (data.status === 'ACTIVE' ? 'MEMBER' : null),
+              memberCount: data.memberCount ?? prev.memberCount,
+            }
+          : null
+      );
+
+      if (data.status === 'PENDING') {
+        showToast('Request sent. An admin will review it.', 'success');
       }
     } catch (err) {
       console.error('Error updating membership:', err);
+      showToast('Could not update your membership. Try again.', 'error');
+    } finally {
+      setIsJoinPending(false);
     }
   };
 
@@ -271,8 +350,15 @@ export default function CommunitySlugPage() {
   }
 
   const isMember = community.membershipStatus === 'ACTIVE';
+  const isPendingMember = community.membershipStatus === 'PENDING';
+  const isBanned = community.membershipStatus === 'BANNED';
   const isOwner = user && community.ownerId === user.id;
   const isMod = community.userRole === 'MODERATOR' || community.userRole === 'OWNER' || isOwner;
+  // Admins and owners review requests; MODERATOR maps to canManageMembers
+  // being false server-side, so the list would 403 for them.
+  const canManageRequests = Boolean(community.userRole === 'ADMIN' || community.userRole === 'OWNER' || isOwner);
+  const needsApproval =
+    community.visibility === 'REQUEST_TO_JOIN' || (community as any).joinPolicy === 'APPROVAL_REQUIRED';
 
   return (
     <div className={styles.container}>
@@ -329,12 +415,34 @@ export default function CommunitySlugPage() {
         </div>
 
         <div className={styles.headerActions}>
+          {/* Membership control is driven entirely by the server-reported
+              membershipStatus, so the state survives refresh and re-login. */}
           <button
             type="button"
-            className={`${styles.joinBtn} ${isMember ? styles.joinedBtn : ''}`}
+            className={`${styles.joinBtn} ${isMember || isPendingMember ? styles.joinedBtn : ''}`}
             onClick={handleJoinToggle}
+            disabled={isJoinPending || isPendingMember || isBanned}
+            aria-label={
+              isBanned
+                ? 'You are banned from this community'
+                : isPendingMember
+                ? 'Join request pending review'
+                : isMember
+                ? 'Leave community'
+                : 'Join community'
+            }
           >
-            {isMember ? (
+            {isBanned ? (
+              <>
+                <Lock size={14} />
+                <span>Banned</span>
+              </>
+            ) : isPendingMember ? (
+              <>
+                <Clock size={14} />
+                <span>Request Pending</span>
+              </>
+            ) : isMember ? (
               <>
                 <Check size={14} />
                 <span>Joined</span>
@@ -342,7 +450,7 @@ export default function CommunitySlugPage() {
             ) : (
               <>
                 <Plus size={14} />
-                <span>Join Community</span>
+                <span>{needsApproval ? 'Request to Join' : 'Join Community'}</span>
               </>
             )}
           </button>
@@ -529,6 +637,62 @@ export default function CommunitySlugPage() {
       )}
 
       {/* TAB CONTENT: MANAGE */}
+      {/* Join request review — owners and admins only. The list itself is
+          server-authorized; this block only decides whether to ask for it. */}
+      {activeTab === 'manage' && canManageRequests && (
+        <div className={styles.manageCard} style={{ marginBottom: '16px' }}>
+          <h3 className={styles.manageTitle}>Join Requests</h3>
+          <p className={styles.manageSubtitle}>
+            {joinRequests.length === 0
+              ? 'No one is waiting for approval right now.'
+              : `${joinRequests.length} ${joinRequests.length === 1 ? 'person is' : 'people are'} waiting for approval.`}
+          </p>
+
+          {joinRequests.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+              {joinRequests.map((req) => (
+                <div key={req.id} className={styles.memberCard}>
+                  <div className={styles.memberAvatar}>
+                    {req.avatarUrl ? (
+                      <Image src={req.avatarUrl} alt={req.username} fill unoptimized style={{ objectFit: 'cover' }} />
+                    ) : (
+                      req.username?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className={styles.memberInfo} style={{ flex: 1 }}>
+                    <span className={styles.memberName}>@{req.username}</span>
+                    <span className={styles.memberRole}>
+                      Requested {new Date(req.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className={`${styles.joinBtn} ${styles.joinedBtn}`}
+                      onClick={() => handleReviewRequest(req.userId, 'APPROVE')}
+                      disabled={reviewingUserId === req.userId}
+                      aria-label={`Approve join request from ${req.username}`}
+                    >
+                      <Check size={13} />
+                      <span>Approve</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.joinBtn}
+                      onClick={() => handleReviewRequest(req.userId, 'REJECT')}
+                      disabled={reviewingUserId === req.userId}
+                      aria-label={`Reject join request from ${req.username}`}
+                    >
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'manage' && isMod && (
         <div className={styles.manageCard}>
           <h3 className={styles.manageTitle}>Community Settings &amp; Media Management</h3>

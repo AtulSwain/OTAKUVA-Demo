@@ -18,6 +18,7 @@ import {
   Sparkles,
   ArrowUpDown,
   History as HistoryIcon,
+  Landmark,
   X,
 } from 'lucide-react';
 import styles from '../adminStudios.module.css';
@@ -386,9 +387,9 @@ export function StudioHistoryTab({ studioId }: Props) {
                     </span>
                   )}
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '11.5px', color: '#64748b' }}>
-                    {e.anime && <span>🎬 {e.anime.canonicalTitle}</span>}
-                    {e.person && <span>👤 {e.person.name}</span>}
-                    {e.eraName && <span>🏛️ {e.eraName}</span>}
+                    {e.anime && <span><Film size={12} aria-hidden="true" /> {e.anime.canonicalTitle}</span>}
+                    {e.person && <span><UserIcon size={12} aria-hidden="true" /> {e.person.name}</span>}
+                    {e.eraName && <span><Landmark size={12} aria-hidden="true" /> {e.eraName}</span>}
                   </div>
                 </div>
               </div>
