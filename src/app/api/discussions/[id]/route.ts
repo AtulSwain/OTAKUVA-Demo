@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../lib/auth';
+import { canUserViewCommunityContent } from '../../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function GET(
         author: { select: { id: true, username: true, avatarUrl: true } },
         anime: { select: { id: true, canonicalTitle: true, slug: true, posterUrl: true, bannerUrl: true } },
         episode: { select: { id: true, number: true, title: true } },
-        community: { select: { id: true, name: true, slug: true, iconUrl: true } },
+        community: { select: { id: true, name: true, slug: true, iconUrl: true, visibility: true, ownerId: true, status: true } },
         channel: { select: { id: true, name: true, slug: true } },
         comments: {
           where: { deletedAt: null },
@@ -44,6 +45,17 @@ export async function GET(
 
     if (!discussion) {
       return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
+    }
+
+    // A thread inside a PRIVATE community is that community's content: the
+    // same membership rule as its posts list applies, however the id was
+    // obtained.
+    if (discussion.community && !(await canUserViewCommunityContent(discussion.community, authUser?.id))) {
+      return NextResponse.json({ error: 'Access denied: Private community membership required' }, { status: 403 });
+    }
+    if (discussion.community) {
+      const { visibility, ownerId, status, ...publicCommunity } = discussion.community;
+      discussion.community = publicCommunity;
     }
 
     let isFollowed = false;

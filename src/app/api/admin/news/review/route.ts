@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { hasMinRole } from '../../../../../lib/roles';
 import { newsEngine } from '../../../../../lib/engine/news/newsEngine';
 
 export const dynamic = 'force-dynamic';
@@ -7,8 +8,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const authUser = await getAuthUserFromRequest(req);
-    if (!authUser || authUser.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Admin authorization required' }, { status: 403 });
+    if (!authUser) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!hasMinRole(authUser.role, 'NEWS_EDITOR')) {
+      return NextResponse.json({ error: 'News editor authorization required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);

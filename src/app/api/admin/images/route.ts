@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImageHealthService } from '../../../../lib/engine/media/imageHealthService';
+import { requireRole } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, 'MEDIA_MANAGER');
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const metrics = await ImageHealthService.scanCatalogImages();
     return NextResponse.json({ success: true, data: metrics });
@@ -13,6 +17,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // "repair" rewrites catalog image URLs in bulk.
+  const auth = await requireRole(request, 'MEDIA_MANAGER');
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'repair';

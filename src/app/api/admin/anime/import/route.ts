@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JikanImportJobManager, ImportMode } from '../../../../../lib/ingestion/jikanImportJob';
 import { prisma } from '../../../../../lib/prisma';
+import { requireRole } from '../../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, 'DATA_EDITOR');
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const jobStatus = JikanImportJobManager.getStatus();
     const totalCatalogCount = await prisma.anime.count({ where: { status: { not: 'MERGED' } } });
@@ -28,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, 'DATA_EDITOR');
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'start'; // start, resume, stop, pause, reset, cancel

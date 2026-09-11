@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
+import { getAuthUserFromRequest } from '../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,9 +10,13 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const limit = Math.min(50, parseInt(searchParams.get('limit') || '20', 10));
 
+    // Only the owner sees their own PRIVATE / FOLLOWERS_ONLY lists; anyone
+    // else asking for a user's lists gets the public ones.
+    const authUser = await getAuthUserFromRequest(request);
     const where: any = {};
     if (userId) {
       where.userId = userId;
+      if (authUser?.id !== userId) where.visibility = 'PUBLIC';
     } else {
       where.visibility = 'PUBLIC';
     }
@@ -71,12 +76,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = 'user_default';
+    const authUser = await getAuthUserFromRequest(request);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Authentication required to create a list' }, { status: 401 });
+    }
+    const userId = authUser.id;
     const body = await request.json();
     const { name, description, visibility, initialAnimeIds } = body;
 
-    if (!name?.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'List name is required' }, { status: 400 });
+    }
+    if (name.trim().length > 100 || (typeof description === 'string' && description.length > 1000)) {
+      return NextResponse.json({ error: 'List name or description is too long' }, { status: 400 });
+    }
+    if (Array.isArray(initialAnimeIds) && initialAnimeIds.length > 100) {
+      return NextResponse.json({ error: 'A new list can start with at most 100 anime' }, { status: 400 });
     }
 
     const validVis = ['PUBLIC', 'PRIVATE', 'FOLLOWERS_ONLY'].includes(visibility) ? visibility : 'PUBLIC';

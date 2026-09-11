@@ -4,8 +4,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { Role, hasMinRole } from './roles';
 
-const JWT_SECRET = process.env.AUTH_SECRET || 'anilog_super_secret_jwt_key_2026';
 const JWT_EXPIRES_IN = '30d';
+const JWT_ALGORITHM = 'HS256';
+
+// This string is public (it is in the repo), so it may only ever sign
+// tokens on a developer's machine. In production a missing or short
+// AUTH_SECRET must fail closed: sign-in errors out and every token is
+// rejected, rather than silently accepting tokens anyone could mint.
+// Resolved per call, not at module load, so `next build` (which runs with
+// NODE_ENV=production and no secrets) can still import this file.
+const DEV_ONLY_SECRET = 'anilog_super_secret_jwt_key_2026';
+
+function getJwtSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < 32 || secret === DEV_ONLY_SECRET) {
+      throw new Error('AUTH_SECRET must be set to a private value of at least 32 characters in production.');
+    }
+    return secret;
+  }
+  return secret || DEV_ONLY_SECRET;
+}
 
 export interface TokenPayload {
   userId: string;
@@ -23,12 +42,12 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function signJwtToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN, algorithm: JWT_ALGORITHM });
 }
 
 export function verifyJwtToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret(), { algorithms: [JWT_ALGORITHM] }) as TokenPayload;
   } catch (error) {
     return null;
   }

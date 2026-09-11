@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getMemberPermission } from '../../../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,31 @@ export async function POST(
 
     if (!discussion) {
       return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
+    }
+
+    if (discussion.status === 'LOCKED' || discussion.status === 'HIDDEN') {
+      return NextResponse.json({ error: 'This discussion is closed to new replies' }, { status: 403 });
+    }
+
+    // Replying inside a community is posting in that community: the same
+    // rule as starting a thread there — an active, unbanned, unmuted member.
+    if (discussion.communityId) {
+      const perm = await getMemberPermission(authUser.id, discussion.communityId);
+      if (!(perm.canPost || (perm.isOwner && !perm.isBanned))) {
+        return NextResponse.json({ error: 'You must be an active member of this community to reply here' }, { status: 403 });
+      }
+    }
+
+    // A reply must thread under a live comment of this same discussion, never
+    // one borrowed from another thread.
+    if (parentId) {
+      const parent = await prisma.discussionComment.findUnique({
+        where: { id: String(parentId) },
+        select: { discussionId: true, deletedAt: true },
+      });
+      if (!parent || parent.discussionId !== discussionId || parent.deletedAt) {
+        return NextResponse.json({ error: 'The comment you are replying to does not exist in this discussion' }, { status: 400 });
+      }
     }
 
     // Create Comment

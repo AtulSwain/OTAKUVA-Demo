@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../lib/auth';
+import { readableDiscussionsFilter } from '../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,12 +15,17 @@ export async function GET(request: NextRequest) {
     const episodeId = searchParams.get('episodeId');
     const type = searchParams.get('type');
     const query = searchParams.get('q');
-    const limit = parseInt(searchParams.get('limit') || '25', 10);
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '25', 10) || 25));
 
     const authUser = await getAuthUserFromRequest(request);
 
+    // Visibility is enforced in the query itself, so a PRIVATE community's
+    // threads never reach a non-member through this cross-community list.
+    const conditions: any[] = [readableDiscussionsFilter(authUser?.id)];
+
     let where: any = {
       status: { not: 'HIDDEN' },
+      AND: conditions,
     };
 
     if (communityId === 'null' || communityId === 'public') {
@@ -45,11 +51,12 @@ export async function GET(request: NextRequest) {
     if (type && type !== 'ALL') where.type = type.toUpperCase();
 
     if (query && query.trim()) {
+      // No `mode: 'insensitive'`: the SQLite connector rejects it outright.
+      // SQLite's LIKE is already case-insensitive for ASCII.
       const q = query.trim();
-      where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { body: { contains: q, mode: 'insensitive' } },
-      ];
+      conditions.push({
+        OR: [{ title: { contains: q } }, { body: { contains: q } }],
+      });
     }
 
     if (sort === 'unanswered') {

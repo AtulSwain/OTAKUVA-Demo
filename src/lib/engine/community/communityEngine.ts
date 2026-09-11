@@ -167,6 +167,58 @@ export function canViewCommunity(
   return false;
 }
 
+/**
+ * Server-side read gate for a community's content (posts, members,
+ * discussions, comments). Every read route resolves access through this
+ * instead of re-deriving it, so PRIVATE content is never served to a
+ * non-member no matter which endpoint is asked. A ban outranks a member row
+ * that is still marked ACTIVE.
+ */
+export async function canUserViewCommunityContent(
+  community: { id: string; visibility: string; status?: string; ownerId: string },
+  userId?: string | null
+): Promise<boolean> {
+  if (!userId) return canViewCommunity(community, null, null);
+
+  const [membership, ban] = await Promise.all([
+    prisma.communityMember.findUnique({
+      where: { communityId_userId: { communityId: community.id, userId } },
+      select: { status: true, role: true },
+    }),
+    prisma.communityBan.findUnique({
+      where: { communityId_userId: { communityId: community.id, userId } },
+    }),
+  ]);
+
+  return canViewCommunity(community, ban ? null : membership, userId);
+}
+
+/**
+ * Prisma filter matching discussions a viewer may read in cross-community
+ * listings: anything outside a community, anything in a community that is not
+ * PRIVATE, and PRIVATE communities the viewer owns or is an active,
+ * unbanned member of.
+ */
+export function readableDiscussionsFilter(userId?: string | null) {
+  const openCommunity = { community: { visibility: { not: 'PRIVATE' }, status: { not: 'DELETED' } } };
+  if (!userId) {
+    return { OR: [{ communityId: null }, openCommunity] };
+  }
+  return {
+    OR: [
+      { communityId: null },
+      openCommunity,
+      {
+        community: {
+          status: { not: 'DELETED' },
+          bans: { none: { userId } },
+          OR: [{ ownerId: userId }, { members: { some: { userId, status: 'ACTIVE' } } }],
+        },
+      },
+    ],
+  };
+}
+
 export async function getMemberPermission(userId: string, communityId: string) {
   const member = await prisma.communityMember.findUnique({
     where: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
-import { getAuthUserFromRequest } from '../../../../lib/auth';
+import { requireRole } from '../../../../lib/auth';
 import { providerMetrics } from '../../../../lib/jikanService';
 import { JikanImportJobManager } from '../../../../lib/ingestion/jikanImportJob';
 import { ImageHealthService } from '../../../../lib/engine/media/imageHealthService';
@@ -8,6 +8,9 @@ import { ImageHealthService } from '../../../../lib/engine/media/imageHealthServ
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, 'DATA_EDITOR');
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const [
       animeCount,

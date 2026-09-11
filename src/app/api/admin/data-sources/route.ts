@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { providerMetrics } from '../../../../lib/jikanService';
+import { requireRole } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, 'DATA_EDITOR');
+  if (auth instanceof NextResponse) return auth;
+
   return NextResponse.json({
     success: true,
     data: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
-import { createCommunityPost } from '../../../../../lib/engine/community/communityEngine';
+import { createCommunityPost, canUserViewCommunityContent } from '../../../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,11 +19,16 @@ export async function GET(
 
     const community = await prisma.community.findFirst({
       where: { OR: [{ slug }, { id: slug }] },
-      select: { id: true },
+      select: { id: true, visibility: true, ownerId: true, status: true },
     });
 
     if (!community) {
       return NextResponse.json({ error: 'Community not found' }, { status: 404 });
+    }
+
+    const authUser = await getAuthUserFromRequest(request);
+    if (!(await canUserViewCommunityContent(community, authUser?.id))) {
+      return NextResponse.json({ error: 'Access denied: Private community membership required' }, { status: 403 });
     }
 
     const where: any = {

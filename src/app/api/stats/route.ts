@@ -7,7 +7,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const authUser = await getAuthUserFromRequest(request);
-    const userId = authUser ? authUser.id : 'user_default';
+    if (!authUser) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    const userId = authUser.id;
 
     const [userAnimes, totalEpisodeRecords, ratings] = await Promise.all([
       prisma.userAnime.findMany({
