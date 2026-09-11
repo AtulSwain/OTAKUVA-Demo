@@ -36,6 +36,8 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('Error marking all episodes watched:', error);
-    return NextResponse.json({ error: error.message || 'Failed to mark all episodes watched' }, { status: 500 });
+    // No recorded released episodes is a state of the catalog, not a server fault.
+    const status = /No released episodes/.test(error.message || '') ? 409 : 500;
+    return NextResponse.json({ error: error.message || 'Failed to mark all episodes watched' }, { status });
   }
 }

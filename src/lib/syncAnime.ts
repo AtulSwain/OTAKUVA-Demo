@@ -1,12 +1,13 @@
 import { prisma } from './prisma';
 import { fetchTopAnimeFromJikan, fetchSeasonalAnimeFromJikan } from './jikan';
-import { seedDatabase } from './seed';
 
 export async function syncAnimeCatalog() {
   console.log('Starting full relational anime catalog synchronization...');
 
-  // 1. Ensure baseline seeds exist
-  await seedDatabase();
+  // This used to run seedDatabase() first, which upserted the fixture user
+  // "user_default", fixture anime, reviews, discussions and watch progress
+  // into whatever database the sync ran against — production included.
+  // Seeding is a dev-only step (`prisma db seed`), never part of a sync.
 
   // 2. Fetch Top Anime from Jikan
   const topAnimeList = await fetchTopAnimeFromJikan(1, 25);
@@ -97,20 +98,9 @@ export async function syncAnimeCatalog() {
         });
       }
 
-      // Insert Episodes
-      const totalEps = item.episodes || 12;
-      for (let i = 1; i <= Math.min(totalEps, 24); i++) {
-        await prisma.episode.upsert({
-          where: { animeId_number: { animeId: savedAnime.id, number: i } },
-          update: {},
-          create: {
-            animeId: savedAnime.id,
-            number: i,
-            title: `Episode ${i}`,
-            duration: item.duration || '24 min',
-          },
-        });
-      }
+      // Episodes are not created here. They come from the provider's episode
+      // listing (SyncEngine.syncEpisodes); this used to insert placeholder
+      // "Episode 1..N" rows (N defaulting to 12) that looked like real data.
     } catch (e) {
       console.warn(`Sync error on top anime ${item.title}:`, e);
     }

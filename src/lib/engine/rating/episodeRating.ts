@@ -27,19 +27,14 @@ export async function rateEpisode(input: RateEpisodeInput) {
   // Enforce 1 decimal place precision
   const cleanRating = Math.round(rating * 10) / 10;
 
-  // Find or create Episode record if not present
-  let episode = await prisma.episode.findFirst({
+  // Only an episode that exists in the catalog can be rated; a rating never
+  // creates one (it used to create "Episode N" from the client's number).
+  const episode = await prisma.episode.findFirst({
     where: { animeId, number: episodeNumber },
   });
 
   if (!episode) {
-    episode = await prisma.episode.create({
-      data: {
-        animeId,
-        number: episodeNumber,
-        title: `Episode ${episodeNumber}`,
-      },
-    });
+    throw new Error('Episode not found');
   }
 
   const existing = await prisma.episodeRating.findUnique({

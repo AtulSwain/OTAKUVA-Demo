@@ -122,15 +122,19 @@ export class EpisodeEngine {
       isWatched: watchedSet.has(ep.id) || watchedEpisodeNumbers.includes(ep.number),
     }));
 
-    // Find first unwatched episode across entire anime
+    // Next episode = the lowest-numbered *released* episode the viewer hasn't
+    // watched. Episodes that haven't aired yet are never "next".
     let nextUnwatchedId: string | null = null;
     let nextUnwatchedNumber: number | null = null;
 
     if (authUserId) {
+      const now = new Date();
       const firstUnwatched = await prisma.episode.findFirst({
         where: {
           animeId: anime.id,
           id: { notIn: watchedEpisodeIds },
+          status: { notIn: ['UPCOMING', 'CANCELLED'] },
+          OR: [{ airedAt: null }, { airedAt: { lte: now } }],
         },
         orderBy: { number: 'asc' },
         select: { id: true, number: true },

@@ -250,20 +250,21 @@ export async function createAndAnalyzeReview(input: IngestReviewInput) {
   const resolvedAnimeId = anime.id;
   let resolvedEpisodeId = episodeId;
 
-  // If episodeNumber supplied but not episodeId, resolve episode
-  if (!resolvedEpisodeId && episodeNumber !== undefined) {
-    let ep = await prisma.episode.findFirst({
-      where: { animeId: resolvedAnimeId, number: episodeNumber },
+  // An episode review must point at an existing episode of this anime —
+  // never a new row created from the client's number, and never an episode
+  // id borrowed from another anime.
+  if (resolvedEpisodeId) {
+    const ep = await prisma.episode.findFirst({
+      where: { id: resolvedEpisodeId, animeId: resolvedAnimeId },
+      select: { id: true },
     });
-    if (!ep) {
-      ep = await prisma.episode.create({
-        data: {
-          animeId: resolvedAnimeId,
-          number: episodeNumber,
-          title: `Episode ${episodeNumber}`,
-        },
-      });
-    }
+    if (!ep) throw new Error('Episode not found');
+  } else if (episodeNumber !== undefined) {
+    const ep = await prisma.episode.findFirst({
+      where: { animeId: resolvedAnimeId, number: episodeNumber },
+      select: { id: true },
+    });
+    if (!ep) throw new Error('Episode not found');
     resolvedEpisodeId = ep.id;
   }
 

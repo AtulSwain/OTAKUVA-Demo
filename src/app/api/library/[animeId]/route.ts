@@ -129,6 +129,8 @@ export async function PATCH(
             notes: notes || null,
             // Same DateTime requirement as finishDate above.
             startDate: normalizedStatus === 'WATCHING' ? new Date() : null,
+            // A first add straight to COMPLETED needs its finish date too.
+            finishDate: updateData.finishDate ?? null,
           },
         });
       }

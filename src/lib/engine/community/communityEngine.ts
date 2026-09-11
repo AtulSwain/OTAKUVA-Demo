@@ -190,7 +190,8 @@ export async function canUserViewCommunityContent(
     }),
   ]);
 
-  return canViewCommunity(community, ban ? null : membership, userId);
+  const banActive = Boolean(ban && (!ban.expiresAt || ban.expiresAt.getTime() > Date.now()));
+  return canViewCommunity(community, banActive ? null : membership, userId);
 }
 
 /**
@@ -211,7 +212,7 @@ export function readableDiscussionsFilter(userId?: string | null) {
       {
         community: {
           status: { not: 'DELETED' },
-          bans: { none: { userId } },
+          bans: { none: { userId, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } },
           OR: [{ ownerId: userId }, { members: { some: { userId, status: 'ACTIVE' } } }],
         },
       },

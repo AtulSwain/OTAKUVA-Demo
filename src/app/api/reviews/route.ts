@@ -338,7 +338,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error creating review:', error);
-    const status = error.message === 'Anime not found' ? 404 : 500;
+    const status = error.message === 'Anime not found' || error.message === 'Episode not found' ? 404 : 500;
     return NextResponse.json({ error: error.message || 'Failed to create review' }, { status });
   }
 }

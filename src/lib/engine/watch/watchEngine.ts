@@ -9,6 +9,26 @@
 import { prisma } from '../../prisma';
 import { emitEngineEvent } from '../events/eventEngine';
 
+/**
+ * Whether an anime is still releasing episodes. Status strings arrive in two
+ * vocabularies (Jikan's "Currently Airing" / "Not yet aired" and AniList-style
+ * RELEASING / NOT_YET_RELEASED); the old check only knew the second, so a
+ * Jikan-sourced airing show could be auto-completed.
+ */
+export function isStillAiring(status: string | null | undefined): boolean {
+  const s = String(status || '').toLowerCase().replace(/_/g, ' ');
+  if (!s || s.includes('finished')) return false;
+  return s.includes('airing') || s.includes('releasing') || s.includes('not yet') || s.includes('upcoming');
+}
+
+/** Episodes a viewer can have watched: aired (or undated) and not upcoming/cancelled. */
+function releasedEpisodeFilter(now = new Date()) {
+  return {
+    status: { notIn: ['UPCOMING', 'CANCELLED'] },
+    OR: [{ airedAt: null }, { airedAt: { lte: now } }],
+  };
+}
+
 export type WatchStatus = 'PLAN_TO_WATCH' | 'WATCHING' | 'COMPLETED' | 'ON_HOLD' | 'DROPPED';
 
 export interface UpdateTrackingInput {
@@ -159,16 +179,11 @@ export async function markEpisodeStarted(input: EpisodeActionInput) {
 
   const resolvedAnimeId = anime.id;
 
-  // Ensure Episode record exists
-  let episode = anime.episodesList[0];
+  // Episodes are canonical rows from ingestion; a user action can only
+  // reference one that exists. (This used to create "Episode N" on demand.)
+  const episode = anime.episodesList[0];
   if (!episode) {
-    episode = await prisma.episode.create({
-      data: {
-        animeId: resolvedAnimeId,
-        number: episodeNumber,
-        title: `Episode ${episodeNumber}`,
-      },
-    });
+    throw new Error('Episode not found');
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -262,16 +277,11 @@ export async function markEpisodeCompleted(input: EpisodeActionInput) {
 
   const resolvedAnimeId = anime.id;
 
-  // Ensure Episode record exists
-  let episode = anime.episodesList[0];
+  // Episodes are canonical rows from ingestion; a user action can only
+  // reference one that exists. (This used to create "Episode N" on demand.)
+  const episode = anime.episodesList[0];
   if (!episode) {
-    episode = await prisma.episode.create({
-      data: {
-        animeId: resolvedAnimeId,
-        number: episodeNumber,
-        title: `Episode ${episodeNumber}`,
-      },
-    });
+    throw new Error('Episode not found');
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -309,11 +319,7 @@ export async function markEpisodeCompleted(input: EpisodeActionInput) {
     });
 
     // 3. Airing & Completion check
-    const isCurrentlyAiring =
-      anime.status === 'CURRENTLY_AIRING' ||
-      anime.status === 'RELEASING' ||
-      anime.status === 'AIRING' ||
-      anime.status === 'NOT_YET_AIRED';
+    const isCurrentlyAiring = isStillAiring(anime.status);
     const isFullyCompleted =
       !isCurrentlyAiring && anime.episodes ? totalCompleted >= anime.episodes : false;
 
@@ -413,17 +419,7 @@ export async function toggleEpisodeWatchStatus(input: ToggleEpisodeWatchInput) {
   }
 
   if (!episode) {
-    if (episodeNumber !== undefined) {
-      episode = await prisma.episode.create({
-        data: {
-          animeId: resolvedAnimeId,
-          number: episodeNumber,
-          title: `Episode ${episodeNumber}`,
-        },
-      });
-    } else {
-      throw new Error('Episode not found');
-    }
+    throw new Error('Episode not found');
   }
 
   // Check current progress
@@ -480,11 +476,7 @@ export async function toggleEpisodeWatchStatus(input: ToggleEpisodeWatchInput) {
       },
     });
 
-    const isCurrentlyAiring =
-      anime.status === 'CURRENTLY_AIRING' ||
-      anime.status === 'RELEASING' ||
-      anime.status === 'AIRING' ||
-      anime.status === 'NOT_YET_AIRED';
+    const isCurrentlyAiring = isStillAiring(anime.status);
 
     const isFullyCompleted =
       !isCurrentlyAiring && Boolean(anime.episodes) && totalCompleted >= (anime.episodes || 0);
@@ -544,7 +536,7 @@ export async function markAllEpisodesWatched(input: { userId: string; animeId: s
 
   const anime = await prisma.anime.findFirst({
     where: { OR: [{ id: animeId }, { slug: animeId }] },
-    include: { episodesList: true },
+    include: { episodesList: { where: releasedEpisodeFilter() } },
   });
 
   if (!anime) {
@@ -552,23 +544,15 @@ export async function markAllEpisodesWatched(input: { userId: string; animeId: s
   }
 
   const resolvedAnimeId = anime.id;
-  let allEpisodes = anime.episodesList;
-
+  // Only released episodes on record. With none recorded this used to
+  // create `anime.episodes || 12` placeholder episodes and mark them watched.
+  const allEpisodes = anime.episodesList;
   if (allEpisodes.length === 0) {
-    const total = anime.episodes || 12;
-    for (let i = 1; i <= total; i++) {
-      await prisma.episode.create({
-        data: {
-          animeId: resolvedAnimeId,
-          number: i,
-          title: `Episode ${i}`,
-        },
-      });
-    }
-    allEpisodes = await prisma.episode.findMany({
-      where: { animeId: resolvedAnimeId },
-    });
+    throw new Error('No released episodes are recorded for this anime yet');
   }
+  // Watching every released episode of a show that is still airing is not
+  // finishing it.
+  const completesAnime = !isStillAiring(anime.status);
 
   await prisma.$transaction(async (tx) => {
     for (const ep of allEpisodes) {
@@ -605,16 +589,16 @@ export async function markAllEpisodesWatched(input: { userId: string; animeId: s
       },
       update: {
         episodesWatched: allEpisodes.length,
-        status: 'COMPLETED',
-        finishDate: new Date(),
+        status: completesAnime ? 'COMPLETED' : 'WATCHING',
+        finishDate: completesAnime ? new Date() : undefined,
       },
       create: {
         userId,
         animeId: resolvedAnimeId,
         episodesWatched: allEpisodes.length,
-        status: 'COMPLETED',
+        status: completesAnime ? 'COMPLETED' : 'WATCHING',
         startDate: new Date(),
-        finishDate: new Date(),
+        finishDate: completesAnime ? new Date() : null,
       },
     });
   });
@@ -699,6 +683,7 @@ export async function getNextUnwatchedEpisode(input: { userId: string; animeId: 
     where: { OR: [{ id: animeId }, { slug: animeId }] },
     include: {
       episodesList: {
+        where: releasedEpisodeFilter(),
         orderBy: { number: 'asc' },
       },
     },

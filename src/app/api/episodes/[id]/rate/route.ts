@@ -59,7 +59,7 @@ export async function POST(
     return NextResponse.json({ success: true, episodeRating: result });
   } catch (error: any) {
     console.error('Error rating episode:', error);
-    return NextResponse.json({ error: error.message || 'Failed to rate episode' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to rate episode' }, { status: error.message === 'Episode not found' ? 404 : 500 });
   }
 }
 

@@ -39,16 +39,10 @@ export async function POST(
       });
     }
 
-    if (!episode && episodeNumber !== undefined) {
-      episode = await prisma.episode.create({
-        data: {
-          animeId: anime.id,
-          number: episodeNumber,
-          title: `Episode ${episodeNumber}`,
-        },
-      });
-    }
-
+    // Episodes are canonical catalog rows that come from ingestion. A user
+    // marking progress can only reference one that exists — this used to
+    // create an Episode from the client-supplied number, letting any
+    // signed-in user add arbitrary episodes to any anime.
     if (!episode) {
       return NextResponse.json({ error: 'Episode does not belong to this anime or not found' }, { status: 404 });
     }

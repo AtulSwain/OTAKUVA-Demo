@@ -30,7 +30,7 @@ export async function POST(
     return NextResponse.json({ success: true, ...result });
   } catch (error: any) {
     console.error('Error marking episode started:', error);
-    const status = error.message === 'Anime not found' ? 404 : 500;
+    const status = error.message === 'Anime not found' || error.message === 'Episode not found' ? 404 : 500;
     return NextResponse.json({ error: error.message || 'Failed to mark episode started' }, { status });
   }
 }
