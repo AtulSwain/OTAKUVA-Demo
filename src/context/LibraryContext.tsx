@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useIsomorphicLayoutEffect } from '../lib/useIsomorphicLayoutEffect';
 import { UserWatchStatus } from '../types/anime';
 import { useToast } from './ToastContext';
 import { useAuth } from './AuthContext';
@@ -66,68 +67,28 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { user, isLoading: authLoading, openAuthModalWithIntent, pendingIntent, consumePendingIntent } = useAuth();
   
   // Dual indexing: library keyed by canonical animeId; aliasMap maps slugs/aliases -> canonical animeId
-  const [library, setLibrary] = useState<Record<string, UserAnimeState>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedUser = localStorage.getItem('otakuva_user');
-        if (cachedUser) {
-          const parsedUser = JSON.parse(cachedUser);
-          if (parsedUser?.id) {
-            const cachedLib = localStorage.getItem(`otakuva_library_${parsedUser.id}`);
-            if (cachedLib) {
-              const parsed = JSON.parse(cachedLib);
-              if (parsed?.itemsMap) return parsed.itemsMap;
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return {};
-  });
+  const [library, setLibrary] = useState<Record<string, UserAnimeState>>({});
+  const [aliasMap, setAliasMap] = useState<Record<string, string>>({});
+  const [counts, setCounts] = useState<LibraryCounts>(DEFAULT_COUNTS);
 
-  const [aliasMap, setAliasMap] = useState<Record<string, string>>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedUser = localStorage.getItem('otakuva_user');
-        if (cachedUser) {
-          const parsedUser = JSON.parse(cachedUser);
-          if (parsedUser?.id) {
-            const cachedLib = localStorage.getItem(`otakuva_library_${parsedUser.id}`);
-            if (cachedLib) {
-              const parsed = JSON.parse(cachedLib);
-              if (parsed?.aliasMap) return parsed.aliasMap;
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
+  // Same hydration rule as AuthContext: start from the server's empty state,
+  // then apply this user's cached library right after hydration, before
+  // paint. The server sync below replaces it with canonical state.
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const cachedUser = localStorage.getItem('otakuva_user');
+      const userId = cachedUser ? JSON.parse(cachedUser)?.id : null;
+      if (!userId) return;
+      const cachedLib = localStorage.getItem(`otakuva_library_${userId}`);
+      if (!cachedLib) return;
+      const parsed = JSON.parse(cachedLib);
+      if (parsed?.itemsMap) setLibrary(parsed.itemsMap);
+      if (parsed?.aliasMap) setAliasMap(parsed.aliasMap);
+      if (parsed?.counts) setCounts(parsed.counts);
+    } catch {
+      // ignore parse/storage errors
     }
-    return {};
-  });
-
-  const [counts, setCounts] = useState<LibraryCounts>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cachedUser = localStorage.getItem('otakuva_user');
-        if (cachedUser) {
-          const parsedUser = JSON.parse(cachedUser);
-          if (parsedUser?.id) {
-            const cachedLib = localStorage.getItem(`otakuva_library_${parsedUser.id}`);
-            if (cachedLib) {
-              const parsed = JSON.parse(cachedLib);
-              if (parsed?.counts) return parsed.counts;
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return DEFAULT_COUNTS;
-  });
+  }, []);
 
   const [watchedEpisodesMap, setWatchedEpisodesMap] = useState<Record<string, number[]>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -135,7 +96,8 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Daily Habits & Real-time Watch Goal
   const [todayEpisodes, setTodayEpisodes] = useState<number>(0);
   const [dailyGoal, setDailyGoalState] = useState<number>(3);
-  const [streakDays, setStreakDays] = useState<number>(7);
+  // From the server's weekStreak; 0 until it arrives (was a hardcoded 7).
+  const [streakDays, setStreakDays] = useState<number>(0);
 
   // Load custom user goal from localStorage if present
   useEffect(() => {
@@ -252,6 +214,9 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (typeof data.todayEpisodesCount === 'number') {
         setTodayEpisodes(Math.max(data.todayEpisodesCount, 0));
+      }
+      if (typeof data.weekStreak === 'number') {
+        setStreakDays(Math.max(data.weekStreak, 0));
       }
     } catch (err) {
       console.error('Library sync error:', err);

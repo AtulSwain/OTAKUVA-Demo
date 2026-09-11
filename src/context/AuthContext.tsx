@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useIsomorphicLayoutEffect } from '../lib/useIsomorphicLayoutEffect';
 
 export interface AuthUser {
   id: string;
@@ -42,17 +43,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('otakuva_user');
-        if (cached) return JSON.parse(cached);
-      } catch {
-        // ignore parse error
-      }
+  // The server always renders signed-out, so the first client render must
+  // too. The cached identity is applied right after hydration (before paint)
+  // and /api/auth/me then confirms or clears it. Reading localStorage in the
+  // useState initializer made every signed-in page fail hydration.
+  const [user, setUser] = useState<AuthUser | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const cached = localStorage.getItem('otakuva_user');
+      if (cached) setUser((current) => current ?? JSON.parse(cached));
+    } catch {
+      // ignore parse/storage errors
     }
-    return null;
-  });
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
