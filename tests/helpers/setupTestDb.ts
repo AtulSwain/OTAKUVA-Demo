@@ -27,6 +27,10 @@ if (/dev\.db/i.test(databaseUrl) || dbFile.startsWith(path.join(repoRoot, 'prism
 
 process.env.DATABASE_URL = databaseUrl;
 process.env.AUTH_SECRET = 'otakuva-test-only-secret-0123456789abcdef';
+// Uploads go to the local provider inside this temp dir, never R2 or public/.
+process.env.STORAGE_PROVIDER = 'local';
+process.env.LOCAL_UPLOADS_ROOT = path.join(dir, 'uploads');
+delete process.env.GIPHY_API_KEY;
 // Keep the dev-mode Prisma global cache and non-production auth behaviour.
 (process.env as Record<string, string>).NODE_ENV = 'test';
 

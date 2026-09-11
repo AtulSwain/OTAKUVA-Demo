@@ -10,7 +10,8 @@ export interface UploadOptions {
     | 'avatars'
     | 'general'
     | 'studio-logo'
-    | 'studio-banner';
+    | 'studio-banner'
+    | 'comment-media';
   entityId?: string;
   maxSizeBytes?: number;
   customKey?: string;

@@ -25,6 +25,9 @@ export const viewport: Viewport = {
   themeColor: '#08090A',
   width: 'device-width',
   initialScale: 1,
+  // On-screen keyboards resize the page instead of covering docked UI
+  // such as the mobile reply composer.
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({

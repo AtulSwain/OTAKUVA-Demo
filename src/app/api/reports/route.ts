@@ -1,8 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../lib/auth';
+import { RateLimiter } from '../../../lib/security/rateLimiter';
+import { canUserViewCommunityContent } from '../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
+
+const TARGET_TYPES = new Set(['DISCUSSION', 'COMMENT', 'MESSAGE', 'USER', 'COMMUNITY']);
+// Categories offered in the UI, plus the older values existing reports use.
+const REASONS = new Set(['SPAM', 'HARASSMENT', 'OFFENSIVE', 'SPOILER', 'MISINFORMATION', 'OTHER', 'HATE', 'SPOILER_MISUSE', 'PIRACY']);
+
+/**
+ * Only something that exists and that the reporter can actually see can be
+ * reported — otherwise the endpoint becomes a way to probe private content.
+ */
+async function targetVisibleTo(targetType: string, targetId: string, userId: string): Promise<boolean> {
+  const community = { select: { id: true, visibility: true, ownerId: true, status: true } };
+  if (targetType === 'COMMENT') {
+    const c = await prisma.discussionComment.findUnique({
+      where: { id: targetId },
+      select: { discussion: { select: { community } } },
+    });
+    if (!c) return false;
+    return !c.discussion.community || canUserViewCommunityContent(c.discussion.community, userId);
+  }
+  if (targetType === 'DISCUSSION') {
+    const d = await prisma.discussion.findUnique({ where: { id: targetId }, select: { community } });
+    if (!d) return false;
+    return !d.community || canUserViewCommunityContent(d.community, userId);
+  }
+  if (targetType === 'MESSAGE') {
+    const m = await prisma.communityMessage.findUnique({
+      where: { id: targetId },
+      select: { channel: { select: { community } } },
+    });
+    return Boolean(m) && canUserViewCommunityContent(m!.channel.community, userId);
+  }
+  if (targetType === 'USER') return Boolean(await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } }));
+  if (targetType === 'COMMUNITY') return Boolean(await prisma.community.findUnique({ where: { id: targetId }, select: { id: true } }));
+  return false;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,20 +48,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { targetType, targetId, reason, description } = body;
+    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    if (!rate.allowed) {
+      return NextResponse.json({ error: 'Too many reports. Please wait a moment.' }, { status: 429 });
+    }
 
-    if (!targetType || !targetId || !reason) {
-      return NextResponse.json({ error: 'Target and reason are required' }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const targetType = typeof body.targetType === 'string' ? body.targetType.toUpperCase() : '';
+    const reason = typeof body.reason === 'string' ? body.reason.toUpperCase() : '';
+    const targetId = typeof body.targetId === 'string' ? body.targetId : '';
+    const description = typeof body.description === 'string' ? body.description.trim().slice(0, 1000) : '';
+
+    if (!TARGET_TYPES.has(targetType) || !targetId) {
+      return NextResponse.json({ error: 'A valid report target is required' }, { status: 400 });
+    }
+    if (!REASONS.has(reason)) {
+      return NextResponse.json({ error: 'Choose a report reason' }, { status: 400 });
+    }
+    if (!(await targetVisibleTo(targetType, targetId, authUser.id))) {
+      return NextResponse.json({ error: 'That content could not be found' }, { status: 404 });
+    }
+
+    // One open report per person per item; repeat clicks don't stack.
+    const existing = await prisma.report.findFirst({
+      where: { reporterId: authUser.id, targetType, targetId, status: 'OPEN' },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json({ success: true, reportId: existing.id, alreadyReported: true }, { status: 200 });
     }
 
     const report = await prisma.report.create({
       data: {
         reporterId: authUser.id,
-        targetType: targetType.toUpperCase(),
+        targetType,
         targetId,
-        reason: reason.toUpperCase(),
-        description: description ? description.trim() : null,
+        reason,
+        description: description || null,
       },
     });
 

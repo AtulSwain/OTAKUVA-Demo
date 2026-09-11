@@ -1073,6 +1073,7 @@ model User {
   customLists         UserList[]
   activities          Activity[]
   mediaAssets         MediaAsset[]
+  commentMedia        CommentMedia[]
   notifications       Notification[]
   followers           Follow[] @relation("Following")
   following           Follow[] @relation("Followers")
@@ -1628,6 +1629,7 @@ model DiscussionComment {
   parent     DiscussionComment?  @relation("ThreadedReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies    DiscussionComment[] @relation("ThreadedReplies")
   reactions  CommentReaction[]
+  media      CommentMedia[]
 
   @@index([discussionId])
   @@index([parentId])
@@ -1670,6 +1672,37 @@ model CommentReaction {
   user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId, type])
+}
+
+// Image or GIF attached to a discussion comment or reply. A "meme" is an
+// IMAGE. Uploads are created first with commentId = null (pending, owned by
+// uploaderId) and attached when the comment is posted; the uploaded object
+// itself is tracked by the linked MediaAsset. GIFs come from a provider and
+// store its reference, not a copy of the file.
+model CommentMedia {
+  id              String    @id @default(cuid())
+  commentId       String?
+  uploaderId      String
+  type            String    // "IMAGE", "GIF"
+  source          String    // "UPLOAD", "GIPHY"
+  providerMediaId String?
+  url             String
+  thumbnailUrl    String?
+  width           Int?
+  height          Int?
+  mimeType        String?
+  isSpoiler       Boolean   @default(false)
+  assetId         String?
+  attachedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  comment  DiscussionComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploader User               @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  asset    MediaAsset?        @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([commentId])
+  @@index([uploaderId, commentId])
+  @@index([createdAt])
 }
 
 model CommunityMessage {
@@ -1836,6 +1869,7 @@ model MediaAsset {
 
   user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
   anime Anime? @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  commentMedia CommentMedia[]
 
   @@index([userId])
   @@index([animeId])

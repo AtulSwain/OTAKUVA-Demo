@@ -9,7 +9,8 @@ export class LocalStorageProvider implements StorageProvider {
   private uploadsRoot: string;
 
   constructor() {
-    this.uploadsRoot = path.join(process.cwd(), 'public', 'uploads');
+    // LOCAL_UPLOADS_ROOT lets tests keep their files out of public/uploads.
+    this.uploadsRoot = process.env.LOCAL_UPLOADS_ROOT || path.join(process.cwd(), 'public', 'uploads');
     if (!fs.existsSync(this.uploadsRoot)) {
       fs.mkdirSync(this.uploadsRoot, { recursive: true });
     }

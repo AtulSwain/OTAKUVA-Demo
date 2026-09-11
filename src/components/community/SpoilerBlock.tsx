@@ -10,6 +10,8 @@ interface SpoilerBlockProps {
   animeId?: string | null;
   animeSlug?: string | null;
   episodeNumber?: number | null;
+  /** "inline" is the compact one-line gate used inside comments. */
+  variant?: 'block' | 'inline';
   children: React.ReactNode;
 }
 
@@ -18,6 +20,7 @@ export const SpoilerBlock: React.FC<SpoilerBlockProps> = ({
   animeId,
   animeSlug,
   episodeNumber,
+  variant = 'block',
   children,
 }) => {
   const { library } = useLibrary();
@@ -44,6 +47,17 @@ export const SpoilerBlock: React.FC<SpoilerBlockProps> = ({
     }
   } else if (spoilerLevel === 'ANIME_SPOILER') {
     spoilerMessage = 'Contains Full Series Anime Spoilers.';
+  }
+
+  if (variant === 'inline') {
+    return (
+      <button type="button" className={styles.inlineSpoiler} onClick={() => setRevealed(true)}>
+        <Eye size={12} aria-hidden="true" />
+        <span>
+          <strong>Spoiler</strong> · {spoilerMessage.replace(/.$/, '')} — tap to reveal
+        </span>
+      </button>
+    );
   }
 
   return (

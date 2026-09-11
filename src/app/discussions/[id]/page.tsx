@@ -1,36 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import {
-  MessageSquare,
-  Star,
-  Bookmark,
-  Share2,
-  Flag,
-  ArrowLeft,
-  Send,
-  Reply,
-  Loader2,
-  Check,
-  Film,
-  Tv,
-  AlertTriangle,
-} from 'lucide-react';
+import { Bookmark, ChevronRight, Flag, Share2, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import { SpoilerBlock } from '../../../components/community/SpoilerBlock';
+import { CommentsSection } from '../../../components/community/comments/CommentsSection';
+import { ReportDialog } from '../../../components/community/comments/ReportDialog';
+import { UserAvatar } from '../../../components/ui/UserAvatar';
+import { relativeTime } from '../../../lib/format/relativeTime';
 import styles from './discussionDetail.module.css';
-
-interface CommentItem {
-  id: string;
-  body: string;
-  spoilerLevel: string;
-  createdAt: string;
-  author: { id: string; username: string; avatarUrl?: string };
-  replies?: CommentItem[];
-}
 
 interface DiscussionDetail {
   id: string;
@@ -45,460 +26,306 @@ interface DiscussionDetail {
   createdAt: string;
   isFollowed?: boolean;
   hasReacted?: boolean;
-  author: { id: string; username: string; avatarUrl?: string };
-  anime?: { id: string; canonicalTitle: string; slug: string; posterUrl: string; bannerUrl?: string };
-  episode?: { id: string; episodeNumber: number; title?: string };
-  community?: { name: string; slug: string; iconUrl?: string };
-  channel?: { name: string; slug: string };
-  comments: CommentItem[];
+  commentBlockedReason?: string | null;
+  author: { id: string; username: string; avatarUrl?: string | null };
+  anime?: { id: string; canonicalTitle: string; slug: string; posterUrl: string } | null;
+  episode?: { id: string; number: number; title?: string | null; airedAt?: string | null } | null;
+  community?: { name: string; slug: string; rules?: { id: string; title: string; content: string }[] } | null;
+  channel?: { name: string; slug: string } | null;
 }
+
+interface RelatedItem {
+  id: string;
+  title: string;
+  replyCount: number;
+}
+
+// Shown only where a thread isn't inside a community with its own rules.
+const PLATFORM_GUIDELINES = [
+  'Be kind — disagree with ideas, not people.',
+  'Mark spoilers, including in images and GIFs.',
+  'Stay on topic for this anime or episode.',
+  'No links to unofficial streams or piracy.',
+];
+
+const TYPE_LABELS: Record<string, string> = {
+  GENERAL: 'Discussion',
+  QUESTION: 'Question',
+  THEORY: 'Theory',
+  REACTION: 'Reaction',
+  RECOMMENDATION: 'Recommendation',
+  ANALYSIS: 'Analysis',
+  EPISODE_DISCUSSION: 'Episode discussion',
+};
 
 export default function DiscussionDetailPage() {
   const params = useParams();
   const id = params?.id as string;
   const { user, openAuthModal } = useAuth();
+  const { showToast } = useToast();
 
   const [discussion, setDiscussion] = useState<DiscussionDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'notFound' | 'forbidden' | 'error'>('loading');
+  const [related, setRelated] = useState<RelatedItem[]>([]);
+  const [reporting, setReporting] = useState(false);
 
-  // Reply Composer
-  const [replyBody, setReplyBody] = useState('');
-  const [replySpoiler, setReplySpoiler] = useState('NO_SPOILER');
-  const [replyingToId, setReplyingToId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Report Modal
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportReason, setReportReason] = useState('SPAM');
-  const [reportDesc, setReportDesc] = useState('');
-  const [reportSuccess, setReportSuccess] = useState(false);
-
-  const fetchDiscussion = async () => {
+  const load = useCallback(async () => {
+    setStatus('loading');
     try {
-      const res = await fetch(`/api/discussions/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setDiscussion(data.discussion);
-      }
-    } catch (err) {
-      console.error('Failed to load discussion:', err);
-    } finally {
-      setLoading(false);
+      const res = await fetch(`/api/discussions/${id}`, { cache: 'no-store' });
+      if (res.status === 404) return setStatus('notFound');
+      if (res.status === 403) return setStatus('forbidden');
+      if (!res.ok) return setStatus('error');
+      const data = await res.json();
+      setDiscussion(data.discussion);
+      setStatus('ready');
+    } catch {
+      setStatus('error');
     }
-  };
-
-  useEffect(() => {
-    if (id) fetchDiscussion();
   }, [id]);
 
-  const handleToggleHelpful = async () => {
-    if (!user) {
-      openAuthModal();
-      return;
-    }
-    try {
-      const res = await fetch(`/api/discussions/${id}/reactions`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setDiscussion((prev) =>
-          prev
-            ? {
-                ...prev,
-                hasReacted: data.hasReacted,
-                helpfulCount: data.helpfulCount,
-              }
-            : null
+  // Re-fetch when the viewer changes: follow/helpful state and whether they
+  // may comment are per viewer.
+  useEffect(() => {
+    if (id) load();
+  }, [id, load, user?.id]);
+
+  useEffect(() => {
+    const animeId = discussion?.anime?.id;
+    if (!animeId) return;
+    let cancelled = false;
+    fetch(`/api/discussions?animeId=${encodeURIComponent(animeId)}&limit=6&sort=popular`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setRelated(
+          (data.discussions || [])
+            .filter((d: any) => d.id !== discussion?.id)
+            .slice(0, 5)
+            .map((d: any) => ({ id: d.id, title: d.title, replyCount: d.replyCount ?? 0 }))
         );
-      }
-    } catch (err) {
-      console.error('Error toggling reaction:', err);
-    }
-  };
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [discussion?.anime?.id, discussion?.id]);
 
-  const handleToggleFollow = async () => {
-    if (!user) {
-      openAuthModal();
-      return;
-    }
+  const toggle = async (kind: 'reactions' | 'follow') => {
+    if (!user) return openAuthModal('login');
     try {
-      const res = await fetch(`/api/discussions/${id}/follow`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setDiscussion((prev) =>
-          prev
-            ? {
-                ...prev,
-                isFollowed: data.isFollowed,
-                followerCount: data.followerCount,
-              }
-            : null
-        );
-      }
-    } catch (err) {
-      console.error('Error toggling follow:', err);
+      const res = await fetch(`/api/discussions/${id}/${kind}`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      setDiscussion((prev) =>
+        prev
+          ? kind === 'reactions'
+            ? { ...prev, hasReacted: data.hasReacted, helpfulCount: data.helpfulCount }
+            : { ...prev, isFollowed: data.isFollowed, followerCount: data.followerCount }
+          : prev
+      );
+    } catch (e: any) {
+      showToast(e.message || 'Something went wrong', 'error');
     }
   };
 
-  const handlePostReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      openAuthModal();
-      return;
-    }
-
-    if (!replyBody.trim()) return;
-    setIsSubmitting(true);
-
+  const share = async () => {
+    const url = window.location.href;
     try {
-      const res = await fetch(`/api/discussions/${id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: replyBody.trim(),
-          parentId: replyingToId || undefined,
-          spoilerLevel: replySpoiler,
-        }),
-      });
-
-      if (res.ok) {
-        setReplyBody('');
-        setReplyingToId(null);
-        fetchDiscussion();
+      if (navigator.share) await navigator.share({ title: discussion?.title, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copied', 'success');
       }
-    } catch (err) {
-      console.error('Error posting comment:', err);
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // share sheet dismissed
     }
   };
 
-  const handleReportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetType: 'DISCUSSION',
-          targetId: id,
-          reason: reportReason,
-          description: reportDesc.trim() || undefined,
-        }),
-      });
-
-      if (res.ok) {
-        setReportSuccess(true);
-        setTimeout(() => {
-          setShowReportModal(false);
-          setReportSuccess(false);
-        }, 1500);
-      }
-    } catch (err) {
-      console.error('Report error:', err);
-    }
-  };
-
-  if (loading) {
-    return <div style={{ padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading discussion...</div>;
-  }
-
-  if (!discussion) {
+  if (status === 'loading') {
     return (
-      <div style={{ padding: '48px', textAlign: 'center' }}>
-        <h2>Discussion Not Found</h2>
-        <Link href="/discussions" style={{ color: 'var(--accent)', marginTop: '12px', display: 'inline-block' }}>
-          ← Back to discussions
-        </Link>
+      <div className={styles.page}>
+        <div className={styles.skeletonTitle} />
+        <div className={styles.skeletonBody} />
       </div>
     );
   }
 
-  return (
-    <div className={styles.container}>
-      {/* Back Link */}
-      <Link href={discussion.community ? `/community/${discussion.community.slug}` : '/discussions'} className={styles.backLink}>
-        <ArrowLeft size={16} />
-        <span>{discussion.community ? `Back to ${discussion.community.name}` : 'Back to Discussions'}</span>
-      </Link>
-
-      {/* Main Discussion Card */}
-      <div className={styles.mainCard}>
-        {/* Header Tags */}
-        <div className={styles.tagRow}>
-          <span className={styles.typeTag}>{discussion.type.replace('_', ' ')}</span>
-          {discussion.community && (
-            <Link href={`/community/${discussion.community.slug}`} className={styles.commTag}>
-              {discussion.community.name}
-            </Link>
-          )}
-          {discussion.anime && (
-            <Link href={`/anime/${discussion.anime.slug || discussion.anime.id}`} className={styles.animeTag}>
-              {discussion.anime.canonicalTitle}
-            </Link>
-          )}
-          {discussion.episode && (
-            <span className={styles.epTag}>Ep {discussion.episode.episodeNumber}</span>
-          )}
-          <span className={styles.timeTag}>{new Date(discussion.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-
-        <h1 className={styles.title}>{discussion.title}</h1>
-
-        {/* Author Profile */}
-        <div className={styles.authorRow}>
-          <div className={styles.avatarWrap}>
-            <Image
-              src={discussion.author?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60'}
-              alt={discussion.author?.username || 'user'}
-              fill
-              style={{ objectFit: 'cover' }}
-            />
-          </div>
-          <div>
-            <span className={styles.authorName}>@{discussion.author?.username || 'user'}</span>
-            <span className={styles.authorRole}>OTAKUVA Community Member</span>
-          </div>
-        </div>
-
-        {/* Formatted Body with Spoiler Protection */}
-        <SpoilerBlock spoilerLevel={discussion.spoilerLevel} animeSlug={discussion.anime?.slug}>
-          <div className={styles.bodyText}>
-            {discussion.body.split('\n').map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
-          </div>
-        </SpoilerBlock>
-
-        {/* Actions Bar */}
-        <div className={styles.actionsBar}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${discussion.hasReacted ? styles.activeAction : ''}`}
-            onClick={handleToggleHelpful}
-          >
-            <Star size={15} fill={discussion.hasReacted ? 'currentColor' : 'none'} />
-            <span>Helpful ({discussion.helpfulCount})</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${discussion.isFollowed ? styles.activeAction : ''}`}
-            onClick={handleToggleFollow}
-          >
-            <Bookmark size={15} fill={discussion.isFollowed ? 'currentColor' : 'none'} />
-            <span>{discussion.isFollowed ? 'Following' : 'Follow Discussion'}</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={() => {
-              if (navigator.clipboard) {
-                navigator.clipboard.writeText(window.location.href);
-                alert('Discussion link copied to clipboard!');
-              }
-            }}
-          >
-            <Share2 size={15} />
-            <span>Share</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.reportBtn}`}
-            onClick={() => {
-              if (!user) openAuthModal();
-              else setShowReportModal(true);
-            }}
-          >
-            <Flag size={14} />
-            <span>Report</span>
-          </button>
-        </div>
+  if (status !== 'ready' || !discussion) {
+    const copy = {
+      notFound: ['Discussion not found', 'It may have been removed.'],
+      forbidden: ['Members only', 'This discussion is in a private community.'],
+      error: ['Couldn’t load this discussion', 'Check your connection and try again.'],
+    }[status as 'notFound' | 'forbidden' | 'error'];
+    return (
+      <div className={`${styles.page} ${styles.stateBox}`}>
+        <h1 className={styles.stateTitle}>{copy[0]}</h1>
+        <p className={styles.stateText}>{copy[1]}</p>
+        {status === 'error' ? (
+          <button type="button" className={styles.stateAction} onClick={load}>Try again</button>
+        ) : (
+          <Link href="/community" className={styles.stateAction}>Browse communities</Link>
+        )}
       </div>
+    );
+  }
 
-      {/* Comments Section */}
-      <div className={styles.commentsSection}>
-        <div className={styles.commentsHeader}>
-          <MessageSquare size={18} color="var(--accent)" />
-          <h2 className={styles.commentsTitle}>Replies ({discussion.comments?.length || 0})</h2>
-        </div>
+  const d = discussion;
+  const episodeLabel = d.episode ? `Episode ${d.episode.number}${d.episode.title ? ` · ${d.episode.title}` : ''}` : null;
+  const guidelines = d.community?.rules?.length
+    ? d.community.rules.map((r) => `${r.title}${r.content ? ` — ${r.content}` : ''}`)
+    : PLATFORM_GUIDELINES;
+  const spoilerLevel = d.episode ? 'EPISODE_SPOILER' : 'ANIME_SPOILER';
 
-        {/* Reply Composer */}
-        <form onSubmit={handlePostReply} className={styles.replyComposer}>
-          {replyingToId && (
-            <div className={styles.replyingAlert}>
-              <span>Replying to comment #{replyingToId.slice(0, 6)}...</span>
-              <button type="button" onClick={() => setReplyingToId(null)}>Cancel</button>
+  return (
+    <div className={styles.page}>
+      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+        <ol>
+          {d.community ? (
+            <li><Link href={`/community/${d.community.slug}`}>{d.community.name}</Link></li>
+          ) : (
+            <li><Link href="/discussions">Discussions</Link></li>
+          )}
+          {d.anime && (
+            <li>
+              <ChevronRight size={12} aria-hidden="true" />
+              <Link href={`/anime/${d.anime.slug}`}>{d.anime.canonicalTitle}</Link>
+            </li>
+          )}
+          {episodeLabel && (
+            <li className={styles.crumbCurrent}>
+              <ChevronRight size={12} aria-hidden="true" />
+              <span>Ep {d.episode!.number}</span>
+            </li>
+          )}
+        </ol>
+      </nav>
+
+      <div className={styles.layout}>
+        <main className={styles.main}>
+          <header className={styles.header}>
+            <div className={styles.kicker}>
+              <span>{TYPE_LABELS[d.type] || 'Discussion'}</span>
+              {d.status === 'LOCKED' && <span className={styles.lockedTag}>Locked</span>}
             </div>
+            <h1 className={styles.title}>{d.title}</h1>
+            <div className={styles.byline}>
+              <UserAvatar username={d.author.username} avatarUrl={d.author.avatarUrl} size={22} />
+              <Link href={`/profile/${encodeURIComponent(d.author.username)}`} className={styles.bylineName}>
+                {d.author.username}
+              </Link>
+              <span aria-hidden="true">·</span>
+              <time dateTime={d.createdAt} title={new Date(d.createdAt).toLocaleString()}>{relativeTime(d.createdAt, Date.now(), true)}</time>
+            </div>
+          </header>
+
+          {d.anime && (
+            <Link href={`/anime/${d.anime.slug}`} className={styles.context}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {d.anime.posterUrl && <img src={d.anime.posterUrl} alt="" className={styles.contextPoster} />}
+              <span className={styles.contextText}>
+                <strong>{d.anime.canonicalTitle}</strong>
+                {episodeLabel && <span>{episodeLabel}</span>}
+              </span>
+            </Link>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Leave a reply</span>
-            <select
-              className={styles.select}
-              value={replySpoiler}
-              onChange={(e) => setReplySpoiler(e.target.value)}
-              style={{ width: 'auto', padding: '4px 10px', fontSize: '11px' }}
+          <SpoilerBlock spoilerLevel={d.spoilerLevel} animeSlug={d.anime?.slug} episodeNumber={d.episode?.number}>
+            <div className={styles.body}>
+              {d.body.split('\n').map((para, i) => (para.trim() ? <p key={i}>{para}</p> : null))}
+            </div>
+          </SpoilerBlock>
+
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={`${styles.action} ${d.hasReacted ? styles.actionActive : ''}`}
+              onClick={() => toggle('reactions')}
+              aria-pressed={Boolean(d.hasReacted)}
             >
-              <option value="NO_SPOILER">No Spoilers</option>
-              <option value="ANIME_SPOILER">Anime Spoiler</option>
-              <option value="EPISODE_SPOILER">Episode Spoiler</option>
-              <option value="MANGA_SPOILER">Manga Spoiler</option>
-            </select>
-          </div>
-
-          <textarea
-            className={styles.textarea}
-            rows={3}
-            placeholder="Share your thoughts, reply to this discussion, or join the debate..."
-            value={replyBody}
-            onChange={(e) => setReplyBody(e.target.value)}
-            required
-          />
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-            <button type="submit" className={styles.submitReplyBtn} disabled={isSubmitting}>
-              <Send size={13} />
-              <span>{isSubmitting ? 'Posting...' : 'Post Reply'}</span>
+              <ThumbsUp size={14} aria-hidden="true" />
+              <span>Helpful{d.helpfulCount > 0 ? ` · ${d.helpfulCount}` : ''}</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.action} ${d.isFollowed ? styles.actionActive : ''}`}
+              onClick={() => toggle('follow')}
+              aria-pressed={Boolean(d.isFollowed)}
+            >
+              <Bookmark size={14} fill={d.isFollowed ? 'currentColor' : 'none'} aria-hidden="true" />
+              <span>{d.isFollowed ? 'Following' : 'Follow'}</span>
+            </button>
+            <button type="button" className={styles.action} onClick={share}>
+              <Share2 size={14} aria-hidden="true" />
+              <span>Share</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.action} ${styles.actionEnd}`}
+              onClick={() => (user ? setReporting(true) : openAuthModal('login'))}
+              aria-label="Report discussion"
+            >
+              <Flag size={14} aria-hidden="true" />
+              <span className={styles.hideOnPhone}>Report</span>
             </button>
           </div>
-        </form>
 
-        {/* Threaded Comments List */}
-        <div className={styles.commentsList}>
-          {discussion.comments?.length > 0 ? (
-            discussion.comments.map((comment) => (
-              <div key={comment.id} className={styles.commentItem}>
-                <div className={styles.commentHeader}>
-                  <div className={styles.commentAvatar}>
-                    <Image
-                      src={comment.author?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50'}
-                      alt={comment.author?.username || 'user'}
-                      fill
-                      style={{ objectFit: 'cover' }}
-                    />
-                  </div>
-                  <div>
-                    <span className={styles.commentAuthor}>@{comment.author?.username || 'user'}</span>
-                    <span className={styles.commentTime}>{new Date(comment.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                  </div>
-                </div>
+          <CommentsSection
+            discussionId={d.id}
+            animeSlug={d.anime?.slug}
+            initialCount={d.replyCount}
+            blockedReason={d.commentBlockedReason ?? null}
+            spoilerLevel={spoilerLevel}
+          />
+        </main>
 
-                <SpoilerBlock spoilerLevel={comment.spoilerLevel}>
-                  <p className={styles.commentBody}>{comment.body}</p>
-                </SpoilerBlock>
-
-                <div className={styles.commentActions}>
-                  <button
-                    type="button"
-                    className={styles.replyBtn}
-                    onClick={() => setReplyingToId(comment.id)}
-                  >
-                    <Reply size={12} />
-                    <span>Reply</span>
-                  </button>
-                </div>
-
-                {/* Nested Replies */}
-                {comment.replies && comment.replies.length > 0 && (
-                  <div className={styles.nestedReplies}>
-                    {comment.replies.map((reply) => (
-                      <div key={reply.id} className={styles.nestedItem}>
-                        <div className={styles.commentHeader}>
-                          <div className={styles.commentAvatar} style={{ width: '24px', height: '24px' }}>
-                            <Image
-                              src={reply.author?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=40'}
-                              alt={reply.author?.username || 'user'}
-                              fill
-                              style={{ objectFit: 'cover' }}
-                            />
-                          </div>
-                          <div>
-                            <span className={styles.commentAuthor}>@{reply.author?.username}</span>
-                            <span className={styles.commentTime}>{new Date(reply.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                          </div>
-                        </div>
-                        <SpoilerBlock spoilerLevel={reply.spoilerLevel}>
-                          <p className={styles.commentBody}>{reply.body}</p>
-                        </SpoilerBlock>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--surface-main)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-              No replies yet. Be the first to join the conversation!
-            </div>
+        {/* Desktop only: tablets and phones drop the sidebar. */}
+        <aside className={styles.sidebar} aria-label="About this discussion">
+          {d.anime && (
+            <section className={styles.panel}>
+              <h2 className={styles.panelTitle}>{d.episode ? 'Episode' : 'Anime'}</h2>
+              <Link href={`/anime/${d.anime.slug}`} className={styles.panelAnime}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {d.anime.posterUrl && <img src={d.anime.posterUrl} alt="" />}
+                <span>
+                  <strong>{d.anime.canonicalTitle}</strong>
+                  {d.episode && <span>Episode {d.episode.number}{d.episode.title ? ` — ${d.episode.title}` : ''}</span>}
+                  {d.episode?.airedAt && (
+                    <span className={styles.muted}>
+                      Aired {new Date(d.episode.airedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            </section>
           )}
-        </div>
+
+          <section className={styles.panel}>
+            <h2 className={styles.panelTitle}>{d.community?.rules?.length ? 'Community rules' : 'Guidelines'}</h2>
+            <ul className={styles.guidelines}>
+              {guidelines.map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+          </section>
+
+          {related.length > 0 && (
+            <section className={styles.panel}>
+              <h2 className={styles.panelTitle}>More about {d.anime?.canonicalTitle}</h2>
+              <ul className={styles.related}>
+                {related.map((r) => (
+                  <li key={r.id}>
+                    <Link href={`/discussions/${r.id}`}>{r.title}</Link>
+                    <span className={styles.muted}>{r.replyCount} {r.replyCount === 1 ? 'reply' : 'replies'}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </aside>
       </div>
 
-      {/* Report Modal */}
-      {showReportModal && (
-        <div className={styles.modalBackdrop} onClick={() => setShowReportModal(false)}>
-          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '12px' }}>
-              Report Content
-            </h3>
-            {reportSuccess ? (
-              <div style={{ color: '#4ade80', fontSize: '14px', padding: '16px', textAlign: 'center' }}>
-                ✓ Report submitted to OTAKUVA moderators. Thank you!
-              </div>
-            ) : (
-              <form onSubmit={handleReportSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                    Reason
-                  </label>
-                  <select
-                    className={styles.select}
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                  >
-                    <option value="SPAM">Spam or Advertising</option>
-                    <option value="HARASSMENT">Harassment or Abuse</option>
-                    <option value="HATE">Hate Speech</option>
-                    <option value="SPOILER_MISUSE">Untagged Spoilers</option>
-                    <option value="PIRACY">Piracy Links</option>
-                    <option value="OTHER">Other Violation</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                    Details (Optional)
-                  </label>
-                  <textarea
-                    className={styles.textarea}
-                    rows={3}
-                    placeholder="Provide additional context for the moderation team..."
-                    value={reportDesc}
-                    onChange={(e) => setReportDesc(e.target.value)}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                  <button
-                    type="button"
-                    className={styles.cancelBtn}
-                    onClick={() => setShowReportModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className={styles.submitReportBtn}>
-                    Submit Report
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {reporting && <ReportDialog targetType="DISCUSSION" targetId={d.id} onClose={() => setReporting(false)} />}
     </div>
   );
 }

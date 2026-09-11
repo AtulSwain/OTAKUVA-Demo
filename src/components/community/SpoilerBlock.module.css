@@ -53,3 +53,33 @@
   background-color: var(--metallic-dark);
   border-color: var(--border-strong);
 }
+
+/* Compact one-line gate for comments and replies. */
+.inlineSpoiler {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 2px 0;
+  padding: 5px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.inlineSpoiler strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.inlineSpoiler:hover,
+.inlineSpoiler:focus-visible {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}

@@ -118,13 +118,7 @@ export interface CreatePostInput {
   };
 }
 
-export interface CreateCommentInput {
-  authorId: string;
-  discussionId: string;
-  parentId?: string;
-  body: string;
-  spoilerLevel?: SpoilerLevel;
-}
+export type { CreateCommentInput } from './commentService';
 
 // In-Memory Presence & Typing State Store (Non-Persistent / Transient)
 interface PresenceUser {
@@ -1665,72 +1659,9 @@ export async function createCommunityPost(input: CreatePostInput) {
   return post;
 }
 
-export async function createDiscussionComment(input: CreateCommentInput) {
-  const { authorId, discussionId, parentId, body, spoilerLevel = 'NO_SPOILER' } = input;
-
-  const discussion = await prisma.discussion.findUnique({
-    where: { id: discussionId },
-    include: { author: true },
-  });
-
-  if (!discussion || discussion.status === 'LOCKED' || discussion.status === 'HIDDEN') {
-    throw new Error('Discussion not found or is locked');
-  }
-
-  if (discussion.communityId) {
-    const perm = await getMemberPermission(authorId, discussion.communityId);
-    if (!perm.canPost) {
-      throw new Error('Unauthorized to comment in this community');
-    }
-  }
-
-  const comment = await prisma.$transaction(async (tx) => {
-    const created = await tx.discussionComment.create({
-      data: {
-        discussionId,
-        authorId,
-        parentId: parentId || null,
-        body: body.trim(),
-        spoilerLevel,
-      },
-      include: {
-        author: { select: { id: true, username: true, avatarUrl: true } },
-      },
-    });
-
-    await tx.discussion.update({
-      where: { id: discussionId },
-      data: { replyCount: { increment: 1 } },
-    });
-
-    // Notify discussion author if someone else replied
-    if (discussion.authorId !== authorId) {
-      await tx.notification.create({
-        data: {
-          userId: discussion.authorId,
-          type: 'REPLY_DISCUSSION',
-          title: 'New reply to your discussion',
-          body: `Someone replied to: "${discussion.title.slice(0, 40)}"`,
-          linkUrl: `/discussions/${discussionId}`,
-        },
-      });
-    }
-
-    return created;
-  });
-
-  await extractMentionsAndNotify(body, authorId, `/discussions/${discussionId}`, discussion.title);
-
-  await emitEngineEvent({
-    eventType: 'COMMENT_CREATED',
-    userId: authorId,
-    entityType: 'DISCUSSION',
-    entityId: discussionId,
-    metadata: { commentId: comment.id },
-  });
-
-  return comment;
-}
+// Comment creation lives in commentService (one implementation for the API
+// routes and the engine); re-exported here for existing importers.
+export { createDiscussionComment } from './commentService';
 
 export async function voteInPoll(userId: string, optionId: string) {
   const option = await prisma.pollOption.findUnique({
