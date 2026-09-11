@@ -343,7 +343,7 @@ export default function CommunitySlugPage() {
       <div className={styles.emptyCard}>
         <h2 className={styles.emptyTitle}>Community Not Found</h2>
         <Link href="/community" className={styles.backLink} style={{ marginTop: '12px' }}>
-          ← Back to all communities
+          <ArrowLeft size={14} aria-hidden="true" /> Back to all communities
         </Link>
       </div>
     );

@@ -16,7 +16,7 @@ export const DiscoverMoreSection: React.FC = () => {
     { title: 'Seasonal Anime', subtitle: 'This season’s broadcasts', href: '/seasonal' },
     { title: 'Airing Schedule', subtitle: 'Broadcast calendar', href: '/airing' },
     { title: 'Animation Studios', subtitle: 'Studios & their works', href: '/studios' },
-    { title: 'Staff & Creators', subtitle: 'Directors & writers', href: '/creators' },
+    { title: 'Artists', subtitle: 'Directors, writers & voice cast', href: '/artists' },
     { title: 'Community Hub', subtitle: 'Discussions & reviews', href: '/community' },
   ];
 

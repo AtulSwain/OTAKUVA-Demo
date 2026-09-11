@@ -117,7 +117,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({ onOpenQuickLog }) =>
           <div className={styles.cardHeader}>
             <div className={styles.goalHeaderRow}>
               <span className={styles.cardTitle}>DAILY GOAL</span>
-              <button
+              <button aria-label="Change daily goal"
                 type="button"
                 className={styles.goalEditBtn}
                 onClick={() => setShowGoalSelector((prev) => !prev)}
@@ -212,7 +212,7 @@ export const DailyTracker: React.FC<DailyTrackerProps> = ({ onOpenQuickLog }) =>
               {isTimerRunning ? <Pause size={10} /> : <Play size={10} />}
               <span>{isTimerRunning ? 'Pause' : 'Start 24m'}</span>
             </button>
-            <button
+            <button aria-label="Reset 24m timer"
               type="button"
               className={styles.timerResetBtn}
               onClick={() => {

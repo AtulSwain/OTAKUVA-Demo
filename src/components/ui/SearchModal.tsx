@@ -175,7 +175,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
             onKeyDown={handleKeyDown}
           />
           {query ? (
-            <button type="button" className={styles.clearBtn} onClick={() => setQuery('')}>
+            <button aria-label="Clear search" type="button" className={styles.clearBtn} onClick={() => setQuery('')}>
               <X size={16} />
             </button>
           ) : (
@@ -237,7 +237,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                         {anime.score && (
                           <>
                             <span>·</span>
-                            <span className={styles.resultScore}>★ {Number(anime.score).toFixed(2)}</span>
+                            <span className={styles.resultScore}><Star size={12} fill="currentColor" aria-hidden="true" /> {Number(anime.score).toFixed(1)}</span>
                           </>
                         )}
                       </div>

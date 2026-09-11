@@ -93,7 +93,7 @@ export function MergeStudioModal({ isOpen, onClose, onSuccess, initialStudioId }
             <GitMerge color="#ec4899" size={24} />
             <h2 className={styles.modalTitle}>Safe Studio Merge Tool</h2>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button aria-label="Close" className={styles.closeBtn} onClick={onClose}>
             <X size={20} />
           </button>
         </div>

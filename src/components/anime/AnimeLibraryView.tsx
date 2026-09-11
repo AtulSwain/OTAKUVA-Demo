@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowLeft, ArrowRight } from 'lucide-react';
 import { AnimeCard, AnimeCardItem } from './AnimeCard';
 import styles from './AnimeLibraryView.module.css';
 
@@ -262,7 +262,7 @@ export const AnimeLibraryView: React.FC = () => {
             className={`${styles.filterToggleBtn} ${showFilters ? styles.filterToggleBtnActive : ''}`}
             onClick={() => setShowFilters(!showFilters)}
           >
-            <span>⚙</span>
+            <SlidersHorizontal size={14} aria-hidden="true" />
             <span>Filters {hasActiveFilters ? '• Active' : ''}</span>
           </button>
         </div>
@@ -444,7 +444,7 @@ export const AnimeLibraryView: React.FC = () => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            ← Previous
+            <ArrowLeft size={14} aria-hidden="true" /> Previous
           </button>
           <span className={styles.pageIndicator}>
             Page {page} of {totalPages}
@@ -458,7 +458,7 @@ export const AnimeLibraryView: React.FC = () => {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            Next →
+            Next <ArrowRight size={13} aria-hidden="true" />
           </button>
         </div>
       )}

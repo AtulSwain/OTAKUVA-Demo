@@ -313,7 +313,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
               <span style={{ fontSize: '12px', color: '#64748b' }}>ID: {studio?.id}</span>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button aria-label="Close" className={styles.closeBtn} onClick={onClose}>
             <X size={20} />
           </button>
         </div>
@@ -668,7 +668,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
                       <span className={styles.badge}>{p.role}</span>
                       {p.isPrimary && <span style={{ fontSize: '11px', color: '#4ade80' }}>Primary</span>}
                     </div>
-                    <button
+                    <button aria-label="Unlink anime"
                       type="button"
                       className={styles.iconActionBtn}
                       onClick={() => handleUnlinkAnime(p.id)}

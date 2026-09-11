@@ -134,12 +134,12 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
   const primaryTierLabel = (getRatingTier(primaryAspect.averageScore)?.label ?? NO_SCORE_LABEL).toLowerCase();
   const dynamicSummary =
     weakestAspect && weakestAspect.category !== primaryAspect.category
-      ? `Rated ${overallLabel.toLowerCase()} overall. Its strongest dimension is ${primaryAspect.label} (★ ${primaryAspect.averageScore.toFixed(
+      ? `Rated ${overallLabel.toLowerCase()} overall. Its strongest dimension is ${primaryAspect.label} (${primaryAspect.averageScore.toFixed(
           1
-        )}, ${primaryTierLabel}) and its weakest is ${weakestAspect.label} (★ ${weakestAspect.averageScore.toFixed(
+        )}, ${primaryTierLabel}) and its weakest is ${weakestAspect.label} (${weakestAspect.averageScore.toFixed(
           1
         )}, ${(getRatingTier(weakestAspect.averageScore)?.label ?? NO_SCORE_LABEL).toLowerCase()}).`
-      : `Rated ${overallLabel.toLowerCase()} overall, led by ${primaryAspect.label} (★ ${primaryAspect.averageScore.toFixed(
+      : `Rated ${overallLabel.toLowerCase()} overall, led by ${primaryAspect.label} (${primaryAspect.averageScore.toFixed(
           1
         )}, ${primaryTierLabel}).`;
 
@@ -232,7 +232,7 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
                 <div className={styles.barLabelRow}>
                   <span>{item.label}</span>
                   <span className={styles.barPercent}>
-                    <span>★ {item.averageScore.toFixed(1)}</span>
+                    <span><Star size={12} fill="currentColor" aria-hidden="true" /> {item.averageScore.toFixed(1)}</span>
                     {barTier && (
                       <small
                         className={styles.barTierChip}
@@ -281,7 +281,7 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
             <div className={styles.metricRow}>
               <span className={styles.metricLabel}>Leading Dimension</span>
               <span className={styles.metricValue}>
-                {primaryAspect.label} (★ {primaryAspect.averageScore.toFixed(1)})
+                {primaryAspect.label} ({primaryAspect.averageScore.toFixed(1)}/10)
               </span>
             </div>
             <div className={styles.metricRow}>

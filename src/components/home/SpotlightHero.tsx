@@ -130,7 +130,7 @@ export const SpotlightHero: React.FC<SpotlightHeroProps> = ({
             }}
           >
             <Play size={15} fill="currentColor" />
-            <span>▶ Trailer</span>
+            <span>Trailer</span>
           </button>
         </div>
 

@@ -15,6 +15,7 @@ import {
   Users,
   Eye,
   Check,
+  EyeOff,
 } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { getAvatarUrl } from '../../lib/mediaResolver';
@@ -344,7 +345,7 @@ export const CommunityChatView: React.FC<CommunityChatViewProps> = ({
         <div className={styles.sidebarHeader}>
           <span>CHANNELS</span>
           {isMod && (
-            <button
+            <button aria-label="Create Channel"
               type="button"
               className={styles.addChannelBtn}
               onClick={() => setShowAddChannelModal(true)}
@@ -495,9 +496,17 @@ export const CommunityChatView: React.FC<CommunityChatViewProps> = ({
                     {isMsgSpoiler && !isRevealed ? (
                       <div
                         className={styles.spoilerShield}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => toggleSpoilerReveal(msg.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleSpoilerReveal(msg.id);
+                          }
+                        }}
                       >
-                        ⚠️ Spoiler content — click to reveal
+                        <EyeOff size={13} aria-hidden="true" /> Spoiler content — click to reveal
                       </div>
                     ) : (
                       <div className={styles.messageBody}>{msg.body}</div>
@@ -619,7 +628,7 @@ export const CommunityChatView: React.FC<CommunityChatViewProps> = ({
                   style={{ width: '100%' }}
                 >
                   <option value="TEXT"># Text Channel</option>
-                  <option value="ANNOUNCEMENT">📢 Announcement Channel</option>
+                  <option value="ANNOUNCEMENT">Announcement Channel</option>
                 </select>
               </div>
 

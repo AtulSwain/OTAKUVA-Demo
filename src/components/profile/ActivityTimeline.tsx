@@ -114,7 +114,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             'anime'
           )}
           {meta.rating ? (
-            <span className={styles.scoreBadge}>★ {meta.rating}/10</span>
+            <span className={styles.scoreBadge}><Star size={12} fill="currentColor" aria-hidden="true" /> {meta.rating}/10</span>
           ) : null}
         </span>
       );

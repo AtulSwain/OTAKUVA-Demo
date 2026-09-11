@@ -18,7 +18,6 @@ export const Footer: React.FC = () => {
               <Link href="/anime" className={styles.footerLink}>Anime</Link>
               <Link href="/studios" className={styles.footerLink}>Studios</Link>
               <Link href="/production" className={styles.footerLink}>Production</Link>
-              <Link href="/creators" className={styles.footerLink}>Creators</Link>
             </div>
 
             <div className={styles.linkGroup}>

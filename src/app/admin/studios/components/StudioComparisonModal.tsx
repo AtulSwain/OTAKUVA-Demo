@@ -82,7 +82,7 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
               </p>
             </div>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose}>
+          <button aria-label="Close" type="button" className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
         </div>

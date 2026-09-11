@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { AnimeImage } from './AnimeImage';
 import styles from './AnimeCard.module.css';
+import { Star } from 'lucide-react';
 
 export interface AnimeCardItem {
   id: string;
@@ -74,7 +75,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
         </div>
         {displayScore && (
           <div className={styles.listScore}>
-            <span>★</span>
+            <Star size={11} fill="currentColor" aria-hidden="true" />
             <span>{displayScore}</span>
           </div>
         )}
@@ -89,7 +90,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
           <AnimeImage src={anime.posterImage} alt={displayTitle} fill />
           {displayScore && (
             <div className={styles.scoreBadge}>
-              <span>★</span>
+              <Star size={11} fill="currentColor" aria-hidden="true" />
               <span>{displayScore}</span>
             </div>
           )}
@@ -112,7 +113,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
         <AnimeImage src={anime.posterImage} alt={displayTitle} fill />
         {displayScore && (
           <div className={styles.scoreBadge}>
-            <span>★</span>
+            <Star size={11} fill="currentColor" aria-hidden="true" />
             <span>{displayScore}</span>
           </div>
         )}

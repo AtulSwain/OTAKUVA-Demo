@@ -334,7 +334,7 @@ export default function SchedulePage() {
                     <span>•</span>
 
                     {/* Reminder Bell Button */}
-                    <button
+                    <button aria-label={hasRem ? 'Reminder Active' : 'Set Release Reminder'}
                       type="button"
                       className={`${styles.bellBtn} ${hasRem ? styles.bellBtnActive : ''}`}
                       onClick={() => handleToggleReminder(item.id)}

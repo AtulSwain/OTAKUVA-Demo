@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Bookmark,
   Check,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import { AnimeCard } from '../../../components/ui/AnimeCard';
 import { AnimeGrid } from '../../../components/ui/AnimeGrid';
@@ -157,7 +159,7 @@ export default function StudioDetailPage() {
           <h2>Studio Not Found</h2>
           <p>The requested animation studio could not be retrieved from the catalog.</p>
           <Link href="/studios" className={styles.backBtn}>
-            ← Return to Studios Directory
+            <ArrowLeft size={14} aria-hidden="true" /> Return to Studios Directory
           </Link>
         </div>
       </div>
@@ -200,7 +202,7 @@ export default function StudioDetailPage() {
               {studio.nativeName && <span className={styles.nativeName}>{studio.nativeName}</span>}
               {studio.verificationStatus === 'VERIFIED' && (
                 <span style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-                  ✓ VERIFIED DATA
+                  <Check size={12} aria-hidden="true" /> VERIFIED DATA
                 </span>
               )}
             </div>
@@ -255,7 +257,7 @@ export default function StudioDetailPage() {
           </div>
           <div className={styles.statBox}>
             <span className={styles.statLabel}>Average Community Score</span>
-            <span className={styles.statValue}>★ {studio.stats?.averageScore || 8.2}</span>
+            <span className={styles.statValue}>{studio.stats?.averageScore ? <><Star size={12} fill="currentColor" aria-hidden="true" /> {studio.stats.averageScore}</> : '—'}</span>
           </div>
           <div className={styles.statBox}>
             <span className={styles.statLabel}>TV Series</span>
@@ -284,7 +286,7 @@ export default function StudioDetailPage() {
                 href={`/anime/${personalization.unwatchedRecommendations[0].slug}`}
                 style={{ fontSize: '12px', color: '#c4b5fd', textDecoration: 'none', background: 'rgba(139,92,246,0.2)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600 }}
               >
-                Recommended Next: {personalization.unwatchedRecommendations[0].canonicalTitle} →
+                Recommended Next: {personalization.unwatchedRecommendations[0].canonicalTitle} <ArrowRight size={13} aria-hidden="true" />
               </Link>
             )}
           </div>
@@ -466,7 +468,7 @@ export default function StudioDetailPage() {
                     className={`${styles.timelinePill} ${historyMajorOnly ? styles.timelinePillActive : ''}`}
                     onClick={() => setHistoryMajorOnly(!historyMajorOnly)}
                   >
-                    ★ Major Milestones Only
+                    <Star size={12} fill="currentColor" aria-hidden="true" /> Major Milestones Only
                   </button>
                   <select
                     className={styles.sortSelect}
@@ -547,7 +549,7 @@ export default function StudioDetailPage() {
                                   </span>
                                   {event.anime.score && (
                                     <span style={{ fontSize: '11px', color: '#fbbf24' }}>
-                                      Score: ★ {event.anime.score} · {event.anime.type || 'TV'}
+                                      Score: <Star size={12} fill="currentColor" aria-hidden="true" /> {event.anime.score}{event.anime.type ? ` · ${event.anime.type}` : ''}
                                     </span>
                                   )}
                                 </div>
@@ -621,7 +623,7 @@ export default function StudioDetailPage() {
                         <h4 className={styles.founderName}>{founder.name}</h4>
                         <span className={styles.founderRole}>{founder.role}</span>
                         {founder.bio && <p className={styles.founderBio}>{founder.bio}</p>}
-                        <span className={styles.viewProfileLink}>View Creator Profile →</span>
+                        <span className={styles.viewProfileLink}>View Creator Profile <ArrowRight size={13} aria-hidden="true" /></span>
                       </div>
                     </Link>
                   ))
@@ -720,7 +722,7 @@ export default function StudioDetailPage() {
                     </span>
                   </div>
                   <div style={{ fontSize: '24px', fontWeight: 800, color: '#fbbf24', margin: '4px 0' }}>
-                    ★ {advancedAnalytics.ratings.bayesianScore || advancedAnalytics.ratings.rawAverage || 'N/A'}
+                    <Star size={12} fill="currentColor" aria-hidden="true" /> {advancedAnalytics.ratings.bayesianScore || advancedAnalytics.ratings.rawAverage || 'N/A'}
                   </div>
                   <span style={{ fontSize: '11px', color: '#cbd5e1' }}>
                     {advancedAnalytics.ratings.consistency?.tier.replace(/_/g, ' ')} (σ = {advancedAnalytics.ratings.consistency?.standardDeviation})
@@ -838,7 +840,7 @@ export default function StudioDetailPage() {
                 <div className={styles.statMetricCard}>
                   <span className={styles.statMetricLabel}>Average Score</span>
                   <span className={styles.statMetricVal} style={{ color: '#fbbf24' }}>
-                    {studioAnalytics.overview.averageScore ? `★ ${studioAnalytics.overview.averageScore}` : 'N/A'}
+                    {studioAnalytics.overview.averageScore ? <><Star size={12} fill="currentColor" aria-hidden="true" /> {studioAnalytics.overview.averageScore}</> : 'N/A'}
                   </span>
                   <span style={{ fontSize: '11px', color: '#64748b' }}>{studioAnalytics.overview.sampleSizeContext}</span>
                 </div>
@@ -859,7 +861,7 @@ export default function StudioDetailPage() {
                   <div style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <span style={{ fontSize: '11px', color: '#fbbf24', textTransform: 'uppercase', fontWeight: 700 }}>Highest Rated Project</span>
                     <h4 style={{ margin: '4px 0', fontSize: '14px', color: '#ffffff' }}>{studioAnalytics.highlights.highestRated.title}</h4>
-                    <span style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: 700 }}>Score: ★ {studioAnalytics.highlights.highestRated.score}</span>
+                    <span style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: 700 }}>Score: <Star size={12} fill="currentColor" aria-hidden="true" /> {studioAnalytics.highlights.highestRated.score}</span>
                   </div>
                 )}
                 {studioAnalytics.highlights.mostReviewed && (
@@ -911,7 +913,7 @@ export default function StudioDetailPage() {
                     <div key={aspect} style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
                         <span style={{ textTransform: 'capitalize', color: '#cbd5e1', fontWeight: 600 }}>{aspect.replace(/([A-Z])/g, ' $1')}</span>
-                        <span style={{ color: '#fbbf24', fontWeight: 700 }}>★ {score}</span>
+                        <span style={{ color: '#fbbf24', fontWeight: 700 }}><Star size={12} fill="currentColor" aria-hidden="true" /> {score}</span>
                       </div>
                       <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{ width: `${(score / 10) * 100}%`, height: '100%', background: '#8b5cf6', borderRadius: '2px' }} />
@@ -955,14 +957,14 @@ export default function StudioDetailPage() {
                   <div style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
                     <span style={{ fontSize: '11px', color: '#94a3b8' }}>Average Episode Rating</span>
                     <div style={{ fontSize: '16px', fontWeight: 700, color: '#4ade80' }}>
-                      ★ {studioDashboard.episodeAnalytics.averageEpisodeScore}
+                      <Star size={12} fill="currentColor" aria-hidden="true" /> {studioDashboard.episodeAnalytics.averageEpisodeScore}
                     </div>
                   </div>
                   {studioDashboard.episodeAnalytics.highestRatedEpisode && (
                     <div style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
                       <span style={{ fontSize: '11px', color: '#fbbf24' }}>Highest Rated Episode</span>
                       <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#ffffff' }}>
-                        {studioDashboard.episodeAnalytics.highestRatedEpisode.animeTitle} Ep {studioDashboard.episodeAnalytics.highestRatedEpisode.episodeNumber} (★ {studioDashboard.episodeAnalytics.highestRatedEpisode.score})
+                        {studioDashboard.episodeAnalytics.highestRatedEpisode.animeTitle} Ep {studioDashboard.episodeAnalytics.highestRatedEpisode.episodeNumber} (<Star size={12} fill="currentColor" aria-hidden="true" /> {studioDashboard.episodeAnalytics.highestRatedEpisode.score})
                       </div>
                     </div>
                   )}
@@ -977,7 +979,7 @@ export default function StudioDetailPage() {
                       {studioDashboard.episodeAnalytics.episodeProgression.map((ep: any) => (
                         <div key={ep.episodeNumber} style={{ minWidth: '60px', padding: '6px 8px', background: 'rgba(139,92,246,0.15)', borderRadius: '6px', textAlign: 'center' }}>
                           <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>Ep {ep.episodeNumber}</span>
-                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#c4b5fd' }}>★ {ep.averageScore}</span>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#c4b5fd' }}><Star size={12} fill="currentColor" aria-hidden="true" /> {ep.averageScore}</span>
                         </div>
                       ))}
                     </div>
@@ -1035,7 +1037,7 @@ export default function StudioDetailPage() {
                         href={`/c/${c.slug}`}
                         style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: 600, textDecoration: 'none' }}
                       >
-                        {c.isMember ? 'Open Community →' : 'Join Hub →'}
+                        {c.isMember ? 'Open Community' : 'Join Hub'} <ArrowRight size={13} aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
@@ -1097,7 +1099,7 @@ export default function StudioDetailPage() {
                 </div>
                 <div className={styles.statMetricCard}>
                   <span className={styles.statMetricLabel}>Average Score</span>
-                  <span className={styles.statMetricVal}>★ {studio.stats?.averageScore}</span>
+                  <span className={styles.statMetricVal}><Star size={12} fill="currentColor" aria-hidden="true" /> {studio.stats?.averageScore}</span>
                 </div>
                 <div className={styles.statMetricCard}>
                   <span className={styles.statMetricLabel}>TV Broadcast Series</span>
@@ -1163,7 +1165,7 @@ export default function StudioDetailPage() {
 
                     <div className={styles.newsItemFooter} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Link href={`/news/${article.slug}`} className={styles.openStoryBtn}>
-                        Read in Reader →
+                        Read in Reader <ArrowRight size={13} aria-hidden="true" />
                       </Link>
                       {article.canonicalUrl && (
                         <a

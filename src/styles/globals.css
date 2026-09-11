@@ -109,3 +109,10 @@ input:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* Lucide icons placed inline with text (e.g. "Back", "Explore →") sit on the
+   text baseline instead of floating above it. No effect inside flex rows. */
+svg.lucide {
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+}

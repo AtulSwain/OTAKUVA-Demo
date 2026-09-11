@@ -221,13 +221,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
           </Link>
 
           <Link
-            href="/creators"
-            className={`${styles.navLink} ${isLinkActive('/creators') || isLinkActive('/person') || isLinkActive('/people') ? styles.navLinkActive : ''}`}
-          >
-            Creators
-          </Link>
-
-          <Link
             href="/schedule"
             className={`${styles.navLink} ${isLinkActive('/schedule') ? styles.navLinkActive : ''}`}
           >
@@ -236,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
 
           <Link
             href="/artists"
-            className={`${styles.navLink} ${isLinkActive('/artists') || isLinkActive('/directory') ? styles.navLinkActive : ''}`}
+            className={`${styles.navLink} ${isLinkActive('/artists') || isLinkActive('/directory') || isLinkActive('/person') || isLinkActive('/people') || isLinkActive('/creator') ? styles.navLinkActive : ''}`}
           >
             Artists
           </Link>
@@ -450,9 +443,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
             </Link>
             <Link href="/production" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
               <span>Production</span>
-            </Link>
-            <Link href="/creators" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Creators</span>
             </Link>
             <Link href="/artists" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
               <span>Artists</span>

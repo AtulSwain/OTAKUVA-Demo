@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import styles from './page.module.css';
+import { ArrowLeft, Star } from 'lucide-react';
 
 interface ProductionItem {
   id: string;
@@ -69,7 +70,7 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
     return (
       <div className={styles.container}>
         <Link href="/discover" className={styles.backLink}>
-          ← Back to Catalog
+          <ArrowLeft size={14} aria-hidden="true" /> Back to Catalog
         </Link>
         <h1 className={styles.title}>Franchise Not Found</h1>
         <p className={styles.description}>No franchise information found for &ldquo;{params.slug}&rdquo;.</p>
@@ -88,7 +89,7 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
     <div className={styles.container}>
       <div className={styles.header}>
         <Link href="/discover" className={styles.backLink}>
-          ← Back to Catalog
+          <ArrowLeft size={14} aria-hidden="true" /> Back to Catalog
         </Link>
         <h1 className={styles.title}>{franchise.name}</h1>
         {franchise.description && <p className={styles.description}>{franchise.description}</p>}
@@ -153,7 +154,7 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
                 )}
                 {item.score && (
                   <span className={styles.cardRating}>
-                    <span className={styles.starIcon}>★</span> {item.score.toFixed(1)}
+                    <Star size={12} fill="currentColor" className={styles.starIcon} aria-hidden="true" /> {item.score.toFixed(1)}
                   </span>
                 )}
               </div>

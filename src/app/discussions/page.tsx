@@ -273,7 +273,7 @@ export default function PublicDiscussionsPage() {
           <div className={styles.modalBox}>
             <div className={styles.modalHeader}>
               <h2 className={styles.modalTitle}>Start a New Discussion</h2>
-              <button
+              <button aria-label="Close"
                 type="button"
                 className={styles.closeBtn}
                 onClick={() => setShowModal(false)}

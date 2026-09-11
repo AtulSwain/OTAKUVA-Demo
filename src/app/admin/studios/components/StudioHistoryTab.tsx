@@ -403,7 +403,7 @@ export function StudioHistoryTab({ studioId }: Props) {
                 >
                   {e.publicationState === 'PUBLISHED' ? <Eye size={14} color="#4ade80" /> : <EyeOff size={14} color="#94a3b8" />}
                 </button>
-                <button
+                <button aria-label="Edit Milestone"
                   type="button"
                   className={styles.iconActionBtn}
                   onClick={() => openEditModal(e)}
@@ -411,7 +411,7 @@ export function StudioHistoryTab({ studioId }: Props) {
                 >
                   <Edit2 size={14} />
                 </button>
-                <button
+                <button aria-label="Archive Milestone"
                   type="button"
                   className={styles.iconActionBtn}
                   onClick={() => handleArchive(e.id)}
@@ -435,7 +435,7 @@ export function StudioHistoryTab({ studioId }: Props) {
                 <HistoryIcon color="#8b5cf6" size={22} />
                 <h3 className={styles.modalTitle}>{editingEventId ? 'Edit History Milestone' : 'Add History Milestone'}</h3>
               </div>
-              <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
+              <button aria-label="Close" className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
                 <X size={20} />
               </button>
             </div>

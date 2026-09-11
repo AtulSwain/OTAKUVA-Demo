@@ -299,14 +299,14 @@ export default function AdminStudiosPage() {
                   </td>
                   <td>
                     <div className={styles.actionBtns}>
-                      <button
+                      <button aria-label="Edit studio & link relations"
                         className={styles.iconActionBtn}
                         onClick={() => setEditingStudioId(s.id)}
                         title="Edit studio & link relations"
                       >
                         <Edit2 size={14} />
                       </button>
-                      <button
+                      <button aria-label="Inspect Knowledge Graph"
                         className={styles.iconActionBtn}
                         onClick={() => {
                           setGraphStudioId(s.id);
@@ -317,7 +317,7 @@ export default function AdminStudiosPage() {
                       >
                         <Network size={14} />
                       </button>
-                      <button
+                      <button aria-label="Compare Studio"
                         className={styles.iconActionBtn}
                         onClick={() => {
                           setCompareStudioId(s.id);
@@ -327,7 +327,7 @@ export default function AdminStudiosPage() {
                       >
                         <GitCompare size={14} />
                       </button>
-                      <button
+                      <button aria-label="Merge with duplicate"
                         className={styles.iconActionBtn}
                         onClick={() => {
                           setInitialMergeStudioId(s.id);
@@ -337,7 +337,7 @@ export default function AdminStudiosPage() {
                       >
                         <GitMerge size={14} />
                       </button>
-                      <Link
+                      <Link aria-label="View public profile"
                         href={`/studio/${s.slug}`}
                         target="_blank"
                         className={styles.iconActionBtn}

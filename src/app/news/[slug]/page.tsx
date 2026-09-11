@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Flame,
   Users,
+  ArrowRight,
 } from 'lucide-react';
 import styles from './reader.module.css';
 
@@ -141,7 +142,7 @@ export default function NewsReaderPage() {
         <h2>Article Not Found</h2>
         <p>The requested news article could not be retrieved from the catalog.</p>
         <Link href="/news" className={styles.backLinkBtn}>
-          ← Return to News Platform
+          <ArrowLeft size={14} aria-hidden="true" /> Return to News Platform
         </Link>
       </div>
     );
@@ -422,7 +423,7 @@ export default function NewsReaderPage() {
                     )}
                     <div className={styles.entityMeta}>
                       <span className={styles.entityTitle}>{anime.canonicalTitle}</span>
-                      <span className={styles.entitySubtitle}>View Catalog Page →</span>
+                      <span className={styles.entitySubtitle}>View Catalog Page <ArrowRight size={13} aria-hidden="true" /></span>
                     </div>
                   </Link>
                 ))}
@@ -442,7 +443,7 @@ export default function NewsReaderPage() {
                   <Link key={studio.id} href={`/studio/${studio.slug}`} className={styles.entityItem}>
                     <div className={styles.entityMeta}>
                       <span className={styles.entityTitle}>{studio.name}</span>
-                      <span className={styles.entitySubtitle}>Explore Studio Portfolio →</span>
+                      <span className={styles.entitySubtitle}>Explore Studio Portfolio <ArrowRight size={13} aria-hidden="true" /></span>
                     </div>
                   </Link>
                 ))}

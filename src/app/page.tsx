@@ -14,6 +14,14 @@ import { useAuth } from '../context/AuthContext';
 import { getAnimeDisplayTitle } from '../lib/animeTitleResolver';
 import styles from './page.module.css';
 
+
+// The broadcast season for today, e.g. "Fall 2026" — computed, not a hard-coded
+// label that goes stale every three months.
+function currentSeasonLabel(now = new Date()): string {
+  const seasons = ['Winter', 'Spring', 'Summer', 'Fall'];
+  return `${seasons[Math.floor(now.getMonth() / 3)]} ${now.getFullYear()}`;
+}
+
 type HomeAnime = Anime & {
   otakuva_anime_id?: string;
   otakuvaScore?: number | null;
@@ -234,7 +242,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>Trending Now</h2>
             </div>
             <Link href="/rankings" className={styles.sectionSub}>
-              What&apos;s moving on OTAKUVA →
+              What&apos;s moving on OTAKUVA <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -278,7 +286,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>This Season</h2>
             </div>
             <Link href="/seasonal" className={styles.sectionSub}>
-              Summer 2026 · Explore season →
+              {currentSeasonLabel()} · Explore season <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -320,7 +328,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>OTAKUVA Top Rated</h2>
             </div>
             <Link href="/rankings" className={styles.sectionSub}>
-              The highest-rated stories →
+              The highest-rated stories <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -374,7 +382,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>Studios</h2>
             </div>
             <Link href="/studios" className={styles.sectionSub}>
-              Explore production →
+              Explore production <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -405,8 +413,8 @@ export default function HomePage() {
               <p className={styles.kicker}>The people</p>
               <h2 className={styles.sectionTitle}>Creators</h2>
             </div>
-            <Link href="/creators" className={styles.sectionSub}>
-              Directors · Writers · Artists →
+            <Link href="/artists" className={styles.sectionSub}>
+              Directors · Writers · Artists <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -438,7 +446,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>Latest Anime News</h2>
             </div>
             <Link href="/news" className={styles.sectionSub}>
-              View all news →
+              View all news <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 
@@ -478,7 +486,7 @@ export default function HomePage() {
               <h2 className={styles.sectionTitle}>Community</h2>
             </div>
             <Link href="/community" className={styles.sectionSub}>
-              Explore discussions →
+              Explore discussions <ArrowRight size={13} aria-hidden="true" />
             </Link>
           </div>
 

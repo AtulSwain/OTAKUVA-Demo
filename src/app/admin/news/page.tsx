@@ -621,10 +621,10 @@ export default function AdminNewsPage() {
                         </td>
                         <td>
                           <div className={styles.tableActions}>
-                            <Link href={`/news/${article.slug || article.id}`} target="_blank" className={styles.iconActionBtn} title="View Reader">
+                            <Link aria-label="View Reader" href={`/news/${article.slug || article.id}`} target="_blank" className={styles.iconActionBtn} title="View Reader">
                               <Eye size={13} />
                             </Link>
-                            <button
+                            <button aria-label="Edit / Override"
                               type="button"
                               className={styles.iconActionBtn}
                               onClick={() => setEditingArticle(article)}
@@ -632,7 +632,7 @@ export default function AdminNewsPage() {
                             >
                               <Edit2 size={13} />
                             </button>
-                            <button
+                            <button aria-label="Quality Check"
                               type="button"
                               className={styles.iconActionBtn}
                               onClick={() => handleRunQualityCheck(article.id)}
@@ -641,7 +641,7 @@ export default function AdminNewsPage() {
                               <Shield size={13} />
                             </button>
                             {article.hasAdminOverride && (
-                              <button
+                              <button aria-label="Reset to Provider Values"
                                 type="button"
                                 className={styles.iconActionBtn}
                                 onClick={() => handleResetOverride(article.id)}
@@ -651,7 +651,7 @@ export default function AdminNewsPage() {
                               </button>
                             )}
                             {article.status === 'PUBLISHED' ? (
-                              <button
+                              <button aria-label="Unpublish to Draft"
                                 type="button"
                                 className={styles.iconActionBtn}
                                 onClick={() => handleStatusChange(article.id, 'UNPUBLISH')}
@@ -660,7 +660,7 @@ export default function AdminNewsPage() {
                                 <Archive size={13} />
                               </button>
                             ) : (
-                              <button
+                              <button aria-label="Publish"
                                 type="button"
                                 className={styles.iconActionBtn}
                                 onClick={() => handleStatusChange(article.id, 'PUBLISH')}
@@ -669,7 +669,7 @@ export default function AdminNewsPage() {
                                 <Check size={13} />
                               </button>
                             )}
-                            <button
+                            <button aria-label="Soft Delete"
                               type="button"
                               className={styles.iconActionBtn}
                               onClick={() => handleStatusChange(article.id, 'DELETE')}

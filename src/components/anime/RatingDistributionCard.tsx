@@ -10,6 +10,7 @@ import {
   NO_SCORE_LABEL,
 } from '../../lib/rating/ratingTiers';
 import styles from './RatingDistributionCard.module.css';
+import { Star } from 'lucide-react';
 
 interface RatingDistributionCardProps {
   score?: number | null;
@@ -99,7 +100,7 @@ export const RatingDistributionCard: React.FC<RatingDistributionCardProps> = ({
           </span>
           {onOpenRateModal && (
             <button type="button" className={styles.rateActionBtn} onClick={onOpenRateModal}>
-              ★ Rate Anime
+              <Star size={13} aria-hidden="true" /> Rate Anime
             </button>
           )}
         </div>

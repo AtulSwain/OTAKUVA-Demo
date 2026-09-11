@@ -80,7 +80,7 @@ export function CreateStudioModal({ isOpen, onClose, onSuccess }: Props) {
             <Building2 color="#8b5cf6" size={22} />
             <h2 className={styles.modalTitle}>Create New Studio</h2>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button aria-label="Close" className={styles.closeBtn} onClick={onClose}>
             <X size={20} />
           </button>
         </div>
