@@ -74,6 +74,15 @@
 .mainTabs {
   display: flex;
   gap: 6px;
+  /* On narrow screens the tabs scroll sideways instead of widening the page. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mainTabs > * {
+  flex-shrink: 0;
 }
 
 .tabBtn {
@@ -210,7 +219,7 @@
 
 .communityGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 

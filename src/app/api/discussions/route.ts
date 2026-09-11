@@ -46,7 +46,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (channelId) where.channelId = channelId;
-    if (animeId) where.animeId = animeId;
+    if (animeId) {
+      // Anime pages pass their URL segment, which is usually the slug.
+      const anime = await prisma.anime.findFirst({
+        where: { OR: [{ id: animeId }, { slug: animeId }] },
+        select: { id: true },
+      });
+      where.animeId = anime?.id ?? animeId;
+    }
     if (episodeId) where.episodeId = episodeId;
     if (type && type !== 'ALL') where.type = type.toUpperCase();
 

@@ -11,13 +11,12 @@ import { OtakuvaVibe } from '../../../components/anime/OtakuvaVibe';
 import { CharacterPreview } from '../../../components/anime/CharacterPreview';
 import { EpisodeQuickList } from '../../../components/anime/EpisodeQuickList';
 import { StaffRail } from '../../../components/anime/StaffRail';
-import { ProductionTimeline } from '../../../components/anime/ProductionTimeline';
-import { PersonalizedRecommendations } from '../../../components/anime/PersonalizedRecommendations';
+import { ProductionTimeline, buildTimelineEvents } from '../../../components/anime/ProductionTimeline';
+import { PersonalizedRecommendations, RecommendationItem } from '../../../components/anime/PersonalizedRecommendations';
 import { AnimeNewsList } from '../../../components/anime/AnimeNewsList';
 import { RatingDistributionCard } from '../../../components/anime/RatingDistributionCard';
 import { AnimeReviewsCard } from '../../../components/anime/AnimeReviewsCard';
 import { CommunityTeaser } from '../../../components/anime/CommunityTeaser';
-import { UserCollectionsCard } from '../../../components/anime/UserCollectionsCard';
 import { UserActivityCard } from '../../../components/anime/UserActivityCard';
 import { AnimeImage } from '../../../components/anime/AnimeImage';
 import { AnimeStickyActionBar } from '../../../components/anime/AnimeStickyActionBar';
@@ -27,28 +26,40 @@ import { TrailerModal } from '../../../components/ui/TrailerModal';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLibrary } from '../../../context/LibraryContext';
 import { RatingSummaryResult, RatingCategoryType } from '../../../lib/rating/ratingEngine';
 import { getAnimeDisplayTitle } from '../../../lib/animeTitleResolver';
 import styles from './anime.module.css';
 
-const DEFAULT_TRAILERS: Record<string, string> = {
-  'monster': 'https://www.youtube.com/watch?v=O_79b7Fq370',
-  'frieren-beyond-journeys-end': 'https://www.youtube.com/watch?v=qgQunxD0qLk',
-  'attack-on-titan-final-season': 'https://www.youtube.com/watch?v=M_OauHnAFc8',
-  'steins-gate': 'https://www.youtube.com/watch?v=uMYhjVwp0Fk',
-  'jujutsu-kaisen': 'https://www.youtube.com/watch?v=pkKu9hLT-t8',
-  'demon-slayer': 'https://www.youtube.com/watch?v=VQGCKyvzIM4',
-  'solo-leveling': 'https://www.youtube.com/watch?v=6u_U_GjQeWw',
-  'vinland-saga': 'https://www.youtube.com/watch?v=f8JrZ7Q_Fxs',
-  'death-note': 'https://www.youtube.com/watch?v=NlJZ-YgAt-c',
-  'fullmetal-alchemist-brotherhood': 'https://www.youtube.com/watch?v=--IcmZkvL0Q',
-};
+// The relations API nests each entry under `relatedAnime`; the page renders
+// flat cards. Entries without a canonical slug are dropped rather than
+// linked to /anime/undefined.
+function flattenRelations(raw: any[]): any[] {
+  return raw
+    .map((r) => (r?.relatedAnime ? { ...r.relatedAnime, relationType: r.relationType } : r))
+    .filter((r) => r && (r.slug || r.id));
+}
+
+function toRecommendationItems(raw: any[]): RecommendationItem[] {
+  return raw
+    .filter((r) => r && r.slug && r.canonicalTitle)
+    .map((r) => ({
+      id: r.id,
+      slug: r.slug,
+      title: r.canonicalTitle,
+      posterImage: r.posterUrl || null,
+      score: typeof r.score === 'number' ? r.score : null,
+      genre: Array.isArray(r.genres) && r.genres.length > 0 ? r.genres.slice(0, 2).join(' • ') : null,
+      reason: r.explanation || null,
+    }));
+}
 
 export default function AnimeDetailPage() {
   const params = useParams();
   const id = (params?.id as string) || '';
   const { user, openAuthModalWithIntent, consumePendingIntent, pendingIntent } = useAuth();
   const { showToast } = useToast();
+  const { getItem: getLibraryItem } = useLibrary();
 
   const [anime, setAnime] = useState<Anime | null>(null);
   const [characters, setCharacters] = useState<any[]>([]);
@@ -72,6 +83,9 @@ export default function AnimeDetailPage() {
   const [news, setNews] = useState<any[]>([]);
   const [seasons, setSeasons] = useState<any[]>([]);
   const [episodes, setEpisodes] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
+  // Server-computed "lowest unwatched released episode" for the viewer.
+  const [nextEpisodeNumber, setNextEpisodeNumber] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(!anime);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
@@ -219,7 +233,7 @@ export default function AnimeDetailPage() {
             setAnime(data.anime);
             if (data.anime.characters) setCharacters(data.anime.characters);
             if (data.anime.staff) setStaff(data.anime.staff);
-            if (data.anime.relations) setRelations(data.anime.relations);
+            if (data.anime.relations) setRelations(flattenRelations(data.anime.relations));
             if (data.anime.discussions) setDiscussions(data.anime.discussions);
           }
         }
@@ -236,7 +250,7 @@ export default function AnimeDetailPage() {
 
         if (relRes.status === 'fulfilled' && relRes.value.ok) {
           const data = await relRes.value.json();
-          if (!isCancelled && data.relations) setRelations(data.relations);
+          if (!isCancelled && Array.isArray(data.relations)) setRelations(flattenRelations(data.relations));
         }
 
         if (ratingSumRes.status === 'fulfilled' && ratingSumRes.value.ok) {
@@ -282,6 +296,7 @@ export default function AnimeDetailPage() {
             if (Array.isArray(data.episodes)) {
               setEpisodes(data.episodes);
             }
+            setNextEpisodeNumber(data.progress?.nextUnwatchedEpisodeNumber ?? null);
             if (Array.isArray(data.seasons) && data.seasons.length > 0) {
               setSeasons((prev) => (prev.length === 0 ? data.seasons : prev));
             }
@@ -299,6 +314,46 @@ export default function AnimeDetailPage() {
       isCancelled = true;
     };
   }, [id]);
+
+  // Recommendations are personalised for a signed-in viewer, so they reload
+  // when auth changes. No results means no section — never a stock list.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    fetch(`/api/anime/${id}/recommendations`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setRecommendations(toRecommendationItems(Array.isArray(data?.items) ? data.items : []));
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, user]);
+
+  // Keep "next episode" in step with the library: when the watched count
+  // changes (an episode marked from the guide), ask the server again.
+  const watchedCount = anime ? getLibraryItem(anime.id)?.episodesWatched : undefined;
+  useEffect(() => {
+    if (!user || !anime?.id) {
+      setNextEpisodeNumber(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/anime/${anime.id}/episodes?limit=1`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setNextEpisodeNumber(data.progress?.nextUnwatchedEpisodeNumber ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user, anime?.id, watchedCount]);
+
+  const timelineEvents = useMemo(() => buildTimelineEvents(anime, relations), [anime, relations]);
 
   // Only genuine, resolved relations. Padding this with arbitrary titles
   // would assert a relationship between anime that does not exist.
@@ -328,10 +383,10 @@ export default function AnimeDetailPage() {
     );
   }
 
-  // No generic fallback video: an unrelated trailer misrepresents the title.
-  // When there's no verified trailer, there's no trailer.
-  const activeTrailerUrl =
-    anime.trailerUrl || DEFAULT_TRAILERS[anime.id] || DEFAULT_TRAILERS[id] || null;
+  // Only the trailer recorded on the canonical anime. A hardcoded
+  // slug→YouTube map used to fill gaps with unverified links.
+  const activeTrailerUrl = anime.trailerUrl || null;
+  const openTrailer = activeTrailerUrl ? () => setIsTrailerOpen(true) : undefined;
 
   const totalEp = anime.episodes ?? undefined;
   const displayTitle = getAnimeDisplayTitle(anime);
@@ -364,16 +419,16 @@ export default function AnimeDetailPage() {
     setIsReviewModalOpen(true);
   };
 
+  // No studio or genre on record means none is shown — these used to fall
+  // back to "WIT Studio" and a fixed five-genre list for any anime.
   const rawStudio = (anime as any).studio || (Array.isArray(anime.studios) && anime.studios.length > 0 ? anime.studios[0] : null);
-  const mainStudioName = typeof rawStudio === 'string'
+  const mainStudioName: string | undefined = typeof rawStudio === 'string'
     ? rawStudio
-    : rawStudio?.name || 'WIT Studio';
+    : rawStudio?.name || undefined;
   const studioSlug = typeof rawStudio === 'object' && rawStudio?.slug
     ? rawStudio.slug
-    : String(mainStudioName).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  const genresList = Array.isArray(anime.genres) && anime.genres.length > 0
-    ? anime.genres
-    : ['Action', 'Dark Fantasy', 'Drama', 'Mystery', 'Shounen'];
+    : mainStudioName?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const genresList = Array.isArray(anime.genres) ? anime.genres : [];
 
   return (
     <div className={styles.page}>
@@ -381,11 +436,12 @@ export default function AnimeDetailPage() {
       <AnimeHero
         anime={anime}
         userRating={effectiveUserRating}
-        onOpenTrailer={() => setIsTrailerOpen(true)}
+        onOpenTrailer={openTrailer}
         onOpenRatingModal={handleDetailedRateClick}
         onOpenReviewDialog={handleWriteReviewClick}
         studioName={mainStudioName}
         studioSlug={studioSlug}
+        nextEpisodeNumber={nextEpisodeNumber}
       />
 
       <main className={styles.mainContainer}>
@@ -422,7 +478,7 @@ export default function AnimeDetailPage() {
                 episodesList={episodes}
                 seasonsList={seasons}
                 animeTitle={displayTitle}
-                onOpenTrailer={() => setIsTrailerOpen(true)}
+                onOpenTrailer={openTrailer}
               />
             </section>
 
@@ -439,28 +495,24 @@ export default function AnimeDetailPage() {
               <StaffRail staff={staff} />
             </section>
 
-            {/* 5. REAL-WORLD PRODUCTION TIMELINE */}
-            <section className={styles.contentSection} aria-label="Production Timeline">
-              <ProductionTimeline
-                anime={anime}
-                animeTitle={displayTitle}
-                releaseYear={anime.year}
-                relations={relations}
-                news={news}
-              />
-            </section>
+            {/* 5. TIMELINE — recorded dates only; absent when there are none */}
+            {timelineEvents.length > 0 && (
+              <section className={styles.contentSection} aria-label="Timeline">
+                <ProductionTimeline events={timelineEvents} />
+              </section>
+            )}
 
             {/* 6. OTAKUVA VIBE DIMENSIONS & PERCEPTION */}
             <section className={styles.contentSection} aria-label="OTAKUVA Vibe & Perception">
               <OtakuvaVibe
                 animeTitle={displayTitle}
                 categoryAggregates={ratingSummary?.categories}
-                ratingCount={ratingSummary?.ratingCount ?? anime.ratingCount}
+                ratingCount={ratingSummary?.ratingCount ?? 0}
                 confidence={ratingSummary?.confidence}
                 rawAverage={ratingSummary?.rawAverage}
                 onOpenRateModal={handleDetailedRateClick}
                 genres={genresList}
-                score={ratingSummary?.score ?? anime.score}
+                score={ratingSummary?.score ?? null}
               />
             </section>
 
@@ -490,8 +542,8 @@ export default function AnimeDetailPage() {
 
                 <div className={styles.relatedCardsGrid}>
                   {relatedAnimes.map((rel: any, idx: number) => {
-                    const relTitle = rel.title || rel.canonicalTitle || 'Related Anime';
-                    const relRole = rel.relationType || (idx === 0 ? 'Sequel' : idx === 1 ? 'Prequel' : 'Side Story');
+                    const relTitle = rel.title || rel.canonicalTitle || 'Untitled';
+                    const relRole = rel.relationType || 'Related';
                     return (
                       <Link
                         key={rel.id || idx}
@@ -509,8 +561,8 @@ export default function AnimeDetailPage() {
                         <div className={styles.relatedBody}>
                           <strong className={styles.relatedTitle}>{relTitle}</strong>
                           <div className={styles.relatedMeta}>
-                            <span>{rel.type || 'TV'}</span>
-                            {rel.score && <span>• ★ {Number(rel.score).toFixed(1)}</span>}
+                            {rel.type && <span>{rel.type}</span>}
+                            {typeof rel.year === 'number' && <span>{rel.type ? '• ' : ''}{rel.year}</span>}
                           </div>
                           <span className={styles.relationChip}>{relRole}</span>
                         </div>
@@ -521,10 +573,12 @@ export default function AnimeDetailPage() {
               </section>
             )}
 
-            {/* 9. PERSONALIZED RECOMMENDATIONS */}
-            <section className={styles.contentSection} aria-label="Recommendations">
-              <PersonalizedRecommendations animeTitle={displayTitle} />
-            </section>
+            {/* 9. RECOMMENDATIONS — from the recommendation engine; absent when empty */}
+            {recommendations.length > 0 && (
+              <section className={styles.contentSection} aria-label="Recommendations">
+                <PersonalizedRecommendations recommendations={recommendations} personalized={Boolean(user)} />
+              </section>
+            )}
 
             {/* 10. COMMUNITY HUB TEASER */}
             <section className={styles.contentSection} aria-label="Community Discussions">
@@ -543,31 +597,27 @@ export default function AnimeDetailPage() {
 
             {/* 2. Where to Watch */}
             <div className={styles.sidebarSection}>
-              <WhereToWatch animeTitle={displayTitle} />
+              <WhereToWatch />
             </div>
 
             {/* 3. Community Score Breakdown & Rating Distribution */}
             <div className={styles.sidebarSection}>
               <RatingDistributionCard
-                score={ratingSummary?.score ?? anime.score}
-                ratingCount={ratingSummary?.ratingCount ?? anime.ratingCount}
+                score={ratingSummary?.score ?? null}
+                ratingCount={ratingSummary?.ratingCount ?? 0}
                 distribution={ratingSummary?.distribution}
                 reviewCount={reviews.length + (userReview ? 1 : 0)}
                 onOpenRateModal={handleDetailedRateClick}
               />
             </div>
 
-            {/* 4. User Collections & Watch Activity */}
+            {/* 4. Your watch activity */}
             <div className={styles.sidebarSection}>
               <UserActivityCard
                 animeId={anime.id}
                 totalEpisodes={totalEp}
                 userRating={effectiveUserRating}
               />
-            </div>
-
-            <div className={styles.sidebarSection}>
-              <UserCollectionsCard />
             </div>
 
             {/* 5. Franchise News Feed */}
@@ -585,7 +635,7 @@ export default function AnimeDetailPage() {
         anime={anime}
         userRating={effectiveUserRating}
         onOpenRatingModal={handleDetailedRateClick}
-        onOpenTrailer={() => setIsTrailerOpen(true)}
+        onOpenTrailer={openTrailer}
       />
 
       {/* 17. TRAILER MODAL */}

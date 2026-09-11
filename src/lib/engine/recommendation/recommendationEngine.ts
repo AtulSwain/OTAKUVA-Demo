@@ -138,8 +138,13 @@ export class RecommendationRankingEngine {
 
     // Fallback if catalog is sparse
     if (candidatePool.length === 0) {
+      // Cold start: the most-followed titles by recorded member count — the
+      // reason text says exactly that. (This was an unordered findMany
+      // labelled "Popular in the OTAKUVA community".)
       const fallbackAll = await prisma.anime.findMany({
         take: limit,
+        where: targetAnimeId ? { id: { not: targetAnimeId } } : undefined,
+        orderBy: [{ members: 'desc' }],
         include: {
           animeGenres: { include: { genre: true } },
           animeThemes: { include: { theme: true } },
@@ -165,11 +170,11 @@ export class RecommendationRankingEngine {
           type: a.type,
           year: a.year,
           recommendationScore: 7.0,
-          explanation: 'Popular in the OTAKUVA community',
-          matchReasons: ['Popular title with strong community reception'],
+          explanation: 'Widely followed',
+          matchReasons: ['Among the most-followed titles in the catalog'],
           structuredExplanation: {
             reasonType: 'POPULAR',
-            reasonText: 'Popular in the OTAKUVA community',
+            reasonText: 'Widely followed',
           },
           sources: ['POPULAR'],
           genres: a.animeGenres.map((g) => g.genre.name),
@@ -255,9 +260,12 @@ export class RecommendationRankingEngine {
           reasonText: primaryReason,
         };
       } else {
+        // No specific signal fired. Don't claim one — OTAKUVA's own rating
+        // pool is far too small to call anything "highly rated by the
+        // community".
         structuredExplanation = {
           reasonType: 'POPULAR',
-          reasonText: 'Highly rated by the OTAKUVA community',
+          reasonText: 'From the OTAKUVA catalog',
         };
       }
 

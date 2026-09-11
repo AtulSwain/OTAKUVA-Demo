@@ -41,7 +41,8 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ anime, isOpen, o
   const animeId = anime.slug || anime.id;
   const inLibrary = Boolean(library[animeId]);
   const isFavorite = Boolean(library[animeId]?.isFavorite);
-  const score = anime.score ? anime.score.toFixed(2) : '9.00';
+  // External score when recorded; never a stand-in value.
+  const score = typeof anime.score === 'number' ? anime.score.toFixed(1) : null;
   const banner = anime.bannerImage || (anime as any).bannerUrl || anime.posterImage || (anime as any).posterUrl;
 
   const studioName = Array.isArray(anime.studios) && anime.studios.length > 0
@@ -97,19 +98,28 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ anime, isOpen, o
               {altTitle && <span className={styles.altTitle}>{altTitle}</span>}
             </div>
 
-            <div className={styles.scoresRow}>
-              <div className={styles.otakuvaScore} title="OTAKUVA Bayesian Score">
-                <Star size={11} fill="currentColor" />
-                <span>OTAKUVA {score}</span>
+            {score && (
+              <div className={styles.scoresRow}>
+                <div className={styles.otakuvaScore} title="Score from external rating sources">
+                  <Star size={11} fill="currentColor" aria-hidden="true" />
+                  <span>Score {score}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className={styles.metaRow}>
-              <span>{anime.year || (anime as any).startYear || 2024}</span>
-              <span className={styles.metaDot}>·</span>
-              <span>{anime.type || 'TV'}</span>
-              <span className={styles.metaDot}>·</span>
-              <span>{anime.episodes ? `${anime.episodes} Episodes` : 'Ongoing'}</span>
+              {[
+                anime.year || (anime as any).startYear || null,
+                anime.type || null,
+                anime.episodes ? `${anime.episodes} Episodes` : null,
+              ]
+                .filter(Boolean)
+                .map((fact, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <span className={styles.metaDot}>·</span>}
+                    <span>{fact}</span>
+                  </React.Fragment>
+                ))}
               {studioName && (
                 <>
                   <span className={styles.metaDot}>·</span>

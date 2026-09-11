@@ -13,9 +13,9 @@ interface CategoryItem {
 export const DiscoverMoreSection: React.FC = () => {
   const categories: CategoryItem[] = [
     { title: 'Top Ranked', subtitle: 'Leaderboards & scores', href: '/rankings' },
-    { title: 'Seasonal Anime', subtitle: 'Summer 2026 broadcast', href: '/seasonal' },
+    { title: 'Seasonal Anime', subtitle: 'This season’s broadcasts', href: '/seasonal' },
     { title: 'Airing Schedule', subtitle: 'Broadcast calendar', href: '/airing' },
-    { title: 'Animation Studios', subtitle: '23 verified studios', href: '/studios' },
+    { title: 'Animation Studios', subtitle: 'Studios & their works', href: '/studios' },
     { title: 'Staff & Creators', subtitle: 'Directors & writers', href: '/creators' },
     { title: 'Community Hub', subtitle: 'Discussions & reviews', href: '/community' },
   ];

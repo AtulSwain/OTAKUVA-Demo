@@ -311,7 +311,8 @@
 /* News Grid */
 .newsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  /* min() keeps a 340px card from overflowing a narrower phone. */
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
   gap: 20px;
 }
 

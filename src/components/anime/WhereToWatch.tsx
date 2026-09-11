@@ -1,54 +1,54 @@
 'use client';
 
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 import styles from './WhereToWatch.module.css';
 
 interface WhereToWatchProps {
-  animeTitle?: string;
+  /** Verified availability for this anime (StreamingAvailability / external links). */
   streamingPlatforms?: Array<{
     name: string;
-    accessType: string;
-    url?: string;
+    accessType?: string | null;
+    url: string;
   }>;
 }
 
-export const WhereToWatch: React.FC<WhereToWatchProps> = ({
-  animeTitle = 'this anime',
-  streamingPlatforms,
-}) => {
-  const platforms = streamingPlatforms && streamingPlatforms.length > 0
-    ? streamingPlatforms
-    : [
-        { name: 'Crunchyroll', accessType: 'Subscription / Simulcast', url: 'https://www.crunchyroll.com' },
-        { name: 'Netflix', accessType: 'Subscription', url: 'https://www.netflix.com' },
-        { name: 'Prime Video', accessType: 'Availability varies by region', url: 'https://www.primevideo.com' },
-        { name: 'Hulu', accessType: 'Subscription (US)', url: 'https://www.hulu.com' },
-      ];
-
+/**
+ * Lists only availability recorded for this anime. It used to list
+ * Crunchyroll, Netflix, Prime Video and Hulu for every title, which told
+ * people a show was streaming somewhere it may never have been.
+ */
+export const WhereToWatch: React.FC<WhereToWatchProps> = ({ streamingPlatforms = [] }) => {
   return (
     <section className={styles.section} aria-label="Where to Watch">
       <div className={styles.sectionHead}>
         <h2 className={styles.title}>Where to Watch</h2>
-        <span className={styles.subtitle}>Availability can vary by region</span>
+        {streamingPlatforms.length > 0 && (
+          <span className={styles.subtitle}>Availability can vary by region</span>
+        )}
       </div>
-      <div className={styles.platformsGrid}>
-        {platforms.map((p) => (
-          <a
-            key={p.name}
-            href={p.url || `https://www.google.com/search?q=${encodeURIComponent(`${animeTitle} watch on ${p.name}`)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.platformCard}
-            aria-label={`Watch on ${p.name} (Opens in new tab)`}
-          >
-            <div className={styles.platformName}>
-              <span>{p.name}</span>
-              <span className={styles.externalIcon}>↗</span>
-            </div>
-            <span className={styles.accessType}>{p.accessType}</span>
-          </a>
-        ))}
-      </div>
+      {streamingPlatforms.length > 0 ? (
+        <div className={styles.platformsGrid}>
+          {streamingPlatforms.map((p) => (
+            <a
+              key={`${p.name}-${p.url}`}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.platformCard}
+              aria-label={`Watch on ${p.name} (opens in a new tab)`}
+            >
+              <div className={styles.platformName}>
+                <span>{p.name}</span>
+                <ExternalLink size={12} className={styles.externalIcon} aria-hidden="true" />
+              </div>
+              {p.accessType && <span className={styles.accessType}>{p.accessType}</span>}
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p className={styles.subtitle}>No verified streaming information for this title yet.</p>
+      )}
     </section>
   );
 };

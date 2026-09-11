@@ -21,6 +21,8 @@ export interface Anime {
   year?: number;
   score: number | null;
   ratingCount?: number;
+  /** Number of ratings behind the external `score`. */
+  scoredBy?: number | null;
   rank?: number;
   popularity?: number;
   posterImage: string;

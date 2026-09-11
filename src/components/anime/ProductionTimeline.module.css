@@ -43,6 +43,9 @@
 }
 
 .timelineWrapper {
+  /* Rendered as an <ol> for semantics; no list markers. */
+  list-style: none;
+  margin: 0;
   display: flex;
   position: relative;
   overflow-x: auto;

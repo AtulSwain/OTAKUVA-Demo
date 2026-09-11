@@ -57,7 +57,14 @@ export const SpotlightHero: React.FC<SpotlightHeroProps> = ({
     (currentAnime as any).posterUrl;
 
   const scoreVal = currentAnime.score ? Number(currentAnime.score).toFixed(1) : '—';
-  const metaText = `${currentAnime.type || 'TV'} • ${currentAnime.year || 2026} • ${currentAnime.episodes || 24} Episodes • ${currentAnime.status || 'Finished'}`;
+  // Facts on record only — this used to fill gaps with "TV", 2026,
+  // "24 Episodes" and "Finished".
+  const metaText = [
+    currentAnime.type,
+    currentAnime.year ? String(currentAnime.year) : null,
+    typeof currentAnime.episodes === 'number' && currentAnime.episodes > 0 ? `${currentAnime.episodes} Episodes` : null,
+    currentAnime.status,
+  ].filter(Boolean).join(' • ');
 
   return (
     <section className={styles.hero} aria-label="Featured Anime Spotlight">

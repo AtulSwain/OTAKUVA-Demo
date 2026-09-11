@@ -7,13 +7,17 @@ import styles from './UserActivityCard.module.css';
 
 interface UserActivityCardProps {
   animeId: string;
-  totalEpisodes?: number;
+  totalEpisodes?: number | null;
   userRating?: number | null;
 }
 
+/**
+ * The viewer's own recorded state for this anime. Progress used to default
+ * to 25 total episodes and to "14 watched" for any WATCHING entry.
+ */
 export const UserActivityCard: React.FC<UserActivityCardProps> = ({
   animeId,
-  totalEpisodes = 25,
+  totalEpisodes = null,
   userRating,
 }) => {
   const { user } = useAuth();
@@ -21,7 +25,7 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
 
   const status = getStatus(animeId);
   const libraryItem = getItem(animeId);
-  const watched = libraryItem?.episodesWatched || (status === 'completed' ? totalEpisodes : status === 'watching' ? Math.min(14, totalEpisodes) : 0);
+  const watched = libraryItem?.episodesWatched ?? 0;
 
   return (
     <div className={styles.card} aria-label="Your Personal Activity">
@@ -31,36 +35,30 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
           <div className={styles.row}>
             <span className={styles.label}>Library</span>
             <span className={`${styles.value} ${status ? styles.activeValue : ''}`}>
-              {status ? status.replace('_', ' ').toUpperCase() : 'Not Added'}
+              {status ? status.replace(/_/g, ' ').toUpperCase() : 'Not Added'}
             </span>
           </div>
-          <div className={styles.row}>
-            <span className={styles.label}>Progress</span>
-            <span className={styles.value}>
-              {watched} / {totalEpisodes} eps
-            </span>
-          </div>
+          {status && (
+            <div className={styles.row}>
+              <span className={styles.label}>Progress</span>
+              <span className={styles.value}>
+                {totalEpisodes ? `${watched} / ${totalEpisodes} eps` : `${watched} eps watched`}
+              </span>
+            </div>
+          )}
           <div className={styles.row}>
             <span className={styles.label}>Favorite</span>
-            <span className={styles.value}>
-              {libraryItem?.isFavorite ? '♥ Favorited' : 'Not Favorited'}
-            </span>
+            <span className={styles.value}>{libraryItem?.isFavorite ? 'Favorited' : 'Not Favorited'}</span>
           </div>
           <div className={styles.row}>
             <span className={styles.label}>Your Rating</span>
             <span className={styles.value}>
-              {userRating ? `★ ${userRating} / 10` : 'Not Rated'}
+              {typeof userRating === 'number' ? `${userRating.toFixed(1)} / 10` : 'Not Rated'}
             </span>
           </div>
         </>
       ) : (
-        <>
-          <div className={styles.row}>
-            <span className={styles.label}>Status</span>
-            <span className={styles.value}>Guest Mode</span>
-          </div>
-          <p className={styles.guestPrompt}>Sign in to save progress, submit ratings, and add to your library.</p>
-        </>
+        <p className={styles.guestPrompt}>Sign in to track progress, rate, and add this to your library.</p>
       )}
     </div>
   );

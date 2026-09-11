@@ -370,7 +370,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
               <kbd className={styles.kbdTag}>ESC</kbd> Close
             </span>
           </div>
-          <span>OTAKUVA Intelligence v2.4</span>
         </div>
       </div>
     </div>

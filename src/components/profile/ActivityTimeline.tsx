@@ -60,44 +60,10 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
     );
   }
 
-  // Fallback demo activities if none in database yet
-  const displayActivities: TimelineActivity[] = activities.length > 0
-    ? activities
-    : [
-        {
-          id: 'act-1',
-          type: 'WATCHED_EPISODE',
-          createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-          anime: { id: 'frieren', slug: 'frieren-beyond-journeys-end', title: "Frieren: Beyond Journey's End" },
-          metadata: { episodeNumber: 28 },
-        },
-        {
-          id: 'act-2',
-          type: 'RATED_ANIME',
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-          anime: { id: 'frieren', slug: 'frieren-beyond-journeys-end', title: "Frieren: Beyond Journey's End" },
-          metadata: { rating: 10, status: 'completed' },
-        },
-        {
-          id: 'act-3',
-          type: 'DISCUSSION_CREATED',
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
-          metadata: { title: 'The subtle philosophy of time in Frieren', discussionId: 'disc-frieren-time' },
-        },
-        {
-          id: 'act-4',
-          type: 'JOINED_COMMUNITY',
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-          metadata: { communityName: 'Fantasy & Magic Worldbuilding', slug: 'fantasy-magic' },
-        },
-        {
-          id: 'act-5',
-          type: 'STATUS_UPDATED',
-          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
-          anime: { id: 'jujutsu-kaisen', slug: 'jujutsu-kaisen-season-2', title: 'Jujutsu Kaisen Season 2' },
-          metadata: { status: 'completed', rating: 9 },
-        },
-      ];
+  // Only this user's recorded activity. An empty history used to be filled
+  // with five invented actions ("rated Frieren 10", "joined Fantasy & Magic
+  // Worldbuilding") shown as if the profile owner had done them.
+  const displayActivities = activities;
 
   const renderIcon = (type: string) => {
     switch (type) {
@@ -200,6 +166,12 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         <h3 className={styles.timelineTitle}>Activity Feed</h3>
         <span className={styles.timelineSubtitle}>Contribution overview and chronological logs</span>
       </div>
+
+      {displayActivities.length === 0 && (
+        <div className={styles.loadingContainer}>
+          <span>No activity yet.</span>
+        </div>
+      )}
 
       <div className={styles.timelineList}>
         {displayActivities.map((act, index) => {

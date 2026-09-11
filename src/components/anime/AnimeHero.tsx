@@ -12,7 +12,8 @@ import styles from './AnimeHero.module.css';
 interface AnimeHeroProps {
   anime: Anime;
   userRating?: number | null;
-  onOpenTrailer: () => void;
+  /** Omitted when the anime has no recorded trailer — the button is hidden. */
+  onOpenTrailer?: () => void;
   onOpenRatingModal?: () => void;
   onOpenReviewDialog?: () => void;
   /** Studio name/slug, already resolved by the page (handles the
@@ -20,6 +21,8 @@ interface AnimeHeroProps {
    *  re-derived here so the hero line and the studio link always agree. */
   studioName?: string;
   studioSlug?: string;
+  /** Lowest unwatched released episode, computed server-side. */
+  nextEpisodeNumber?: number | null;
 }
 
 export const AnimeHero: React.FC<AnimeHeroProps> = ({
@@ -30,6 +33,7 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
   onOpenReviewDialog,
   studioName,
   studioSlug,
+  nextEpisodeNumber = null,
 }) => {
   const { getStatus, getItem, updateStatus, toggleFavorite } = useLibrary();
   const { showToast } = useToast();
@@ -43,14 +47,21 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
 
   const displayTitle = getAnimeDisplayTitle(anime);
   const japaneseTitle = getAnimeJapaneseTitle(anime);
-  const totalEpisodes = anime.episodes || 24;
-  const watchedEpisodes = libraryItem?.episodesWatched || (currentStatus === 'completed' ? totalEpisodes : currentStatus === 'watching' ? 1 : 0);
-  const progressPercent = totalEpisodes > 0 ? Math.round((watchedEpisodes / totalEpisodes) * 100) : 0;
-  const nextEpisode = Math.min(watchedEpisodes + 1, totalEpisodes);
+  // Progress is the viewer's recorded progress only. It used to assume 24
+  // episodes when the count was unknown and "1 watched" for any WATCHING
+  // entry; the next episode comes from the server (lowest unwatched released
+  // episode), not watched + 1.
+  const totalEpisodes = typeof anime.episodes === 'number' && anime.episodes > 0 ? anime.episodes : null;
+  const watchedEpisodes = libraryItem?.episodesWatched ?? 0;
+  const progressPercent = totalEpisodes ? Math.min(100, Math.round((watchedEpisodes / totalEpisodes) * 100)) : null;
 
-  const scoreVal = anime.score ? Number(anime.score).toFixed(1) : '—';
-  const ratingCount = anime.ratingCount || (anime as any).scoredBy
-    ? `${Math.round(((anime.ratingCount || (anime as any).scoredBy) as number) / 1000)}K`
+  // The external score, labelled as such. OTAKUVA's own score lives in the
+  // community rating card; this used to call the provider's figure the
+  // "OTAKUVA SCORE".
+  const scoreVal = typeof anime.score === 'number' ? Number(anime.score).toFixed(1) : '—';
+  const scoreCount = typeof anime.scoredBy === 'number' && anime.scoredBy > 0 ? anime.scoredBy : null;
+  const ratingCount = scoreCount
+    ? `${new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(scoreCount)} ratings`
     : null;
 
   const backdropSrc =
@@ -75,20 +86,18 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
         .filter(Boolean)
     : [];
 
-  const kickerFacts: string[] = [
-    anime.type || 'TV',
-    String(anime.year || 2024),
-    `${totalEpisodes} Episodes`,
-    anime.status || 'Finished',
-  ];
+  // Only facts on record; missing ones are simply not listed.
+  const kickerFacts: string[] = [];
+  if (anime.type && String(anime.type) !== 'UNKNOWN') kickerFacts.push(anime.type);
+  if (anime.year) kickerFacts.push(String(anime.year));
+  if (totalEpisodes) kickerFacts.push(`${totalEpisodes} Episode${totalEpisodes === 1 ? '' : 's'}`);
+  if (anime.status && String(anime.status) !== 'UNKNOWN') kickerFacts.push(anime.status);
   if (anime.duration) kickerFacts.push(anime.duration);
   if (anime.source) kickerFacts.push(anime.source);
   if (producersList.length > 0) kickerFacts.push(producersList.join(', '));
   if ((anime as any).rating) kickerFacts.push((anime as any).rating);
 
-  const genresList = Array.isArray(anime.genres) && anime.genres.length > 0
-    ? anime.genres
-    : ['Action', 'Drama', 'Fantasy'];
+  const genresList = Array.isArray(anime.genres) ? anime.genres : [];
 
   const handleLibraryToggle = async () => {
     if (!isInLibrary) {
@@ -173,12 +182,11 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
           {/* Title Line with Title-Side Score */}
           <div className={styles.titleLine}>
             <h1 className={styles.mainTitle}>{displayTitle}</h1>
-            <div className={styles.scoreInline}>
+            <div className={styles.scoreInline} title="Score from external rating sources">
               <div>
-                <span className={styles.scoreLabel}>OTAKUVA SCORE</span>
+                <span className={styles.scoreLabel}>SCORE</span>
                 <span className={styles.scoreVal}>{scoreVal}</span>
               </div>
-              <span className={styles.scoreStars} aria-hidden="true">★★★★★</span>
               {ratingCount && <span className={styles.scoreRatingsCount}>{ratingCount}</span>}
             </div>
           </div>
@@ -189,6 +197,7 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
           )}
 
           {/* Genre Chips */}
+          {genresList.length > 0 && (
           <div className={styles.chipsRow}>
             {genresList.map((g) => (
               <Link
@@ -200,6 +209,7 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
               </Link>
             ))}
           </div>
+          )}
         </div>
 
         {/* Primary Actions Row */}
@@ -222,14 +232,16 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
             <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
           </button>
 
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={onOpenTrailer}
-          >
-            <Play size={13} fill="currentColor" />
-            <span>Trailer</span>
-          </button>
+          {onOpenTrailer && (
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={onOpenTrailer}
+            >
+              <Play size={13} fill="currentColor" />
+              <span>Trailer</span>
+            </button>
+          )}
 
           {onOpenRatingModal && (
             <button
@@ -268,19 +280,40 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
           </button>
         </div>
 
-        {/* Watch Progress Card */}
-        <div className={styles.progressBox}>
-          <div className={styles.progressTop}>
-            <span>Your Progress</span>
-            <strong>{watchedEpisodes} / {totalEpisodes} episodes</strong>
+        {/* Watch Progress — only for anime in the viewer's library */}
+        {isInLibrary && (
+          <div className={styles.progressBox}>
+            <div className={styles.progressTop}>
+              <span>Your Progress</span>
+              <strong>
+                {watchedEpisodes}
+                {totalEpisodes ? ` / ${totalEpisodes}` : ''} episode{(totalEpisodes ?? watchedEpisodes) === 1 ? '' : 's'}
+                {totalEpisodes ? '' : ' watched'}
+              </strong>
+            </div>
+            {progressPercent !== null && (
+              <div
+                className={styles.progressBar}
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Episodes watched"
+              >
+                <span className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+              </div>
+            )}
+            {(nextEpisodeNumber !== null || progressPercent !== null) && (
+              <div className={styles.progressBottom}>
+                {nextEpisodeNumber !== null && (
+                  <>Continue with <strong>Episode {nextEpisodeNumber}</strong></>
+                )}
+                {nextEpisodeNumber !== null && progressPercent !== null && ' • '}
+                {progressPercent !== null && `${progressPercent}% complete`}
+              </div>
+            )}
           </div>
-          <div className={styles.progressBar}>
-            <span className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
-          </div>
-          <div className={styles.progressBottom}>
-            Continue with <strong>Episode {nextEpisode}</strong> • {progressPercent}% complete
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );

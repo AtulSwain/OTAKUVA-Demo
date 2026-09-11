@@ -167,6 +167,15 @@
   gap: 6px;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 6px;
+  /* Scroll sideways on narrow screens rather than widen the page. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabBar > * {
+  flex-shrink: 0;
 }
 
 .tabBtn {
@@ -559,7 +568,7 @@
 
 .membersGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
   gap: 10px;
 }
 
@@ -633,7 +642,7 @@
 
 .aboutMeta {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
   gap: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--border-subtle);

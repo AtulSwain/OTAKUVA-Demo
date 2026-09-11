@@ -25,6 +25,7 @@ export interface AnimeCardData {
 }
 
 export interface AnimeDetailData extends AnimeCardData {
+  scoredBy?: number | null;
   synopsis: string;
   background?: string | null;
   bannerImage: string;
@@ -91,7 +92,10 @@ export async function getAnimeBySlugOrId(slugOrId: string): Promise<AnimeDetailD
     background: anime.background,
     posterImage: anime.posterUrl,
     bannerImage: anime.bannerUrl || anime.posterUrl,
+    // External (provider) score and its rating count. OTAKUVA's own score is
+    // served separately by /api/anime/:id/rating-summary.
     score: anime.score,
+    scoredBy: anime.scoredBy ?? null,
     episodes: anime.episodes,
     status: anime.status,
     type: anime.type,
@@ -306,6 +310,30 @@ export async function getAnimeStaffData(animeId: string) {
   return [];
 }
 
+// Stored relations point one way; read from the other side they are the
+// inverse relationship (the prequel of a sequel), not "Inverted Sequel".
+const INVERSE_RELATION: Record<string, string> = {
+  Sequel: 'Prequel',
+  Prequel: 'Sequel',
+  'Side story': 'Parent story',
+  'Parent story': 'Side story',
+  Summary: 'Full story',
+  'Full story': 'Summary',
+};
+
+function toRelatedAnime(target: { id: string; slug: string; posterUrl: string; type: string; year: number | null } & Parameters<typeof getAnimeDisplayTitle>[0]) {
+  const t = getAnimeDisplayTitle(target);
+  return {
+    id: target.id,
+    slug: target.slug,
+    title: t,
+    canonicalTitle: t,
+    posterImage: target.posterUrl || null,
+    type: target.type,
+    year: target.year ?? null,
+  };
+}
+
 export async function getAnimeRelationsData(animeId: string) {
   const [relationsFrom, relationsTo] = await Promise.all([
     prisma.animeRelation.findMany({
@@ -320,59 +348,37 @@ export async function getAnimeRelationsData(animeId: string) {
 
   const results: any[] = [];
   relationsFrom.forEach((r) => {
-    const t = getAnimeDisplayTitle(r.targetAnime);
-    results.push({
-      relationType: r.relationType,
-      relatedAnime: {
-        id: r.targetAnime.id,
-        slug: r.targetAnime.slug,
-        title: t,
-        canonicalTitle: t,
-        posterImage: r.targetAnime.posterUrl,
-        type: r.targetAnime.type,
-      },
-    });
+    results.push({ relationType: r.relationType, relatedAnime: toRelatedAnime(r.targetAnime) });
   });
-
   relationsTo.forEach((r) => {
-    const t = getAnimeDisplayTitle(r.sourceAnime);
     results.push({
-      relationType: `Inverted ${r.relationType}`,
-      relatedAnime: {
-        id: r.sourceAnime.id,
-        slug: r.sourceAnime.slug,
-        title: t,
-        canonicalTitle: t,
-        posterImage: r.sourceAnime.posterUrl,
-        type: r.sourceAnime.type,
-      },
+      relationType: INVERSE_RELATION[r.relationType] || r.relationType,
+      relatedAnime: toRelatedAnime(r.sourceAnime),
     });
   });
 
   if (results.length > 0) return results;
 
-  // Fallback: Query Jikan API directly
+  // No stored relations yet: ask the provider, but only keep entries that
+  // resolve to an anime already in the canonical catalog. Unresolved entries
+  // used to be emitted with made-up "mal-123" slugs (dead links), a stock
+  // photo poster and type "TV".
   const anime = await prisma.anime.findUnique({
     where: { id: animeId },
     select: { malId: true },
   });
+  if (!anime?.malId) return [];
 
-  if (anime?.malId) {
-    const jikanRel = await getJikanAnimeRelations(anime.malId);
-    return jikanRel.map((r) => ({
-      relationType: r.relationType,
-      relatedAnime: {
-        id: `mal-${r.malId}`,
-        slug: `mal-${r.malId}`,
-        title: r.title,
-        canonicalTitle: r.title,
-        posterImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600',
-        type: 'TV',
-      },
-    }));
-  }
+  const jikanRel = await getJikanAnimeRelations(anime.malId);
+  const malIds = jikanRel.map((r) => r.malId).filter((id): id is number => typeof id === 'number');
+  if (malIds.length === 0) return [];
 
-  return [];
+  const known = await prisma.anime.findMany({ where: { malId: { in: malIds } } });
+  const byMalId = new Map(known.map((a) => [a.malId, a]));
+
+  return jikanRel
+    .filter((r) => byMalId.has(r.malId))
+    .map((r) => ({ relationType: r.relationType, relatedAnime: toRelatedAnime(byMalId.get(r.malId)!) }));
 }
 
 export async function getAnimeStatisticsData(animeId: string) {
@@ -386,18 +392,36 @@ export async function getAnimeStatisticsData(animeId: string) {
 
   if (!anime) return null;
 
+  // Provider figures and OTAKUVA's own aggregate are reported separately and
+  // never substituted for one another. The watch-status breakdown used to be
+  // invented as fixed shares of members (40% watching, 50% completed, ...),
+  // defaulting members to 1,000; it is now the provider's recorded
+  // breakdown, or null when none has been captured.
+  const ext = anime.externalStats;
+  // A stats row can exist with every status count at 0 (captured before the
+  // provider reported them); that is no breakdown, not a breakdown of zeros.
+  const hasBreakdown = Boolean(ext && ext.watching + ext.completed + ext.onHold + ext.dropped + ext.planToWatch > 0);
+
   return {
-    score: anime.score || anime.ratingAggregate?.bayesianScore || anime.ratingAggregate?.rawAverage || 0,
-    scoredBy: anime.scoredBy || anime.ratingAggregate?.ratingCount || 0,
+    score: anime.score ?? null,
+    scoredBy: anime.scoredBy ?? null,
     rank: anime.rank,
     popularity: anime.popularity,
-    members: anime.members || 0,
-    favorites: anime.favoritesCount || 0,
-    watching: Math.floor((anime.members || 1000) * 0.4),
-    completed: Math.floor((anime.members || 1000) * 0.5),
-    onHold: Math.floor((anime.members || 1000) * 0.05),
-    dropped: Math.floor((anime.members || 1000) * 0.03),
-    planToWatch: Math.floor((anime.members || 1000) * 0.02),
+    members: anime.members ?? null,
+    favorites: anime.favoritesCount ?? null,
+    watching: hasBreakdown ? ext!.watching : null,
+    completed: hasBreakdown ? ext!.completed : null,
+    onHold: hasBreakdown ? ext!.onHold : null,
+    dropped: hasBreakdown ? ext!.dropped : null,
+    planToWatch: hasBreakdown ? ext!.planToWatch : null,
+    breakdownCapturedAt: hasBreakdown ? ext!.capturedAt.toISOString() : null,
+    otakuva: anime.ratingAggregate
+      ? {
+          score: anime.ratingAggregate.bayesianScore,
+          ratingCount: anime.ratingAggregate.ratingCount,
+          confidence: anime.ratingAggregate.confidence,
+        }
+      : null,
   };
 }
 

@@ -299,7 +299,9 @@ export class CandidateGenerationEngine {
     return candidates.map((a) => ({
       anime: a,
       sources: ['POPULAR'],
-      provenanceReasons: ['High community rating & critical acclaim'],
+      // Selected on the external score, so that is what the reason states —
+      // not 'community rating & critical acclaim', which nothing here measures.
+      provenanceReasons: [typeof a.score === 'number' ? `Highly rated (${a.score.toFixed(1)})` : 'Highly rated'],
       initialScore: 0.65,
     }));
   }

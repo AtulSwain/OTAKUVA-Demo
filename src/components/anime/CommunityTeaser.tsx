@@ -6,109 +6,88 @@ import { ChevronRight } from 'lucide-react';
 import styles from './CommunityTeaser.module.css';
 
 interface DiscussionThread {
-  id?: string;
+  id: string;
   title?: string;
-  authorName?: string;
-  user?: {
-    username?: string;
-    name?: string;
-  };
   author?: {
     username?: string;
-    name?: string;
   };
   replyCount?: number;
-  commentsCount?: number;
-  repliesCount?: number;
-  timeAgo?: string;
   createdAt?: string;
 }
 
 interface CommunityTeaserProps {
   animeTitle: string;
   discussions?: DiscussionThread[];
-  onOpenDiscussionsTab?: () => void;
-  onOpenReviewsTab?: () => void;
 }
 
-const DEFAULT_DISCUSSIONS: DiscussionThread[] = [
-  {
-    id: 'disc-1',
-    title: 'What did you think of the ending?',
-    authorName: 'Eren_TheFreedom',
-    replyCount: 1240,
-    timeAgo: '2d ago',
-  },
-  {
-    id: 'disc-2',
-    title: 'Your favorite character and why?',
-    authorName: 'HistoriaFan',
-    replyCount: 856,
-    timeAgo: '3d ago',
-  },
-];
+const relativeTime = (iso?: string) => {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return null;
+  const minutes = Math.round((Date.now() - then) / 60_000);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  if (Math.abs(minutes) < 60) return rtf.format(-minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour');
+  const days = Math.round(hours / 24);
+  if (Math.abs(days) < 30) return rtf.format(-days, 'day');
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
-export const CommunityTeaser: React.FC<CommunityTeaserProps> = ({
-  animeTitle,
-  discussions = [],
-  onOpenDiscussionsTab,
-}) => {
-  const items = discussions && discussions.length > 0 ? discussions.slice(0, 3) : DEFAULT_DISCUSSIONS;
+/**
+ * Real discussion threads about this anime, or an empty state. It used to
+ * fall back to two invented threads ("What did you think of the ending?",
+ * 1,240 replies) by invented users, and to "42 replies" for any thread
+ * without a count.
+ */
+export const CommunityTeaser: React.FC<CommunityTeaserProps> = ({ animeTitle, discussions = [] }) => {
+  const items = discussions.filter((d) => d && d.id).slice(0, 3);
 
   return (
     <div className={styles.card} role="region" aria-label="Community Discussions">
       <div className={styles.headerRow}>
         <h3 className={styles.headerTitle}>Community Discussions</h3>
-        <Link href="/community" className={styles.viewAllLink}>
+        <Link href="/discussions" className={styles.viewAllLink}>
           <span>View All</span>
-          <ChevronRight size={12} />
+          <ChevronRight size={12} aria-hidden="true" />
         </Link>
       </div>
 
-      <div className={styles.discussionsList}>
-        {items.map((disc, idx) => {
-          const rawAuthor =
-            disc.authorName ||
-            disc.user?.username ||
-            disc.user?.name ||
-            disc.author?.username ||
-            disc.author?.name ||
-            'OtakuMember';
-          const author = String(rawAuthor || 'OtakuMember');
-          const initial = (author.trim() || 'OM').slice(0, 2).toUpperCase();
+      {items.length === 0 ? (
+        <p className={styles.discussionMeta}>No discussions about {animeTitle} yet.</p>
+      ) : (
+        <div className={styles.discussionsList}>
+          {items.map((disc) => {
+            const author = disc.author?.username || null;
+            const replies = typeof disc.replyCount === 'number' ? disc.replyCount : null;
+            const when = relativeTime(disc.createdAt);
+            const meta = [
+              author ? `by ${author}` : null,
+              replies !== null ? `${replies} ${replies === 1 ? 'reply' : 'replies'}` : null,
+              when,
+            ].filter(Boolean).join(' · ');
 
-          const replies =
-            typeof disc.replyCount === 'number'
-              ? disc.replyCount
-              : (typeof disc.commentsCount === 'number'
-                ? disc.commentsCount
-                : (typeof disc.repliesCount === 'number' ? disc.repliesCount : 42));
-          const replyBadge = replies > 999 ? `${(replies / 1000).toFixed(1)}K` : `${replies}`;
-          const title = disc.title || `Discussion #${idx + 1}`;
-
-          return (
-            <Link
-              key={disc.id || idx}
-              href={`/discussions/${disc.id || idx}`}
-              className={styles.discussionItem}
-            >
-              <div className={styles.itemLeft}>
-                <div className={styles.avatar}>
-                  <span>{initial}</span>
+            return (
+              <Link key={disc.id} href={`/discussions/${disc.id}`} className={styles.discussionItem}>
+                <div className={styles.itemLeft}>
+                  <div className={styles.avatar} aria-hidden="true">
+                    <span>{(author || '?').slice(0, 2).toUpperCase()}</span>
+                  </div>
+                  <div className={styles.textBlock}>
+                    <span className={styles.discussionTitle}>{disc.title || 'Untitled discussion'}</span>
+                    {meta && <span className={styles.discussionMeta}>{meta}</span>}
+                  </div>
                 </div>
-                <div className={styles.textBlock}>
-                  <span className={styles.discussionTitle}>{title}</span>
-                  <span className={styles.discussionMeta}>
-                    by {author} · {replies} replies · {disc.timeAgo || 'recently'}
+                {replies !== null && (
+                  <span className={styles.repliesBadge} aria-hidden="true">
+                    {new Intl.NumberFormat(undefined, { notation: 'compact' }).format(replies)}
                   </span>
-                </div>
-              </div>
-
-              <span className={styles.repliesBadge}>{replyBadge}</span>
-            </Link>
-          );
-        })}
-      </div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

@@ -12,7 +12,7 @@ interface AnimeStickyActionBarProps {
   anime: Anime;
   userRating?: number | null;
   onOpenRatingModal: () => void;
-  onOpenTrailer: () => void;
+  onOpenTrailer?: () => void;
 }
 
 export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
@@ -77,7 +77,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
         <div className={styles.titleBlock}>
           <span className={styles.title}>{displayTitle}</span>
           <span className={styles.meta}>
-            {anime.type || 'TV'} • {anime.score ? `★ ${anime.score}` : 'Unrated'}
+            {[anime.type, typeof anime.score === 'number' ? `Score ${anime.score.toFixed(1)}` : null].filter(Boolean).join(' • ')}
           </span>
         </div>
       </div>
@@ -116,7 +116,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
         </button>
 
         {/* Play Trailer Button */}
-        {anime.trailerUrl && (
+        {anime.trailerUrl && onOpenTrailer && (
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.secondaryBtn} ${styles.iconOnlyBtn}`}
