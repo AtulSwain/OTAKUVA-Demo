@@ -60,18 +60,13 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
   const watchedEpisodes = libraryItem?.episodesWatched ?? 0;
   const progressPercent = totalEpisodes ? Math.min(100, Math.round((watchedEpisodes / totalEpisodes) * 100)) : null;
 
-  // OTAKUVA SCORE is what OTAKUVA members rated — it updates as soon as
-  // someone rates. The provider's score is shown beside it, labelled as
-  // external, never under the OTAKUVA name.
+  // The hero shows only the OTAKUVA SCORE: what OTAKUVA members rated. It
+  // updates as soon as someone rates. The provider's score is not shown here.
   const hasOtakuvaScore = typeof otakuvaScore === 'number' && otakuvaRatingCount > 0;
   const otakuvaVal = hasOtakuvaScore ? otakuvaScore.toFixed(1) : '—';
   const otakuvaCountLabel = hasOtakuvaScore
     ? `${otakuvaRatingCount.toLocaleString()} rating${otakuvaRatingCount === 1 ? '' : 's'}`
     : 'No ratings yet';
-  const externalVal = typeof anime.score === 'number' ? Number(anime.score).toFixed(1) : null;
-  const externalCount = typeof anime.scoredBy === 'number' && anime.scoredBy > 0
-    ? `${new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(anime.scoredBy)} ratings`
-    : null;
 
   const backdropSrc =
     anime.bannerImage ||
@@ -197,16 +192,6 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
                 <span className={styles.scoreVal}>{otakuvaVal}</span>
               </div>
               <span className={styles.scoreRatingsCount}>{otakuvaCountLabel}</span>
-              {externalVal && (
-                <>
-                  <span className={styles.scoreDivider} aria-hidden="true" />
-                  <div title="Score from external rating sources">
-                    <span className={styles.scoreLabel}>EXTERNAL</span>
-                    <span className={styles.scoreValSecondary}>{externalVal}</span>
-                  </div>
-                  {externalCount && <span className={`${styles.scoreRatingsCount} ${styles.externalCount}`}>{externalCount}</span>}
-                </>
-              )}
             </div>
           </div>
 

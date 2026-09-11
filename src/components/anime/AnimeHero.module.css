@@ -259,29 +259,11 @@
   color: var(--text-muted, #8E8E8E);
 }
 
-/* External score sits beside the OTAKUVA score, visibly secondary. */
-.scoreDivider {
-  width: 1px;
-  align-self: stretch;
-  background: var(--border-strong, #383838);
-}
-
-/* Phones get the essentials: both scores, the OTAKUVA count on one line,
-   and no external count. */
+/* Keep "N ratings" on one line on phones. */
 @media (max-width: 767px) {
   .scoreRatingsCount {
     white-space: nowrap;
   }
-  .externalCount {
-    display: none;
-  }
-}
-
-.scoreValSecondary {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--text-secondary, #B8BDC3);
 }
 
 /* Japanese Title */
