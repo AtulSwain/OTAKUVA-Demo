@@ -125,8 +125,8 @@
 }
 
 .rateActionBtn:hover {
-  border-color: var(--accent-primary, #6366F1);
-  color: var(--accent-primary-hover, #818CF8);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-hover);
 }
 
 .distributionCard {

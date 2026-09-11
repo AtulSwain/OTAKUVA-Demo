@@ -69,7 +69,7 @@
 
 .presetBtnActive {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -134,7 +134,7 @@
 
 .dayBtnActive {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 

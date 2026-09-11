@@ -26,7 +26,7 @@
 }
 
 .sectionIcon {
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
 }
 
 .title {
@@ -69,8 +69,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(201, 106, 114, 0.12);
+  border: 1px solid rgba(201, 106, 114, 0.3);
   color: #A5B4FC;
   padding: 4px 9px;
   border-radius: 5px;
@@ -81,7 +81,7 @@
 }
 
 .trailerBtn:hover {
-  background: rgba(99, 102, 241, 0.22);
+  background: rgba(201, 106, 114, 0.22);
   color: #FFFFFF;
 }
 
@@ -123,7 +123,7 @@
 .activeTab {
   background-color: var(--surface-elevated, #202024);
   color: #F4F4F2;
-  border-color: #818CF8;
+  border-color: var(--accent-hover);
   font-weight: 600;
 }
 
@@ -176,7 +176,7 @@
 
 .selectedRow {
   background-color: var(--surface-elevated, #18181D) !important;
-  box-shadow: inset 2px 0 0 #818CF8;
+  box-shadow: inset 2px 0 0 var(--accent-hover);
 }
 
 .epNum {
@@ -255,7 +255,7 @@
 }
 
 .checkBtnUnwatched:hover {
-  border-color: #818CF8;
+  border-color: var(--accent-hover);
   background: rgba(129, 140, 248, 0.1);
 }
 
@@ -280,7 +280,7 @@
   padding: 7px;
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
   background: var(--surface-base, #121214);
   border: 1px solid var(--border-default, #27272A);
   border-radius: 6px;

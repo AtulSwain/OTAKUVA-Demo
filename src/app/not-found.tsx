@@ -26,7 +26,7 @@ export default function NotFound() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--accent-primary-hover, #818CF8)',
+          color: 'var(--accent-primary-hover)',
           marginBottom: '8px',
         }}
       >
@@ -71,7 +71,7 @@ export default function NotFound() {
             gap: '6px',
             fontSize: '12px',
             fontWeight: 600,
-            backgroundColor: 'var(--accent-primary, #6366F1)',
+            backgroundColor: 'var(--accent-primary)',
             color: '#FFFFFF',
             padding: '8px 18px',
             borderRadius: '6px',

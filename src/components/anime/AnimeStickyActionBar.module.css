@@ -95,13 +95,13 @@
 }
 
 .primaryBtn {
-  background-color: var(--accent-primary, #6366F1);
-  color: #FFFFFF;
-  border: 1px solid var(--accent-primary, #6366F1);
+  background-color: var(--accent-primary);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-primary);
 }
 
 .primaryBtn:hover {
-  background-color: var(--accent-primary-hover, #818CF8);
+  background-color: var(--accent-primary-hover);
 }
 
 .secondaryBtn {

@@ -155,7 +155,7 @@
 .movementNew {
   font-size: 9px;
   font-weight: 800;
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
   background-color: var(--surface-elevated);
   border: 1px solid var(--border-default);
   padding: 1px 4px;

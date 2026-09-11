@@ -21,7 +21,7 @@
 }
 
 .headerIcon {
-  color: #6366F1;
+  color: var(--accent);
 }
 
 .title {
@@ -111,7 +111,7 @@
 
 .tabActive {
   background-color: #222228;
-  border-color: #6366F1;
+  border-color: var(--accent);
   color: #F4F4F2;
   font-weight: 600;
 }
@@ -201,7 +201,7 @@
 }
 
 .animeLink:hover {
-  color: #818CF8;
+  color: var(--accent-hover);
 }
 
 .userCell {
@@ -217,15 +217,15 @@
 }
 
 .authorName:hover {
-  color: #818CF8;
+  color: var(--accent-hover);
 }
 
 .roleTag {
   font-size: 10px;
   font-weight: 700;
   padding: 1px 5px;
-  background-color: rgba(99, 102, 241, 0.15);
-  color: #818CF8;
+  background-color: rgba(201, 106, 114, 0.15);
+  color: var(--accent-hover);
   border-radius: 3px;
   align-self: flex-start;
 }

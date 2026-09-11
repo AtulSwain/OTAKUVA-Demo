@@ -136,9 +136,9 @@
 
 .filterToggleBtn:hover,
 .filterToggleBtnActive {
-  border-color: var(--accent-primary, #6366F1);
-  color: var(--accent-primary-hover, #818CF8);
-  background-color: rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-hover);
+  background-color: rgba(201, 106, 114, 0.1);
 }
 
 .viewModeToggle {
@@ -225,7 +225,7 @@
 .resetBtn {
   background: none;
   border: none;
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
   font-size: 12px;
   cursor: pointer;
   padding: 0;

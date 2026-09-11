@@ -91,7 +91,7 @@ export default function AdminAnimeDashboardPage() {
           <span style={{ fontSize: '11px', color: '#71717A', textTransform: 'uppercase', fontWeight: 600 }}>
             Canonical Studios
           </span>
-          <p style={{ fontSize: '28px', fontWeight: 800, color: '#818CF8', marginTop: '4px' }}>
+          <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-hover)', marginTop: '4px' }}>
             {metrics.totalStudios ?? '...'}
           </p>
         </div>
@@ -135,13 +135,13 @@ export default function AdminAnimeDashboardPage() {
               fontWeight: 700,
               backgroundColor:
                 job?.status === 'RUNNING'
-                  ? 'rgba(99, 102, 241, 0.2)'
+                  ? 'rgba(201, 106, 114, 0.2)'
                   : job?.status === 'COMPLETED'
                   ? 'rgba(16, 185, 129, 0.2)'
                   : '#27272B',
               color:
                 job?.status === 'RUNNING'
-                  ? '#818CF8'
+                  ? 'var(--accent-hover)'
                   : job?.status === 'COMPLETED'
                   ? '#10B981'
                   : '#A1A1AA',
@@ -162,7 +162,7 @@ export default function AdminAnimeDashboardPage() {
               style={{
                 width: `${job?.progressPercent || 0}%`,
                 height: '100%',
-                background: '#6366F1',
+                background: 'var(--accent)',
                 transition: 'width 300ms ease',
               }}
             />
@@ -226,7 +226,7 @@ export default function AdminAnimeDashboardPage() {
             onClick={() => handleAction('start')}
             style={{
               padding: '8px 16px',
-              backgroundColor: '#6366F1',
+              backgroundColor: 'var(--accent)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '6px',

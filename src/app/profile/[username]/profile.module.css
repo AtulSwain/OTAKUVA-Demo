@@ -350,7 +350,7 @@
 }
 
 .animeTitleLink:hover {
-  color: #818CF8;
+  color: var(--accent-hover);
 }
 
 .reviewBadgesRow {
@@ -430,7 +430,7 @@
 }
 
 .profileLikesCount {
-  color: #818CF8;
+  color: var(--accent-hover);
   margin-left: auto;
 }
 

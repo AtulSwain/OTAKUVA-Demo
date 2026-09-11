@@ -79,7 +79,7 @@
 .seasonTabActive {
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);
-  color: #FFFFFF;
+  color: var(--accent-text);
   font-weight: var(--weight-semibold);
 }
 

@@ -71,7 +71,7 @@
 }
 
 .iconInfo {
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
 }
 
 .iconError {

@@ -76,10 +76,10 @@ function RankingsContent() {
             type="button"
             onClick={() => setSelectedCategory(cat.value)}
             style={{
-              background: selectedCategory === cat.value ? '#6366F1' : '#202024',
+              background: selectedCategory === cat.value ? 'var(--accent)' : '#202024',
               color: selectedCategory === cat.value ? '#FFFFFF' : '#A1A1AA',
               border: '1px solid',
-              borderColor: selectedCategory === cat.value ? '#6366F1' : '#2A2A2E',
+              borderColor: selectedCategory === cat.value ? 'var(--accent)' : '#2A2A2E',
               borderRadius: '6px',
               padding: '6px 14px',
               fontSize: '12px',

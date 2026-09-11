@@ -26,7 +26,7 @@
 }
 
 .sectionIcon {
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
 }
 
 .title {
@@ -82,8 +82,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #6366F1;
-  color: #FFFFFF;
+  background-color: var(--accent);
+  color: var(--accent-text);
   border: 2px solid #070707;
   box-shadow: 0 0 0 1px #3E3E44;
 }
@@ -93,7 +93,7 @@
 }
 
 .dot_committee {
-  background-color: #8B5CF6;
+  background-color: var(--accent);
 }
 
 .dot_premiere {
@@ -105,7 +105,7 @@
 }
 
 .dot_sequel {
-  background-color: #EC4899;
+  background-color: var(--accent);
 }
 
 .dot_movie {
@@ -135,7 +135,7 @@
 
 .eventYear {
   display: block;
-  color: #818CF8;
+  color: var(--accent-hover);
   font-size: 11px;
   font-weight: 500;
   margin-top: 2px;

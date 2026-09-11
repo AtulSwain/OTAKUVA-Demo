@@ -160,7 +160,7 @@
 }
 
 .textarea:focus {
-  border-color: #6366F1;
+  border-color: var(--accent);
 }
 
 .errorBox {

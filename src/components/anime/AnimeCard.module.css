@@ -115,7 +115,7 @@
 }
 
 .statusUpcoming {
-  background-color: #6366F1;
+  background-color: var(--accent);
 }
 
 /* Compact Grid Mode */

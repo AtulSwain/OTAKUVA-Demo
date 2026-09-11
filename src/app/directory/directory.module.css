@@ -79,7 +79,7 @@
 }
 
 .categoryPillActive {
-  color: #FFFFFF;
+  color: var(--accent-text);
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);
 }
@@ -120,7 +120,7 @@
 }
 
 .alphaBtnActive {
-  color: #FFFFFF;
+  color: var(--accent-text);
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);
   font-weight: var(--weight-bold);

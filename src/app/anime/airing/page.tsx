@@ -71,10 +71,10 @@ function AiringContent() {
             type="button"
             onClick={() => setSelectedDay(d)}
             style={{
-              background: selectedDay === d ? '#6366F1' : '#202024',
+              background: selectedDay === d ? 'var(--accent)' : '#202024',
               color: selectedDay === d ? '#FFFFFF' : '#A1A1AA',
               border: '1px solid',
-              borderColor: selectedDay === d ? '#6366F1' : '#2A2A2E',
+              borderColor: selectedDay === d ? 'var(--accent)' : '#2A2A2E',
               borderRadius: '6px',
               padding: '6px 12px',
               fontSize: '12px',

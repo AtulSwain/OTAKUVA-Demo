@@ -75,10 +75,10 @@ function SeasonalContent() {
               type="button"
               onClick={() => setSelectedSeason(s)}
               style={{
-                background: selectedSeason === s ? '#6366F1' : '#202024',
+                background: selectedSeason === s ? 'var(--accent)' : '#202024',
                 color: selectedSeason === s ? '#FFFFFF' : '#A1A1AA',
                 border: '1px solid',
-                borderColor: selectedSeason === s ? '#6366F1' : '#2A2A2E',
+                borderColor: selectedSeason === s ? 'var(--accent)' : '#2A2A2E',
                 borderRadius: '6px',
                 padding: '6px 14px',
                 fontSize: '12px',
