@@ -114,12 +114,30 @@ gaps against later phases, from the last audit (2026-08-28):
 - **No background job queue** — `api/admin/sync` runs sync inline in the
   HTTP request; `SyncJob`/`DeadLetterQueue` tables exist but nothing drives
   them on a schedule (no cron/worker found).
-- **No platform-level RBAC** — `User` has no `role` field; only
-  per-community roles (`OWNER`/`MODERATOR`/`MEMBER`) exist.
-- **No automated tests** — zero `.test.`/`.spec.` files in the repo.
+- ~~No platform-level RBAC~~ — fixed: `User.role` + `src/lib/roles.ts`
+  (`requireRole` / `hasMinRole`). Use those; don't compare role strings.
+- ~~No automated tests~~ — `npm test` (node:test via tsx, `tests/**`) runs
+  route handlers against a throwaway SQLite DB. Never write tests that
+  touch `prisma/dev.db`; the old `src/lib/test_*.ts` scripts did and
+  polluted the catalog with fixtures.
 - **SQLite dev DB** — Postgres is still "Phase 2" per `.env.example`.
+- **AniList public API disabled upstream** (403 "temporarily disabled",
+  seen 2026-09-11) although it is the default provider — Jikan works.
+- **Pending owner sign-off (2026-09-11 audit, not yet done):** delete the
+  seeded persona `user_default` ("Atul Swain", no password, 2 reviews, 4
+  ratings that count toward OTAKUVA scores), ~17 test accounts, 3 test
+  communities, fixture anime `mind-paradox-*`/`daily-laughs-*` and studio
+  `MAPPA AI Intelligence *`; 161 placeholder "Episode N" rows (29 with
+  user progress); 4,615 unretried Jikan rows in `DeadLetterQueue`.
+- Episode import for long runners is truncated (e.g. Naruto 100/220),
+  which is why the broadcast-slot schedule can't infer episode numbers.
+- Responsive QA: `scripts/qa_responsive_overflow.mjs` (headless Chrome
+  via CDP). Don't judge mobile layout from `chrome --screenshot
+  --window-size` — headless windows have a ~500px minimum width.
 - Not yet verified: object storage vs. local files for `MediaAsset`, search
   index vs. plain DB queries, backup/restore procedure.
+
+See `docs/AUDIT_2026-09-11.md` for the full audit and root causes.
 
 Treat this list as the actual Phase 10 (production hardening) backlog for
 this repo — update it here as items get fixed instead of re-deriving it.
