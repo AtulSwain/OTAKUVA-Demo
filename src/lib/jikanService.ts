@@ -6,7 +6,7 @@
  * - Full coverage of Jikan v4 endpoints (Anime Full, Characters, Staff, Episodes, News, Relations, Statistics, Studios, People)
  * - Built-in Token Bucket / Rate Limiter with 800ms pacing and exponential backoff
  * - In-memory Response Cache (24h TTL) to eliminate redundant external calls
- * - High-Fidelity Canonical Fallbacks for standard franchise characters, staff, studios, and top titles
+ * - No synthetic fallbacks: when Jikan has no data the caller gets null/[] and must show the gap
  * - Normalization to OTAKUVA canonical schema
  */
 
@@ -188,15 +188,6 @@ export function jikanFetch<T = any>(
   return requestPromise;
 }
 
-const DEFAULT_PRODUCERS = [
-  { mal_id: 569, name: 'MAPPA', count: 85, established: '2011' },
-  { mal_id: 858, name: 'Wit Studio', count: 62, established: '2012' },
-  { mal_id: 11, name: 'Madhouse', count: 320, established: '1972' },
-  { mal_id: 14, name: 'Sunrise', count: 280, established: '1972' },
-  { mal_id: 43, name: 'ufotable', count: 48, established: '2000' },
-  { mal_id: 2, name: 'Kyoto Animation', count: 95, established: '1981' },
-];
-
 // =========================================================================
 // 1. ANIME ENDPOINTS (https://docs.api.jikan.moe/#tag/anime)
 // =========================================================================
@@ -317,14 +308,17 @@ export async function getJikanAnimeEpisodes(malId: number, page = 1) {
 export async function getJikanAnimeNews(malId: number) {
   const res = await jikanFetch<{ data: any[] }>(`/anime/${malId}/news`);
   if (res && Array.isArray(res.data)) {
+    // These are MyAnimeList news posts. They were previously credited to
+    // "Anime News Network" with a stock-photo thumbnail and a "Recently"
+    // date — attribution the source never made.
     return res.data.slice(0, 6).map((item, idx) => ({
       id: `jikan-news-${malId}-${idx}`,
       title: item.title,
-      date: item.date ? new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently',
-      author: item.author_username || 'Anime News Network',
-      source: 'Anime News Network',
+      date: item.date ? new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+      author: item.author_username || null,
+      source: 'MyAnimeList',
       sourceUrl: item.url,
-      thumbnail: item.images?.jpg?.image_url || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&q=80',
+      thumbnail: item.images?.jpg?.image_url || null,
       excerpt: item.excerpt || '',
     }));
   }
@@ -483,8 +477,9 @@ export async function getJikanProducers(page = 1, limit = 25) {
     };
   }
 
+  // Provider unavailable: report nothing rather than hand-typed studio stats.
   return {
-    studios: DEFAULT_PRODUCERS.slice(0, limit),
+    studios: [],
     pagination: { has_next_page: false, current_page: 1 },
   };
 }
@@ -534,39 +529,46 @@ export async function syncJikanAnimeToDatabase(rawItem: any): Promise<string | n
   try {
     const malId = rawItem.mal_id;
     const slug = slugifyTitle(rawItem.title, malId);
+    // Missing provider fields stay missing. This used to substitute an
+    // Unsplash stock photo, year 2023, "24 min", "Finished" and "Original"
+    // for any absent value, writing invented facts into canonical rows.
     const poster =
       rawItem.images?.webp?.large_image_url ||
       rawItem.images?.jpg?.large_image_url ||
       rawItem.images?.jpg?.image_url ||
-      'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600';
+      null;
     const banner = rawItem.images?.jpg?.large_image_url || poster;
     const trailerUrl =
       rawItem.trailer?.url ||
       (rawItem.trailer?.youtube_id ? `https://www.youtube.com/watch?v=${rawItem.trailer.youtube_id}` : null);
 
-    const year = rawItem.year || (rawItem.aired?.from ? new Date(rawItem.aired.from).getFullYear() : 2023);
+    const airedYear = rawItem.aired?.from ? new Date(rawItem.aired.from).getFullYear() : null;
+    const year = rawItem.year || (Number.isFinite(airedYear) ? airedYear : null);
+    const season = rawItem.season ? rawItem.season.charAt(0).toUpperCase() + rawItem.season.slice(1) : undefined;
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-    // Upsert Anime
+    // On update, a field the provider didn't send is left as it is (undefined
+    // = untouched) so a sparse or degraded response can never blank data.
     const anime = await prisma.anime.upsert({
       where: { slug },
       update: {
         malId,
         canonicalTitle: rawItem.title,
-        synopsis: rawItem.synopsis || 'No synopsis available.',
-        posterUrl: poster,
-        bannerUrl: banner,
-        trailerUrl,
-        score: rawItem.score || null,
-        scoredBy: rawItem.scored_by || 0,
-        episodes: rawItem.episodes || null,
-        duration: rawItem.duration || '24 min',
-        type: rawItem.type || 'TV',
-        status: rawItem.status || 'Finished',
-        season: rawItem.season ? rawItem.season.charAt(0).toUpperCase() + rawItem.season.slice(1) : undefined,
-        year,
-        source: rawItem.source || 'Original',
-        rank: rawItem.rank || undefined,
-        popularity: rawItem.popularity || undefined,
+        synopsis: rawItem.synopsis || undefined,
+        posterUrl: poster || undefined,
+        bannerUrl: banner || undefined,
+        trailerUrl: trailerUrl || undefined,
+        score: num(rawItem.score) ?? undefined,
+        scoredBy: num(rawItem.scored_by) ?? undefined,
+        episodes: num(rawItem.episodes) ?? undefined,
+        duration: rawItem.duration || undefined,
+        type: rawItem.type || undefined,
+        status: rawItem.status || undefined,
+        season,
+        year: year ?? undefined,
+        source: rawItem.source || undefined,
+        rank: num(rawItem.rank) ?? undefined,
+        popularity: num(rawItem.popularity) ?? undefined,
         lastSyncedAt: new Date(),
       },
       create: {
@@ -575,21 +577,21 @@ export async function syncJikanAnimeToDatabase(rawItem: any): Promise<string | n
         externalId: String(malId),
         externalSource: 'mal',
         canonicalTitle: rawItem.title,
-        synopsis: rawItem.synopsis || 'No synopsis available.',
-        posterUrl: poster,
+        synopsis: rawItem.synopsis || '',
+        posterUrl: poster || '',
         bannerUrl: banner,
         trailerUrl,
-        score: rawItem.score || null,
-        scoredBy: rawItem.scored_by || 0,
-        episodes: rawItem.episodes || null,
-        duration: rawItem.duration || '24 min',
-        type: rawItem.type || 'TV',
-        status: rawItem.status || 'Finished',
-        season: rawItem.season ? rawItem.season.charAt(0).toUpperCase() + rawItem.season.slice(1) : undefined,
+        score: num(rawItem.score),
+        scoredBy: num(rawItem.scored_by),
+        episodes: num(rawItem.episodes),
+        duration: rawItem.duration || null,
+        type: rawItem.type || 'UNKNOWN',
+        status: rawItem.status || 'UNKNOWN',
+        season,
         year,
-        source: rawItem.source || 'Original',
-        rank: rawItem.rank || undefined,
-        popularity: rawItem.popularity || undefined,
+        source: rawItem.source || null,
+        rank: num(rawItem.rank),
+        popularity: num(rawItem.popularity),
       },
     });
 

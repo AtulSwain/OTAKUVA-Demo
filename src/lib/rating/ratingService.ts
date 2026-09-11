@@ -286,15 +286,14 @@ export async function getUserRating(userId: string, animeId: string) {
  * Recalculates all canonical statistical aggregates for an anime
  */
 export async function recalculateAnimeAggregates(animeId: string): Promise<RatingSummaryResult> {
-  // 1. Calculate Global Average (C) across all valid active ratings in OTAKUVA
-  const allValidRatings = await prisma.animeRating.findMany({
-    where: { deletedAt: null },
-    select: { rating: true },
+  // 1. Global mean (C) across all active ratings — one aggregate query, not
+  // a load of every rating on the platform.
+  const globalAgg = await prisma.animeRating.aggregate({
+    where: { deletedAt: null, rating: { gte: 0.5, lte: 10 } },
+    _avg: { rating: true },
   });
   const globalAverage =
-    allValidRatings.length > 0
-      ? calculateRawAverage(allValidRatings.map((r) => r.rating)) || 7.5
-      : 7.5;
+    globalAgg._avg.rating !== null ? parseFloat(globalAgg._avg.rating.toFixed(2)) : 7.5;
 
   // 2. Fetch all valid ratings for this anime
   const animeRatings = await prisma.animeRating.findMany({
@@ -346,18 +345,12 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
     },
   });
 
-  // 4. Update canonical Anime record score & scoredBy
-  if (bayesianScore !== null) {
-    await prisma.anime.update({
-      where: { id: animeId },
-      data: {
-        score: bayesianScore,
-        scoredBy: ratingCount,
-      },
-    }).catch(() => {});
-  }
+  // The OTAKUVA score lives in RatingAggregate only. Anime.score/scoredBy are
+  // the provider's figures (canonical layer 2) and must never be overwritten
+  // by user ratings — doing so destroyed MAL scores that were never stored
+  // anywhere else.
 
-  // 5. Compute Category Aggregates
+  // 4. Compute Category Aggregates
   const categoryScoresMap: Record<RatingCategoryType, number[]> = {} as any;
   for (const cat of RATING_CATEGORIES) {
     categoryScoresMap[cat] = [];
@@ -486,7 +479,54 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
  * Retrieves the canonical public rating summary for an anime
  */
 export async function getRatingSummary(animeId: string): Promise<RatingSummaryResult> {
-  return await recalculateAnimeAggregates(animeId);
+  // Aggregates are rebuilt on every rating create/update/delete, so a page
+  // view reads them rather than recomputing (and rewriting) them each time.
+  // They are only computed here when missing or built by an older algorithm.
+  const [aggregate, categoryRows] = await Promise.all([
+    prisma.ratingAggregate.findUnique({ where: { animeId } }),
+    prisma.ratingCategoryAggregate.findMany({ where: { animeId } }),
+  ]);
+
+  if (!aggregate || aggregate.algorithmVersion !== RATING_ALGORITHM_VERSION) {
+    return recalculateAnimeAggregates(animeId);
+  }
+
+  let distribution: RatingSummaryResult['distribution'];
+  try {
+    distribution = aggregate.distributionJson ? JSON.parse(aggregate.distributionJson) : calculateDistribution([]);
+  } catch {
+    return recalculateAnimeAggregates(animeId);
+  }
+
+  const categories: RatingSummaryResult['categories'] = [];
+  for (const cat of RATING_CATEGORIES) {
+    const row = categoryRows.find((c) => c.category === cat);
+    if (!row || row.averageScore === null || row.responseCount === 0) continue;
+    categories.push({
+      category: cat,
+      label: CATEGORY_LABELS[cat],
+      averageScore: row.averageScore,
+      percentage: row.percentageShare ?? 0,
+      responseCount: row.responseCount,
+      confidence: row.confidence as ReturnType<typeof calculateConfidence>,
+    });
+  }
+
+  return {
+    score: aggregate.bayesianScore,
+    ratingCount: aggregate.ratingCount,
+    rawAverage: aggregate.rawAverage,
+    median: aggregate.medianScore,
+    variance: aggregate.variance,
+    standardDeviation: aggregate.standardDeviation,
+    confidence: aggregate.confidence as ReturnType<typeof calculateConfidence>,
+    distribution,
+    categories,
+    categoryPercentageTotal: categories.reduce((sum, c) => sum + c.percentage, 0),
+    algorithmVersion: aggregate.algorithmVersion,
+    explanatoryNote: CATEGORY_EXPLANATION_TEXT,
+    updatedAt: aggregate.updatedAt.toISOString(),
+  };
 }
 
 export const getAnimeRatingSummary = getRatingSummary;

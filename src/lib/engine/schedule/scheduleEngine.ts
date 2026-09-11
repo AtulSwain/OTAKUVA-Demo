@@ -125,6 +125,68 @@ export interface IngestScheduleEventInput {
 const SCHEDULE_CACHE_TTL_SEC = 60; // 1 minute cache for dynamic schedule feeds
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const DAY_MS = 86_400_000;
+// Episode airedAt values are often date-only, so "the same broadcast" is
+// matched within a couple of days rather than to the minute.
+const SAME_BROADCAST_DAYS = 2;
+// A weekly show's previous episode aired about 7 days before the next slot;
+// the window tolerates one skipped week.
+const PREVIOUS_SLOT_MIN_DAYS = 4;
+const PREVIOUS_SLOT_MAX_DAYS = 15;
+
+/**
+ * Which episode airs in a weekly slot at `slotAt`, or null when the recorded
+ * episodes can't tell us. Uses only canonical Episode rows:
+ *  - an episode already recorded for that date is that episode;
+ *  - otherwise, if the highest-numbered episode on record aired in the
+ *    previous slot, the next one follows it.
+ * Anything else — an import that stopped years ago, no aired dates, a gap —
+ * returns null. Callers must skip rather than guess.
+ */
+export async function inferNextEpisodeNumber(animeId: string, slotAt: Date): Promise<number | null> {
+  const windowStart = new Date(slotAt.getTime() - SAME_BROADCAST_DAYS * DAY_MS);
+  const windowEnd = new Date(slotAt.getTime() + SAME_BROADCAST_DAYS * DAY_MS);
+
+  const [recordedForSlot, highest, latestAired] = await Promise.all([
+    prisma.episode.findFirst({
+      where: { animeId, airedAt: { gte: windowStart, lte: windowEnd } },
+      orderBy: { number: 'asc' },
+      select: { number: true },
+    }),
+    prisma.episode.findFirst({ where: { animeId }, orderBy: { number: 'desc' }, select: { number: true } }),
+    prisma.episode.findFirst({
+      where: { animeId, airedAt: { not: null, lt: windowStart } },
+      orderBy: { airedAt: 'desc' },
+      select: { number: true, airedAt: true },
+    }),
+  ]);
+
+  if (recordedForSlot && Number.isInteger(recordedForSlot.number)) return recordedForSlot.number;
+  if (!highest || !latestAired?.airedAt || latestAired.number !== highest.number) return null;
+
+  const gapDays = (slotAt.getTime() - latestAired.airedAt.getTime()) / DAY_MS;
+  if (gapDays < PREVIOUS_SLOT_MIN_DAYS || gapDays > PREVIOUS_SLOT_MAX_DAYS) return null;
+
+  return Math.floor(highest.number) + 1;
+}
+
+/**
+ * Whether a schedule row's episode number is supported by canonical data:
+ * the inference above agrees with it, or it is a premiere that lines up with
+ * the anime's recorded start date.
+ */
+export async function isScheduledEpisodeSupported(
+  animeId: string,
+  episode: number,
+  airingAt: Date,
+  airedFrom: Date | null
+): Promise<boolean> {
+  if (episode === 1 && airedFrom) {
+    if (Math.abs(airingAt.getTime() - airedFrom.getTime()) <= SAME_BROADCAST_DAYS * DAY_MS) return true;
+  }
+  return (await inferNextEpisodeNumber(animeId, airingAt)) === episode;
+}
+
 export class ScheduleEngine {
   /**
    * Main query method for the anime airing schedule.
@@ -616,7 +678,8 @@ export class ScheduleEngine {
         delayReason,
         notes: event.notes,
         region: event.region || 'GLOBAL',
-        isVerified: event.isVerified ?? true,
+        // Verified only when the caller has a source that confirms it.
+        isVerified: event.isVerified ?? false,
         sourceProvider: event.sourceProvider || 'anilist',
         source: event.sourceProvider || 'anilist',
         externalScheduleId: event.externalScheduleId,
@@ -884,16 +947,18 @@ export class ScheduleEngine {
           continue;
         }
 
-        // Next episode = one past the highest episode number we actually
-        // have on record — never assumed from `anime.episodes` (that's the
-        // show's *planned total*, which for an ongoing series is usually
-        // null or an estimate, not "how many have aired so far").
-        const lastEpisode = await prisma.episode.findFirst({
-          where: { animeId: anime.id },
-          orderBy: { number: 'desc' },
-          select: { number: true },
-        });
-        const nextEpisodeNumber = (lastEpisode?.number || 0) + 1;
+        // The broadcast slot says *when* something airs, not *which* episode.
+        // "Highest imported episode + 1" is only right if the import is
+        // current — for long runners it isn't (One Piece's import stopped at
+        // an episode from 2017, which produced "episode 801" in 2026). So
+        // infer the number only when the highest recorded episode aired in
+        // the previous slot; otherwise leave this show off the schedule
+        // rather than publish an episode number we can't stand behind.
+        const nextEpisodeNumber = await inferNextEpisodeNumber(anime.id, nextAiringAt);
+        if (nextEpisodeNumber === null) {
+          skipped++;
+          continue;
+        }
 
         if (anime.episodes && nextEpisodeNumber > anime.episodes) {
           // Already at/past its known final episode count — status hasn't
@@ -919,7 +984,8 @@ export class ScheduleEngine {
           originalTimezone: timezone,
           releaseType: 'BROADCAST',
           region: 'JP',
-          isVerified: true,
+          // Inferred from a weekly slot, not a source listing this episode.
+          isVerified: false,
           sourceProvider: 'jikan',
         });
 

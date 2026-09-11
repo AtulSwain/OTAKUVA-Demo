@@ -250,8 +250,11 @@ export async function DELETE(
       await tx.userEpisodeProgress.deleteMany({
         where: { userId, animeId: resolvedId },
       });
-      await tx.animeRating.deleteMany({
-        where: { userId, animeId: resolvedId },
+      // Soft delete, matching deleteUserRating: the row and its audit events
+      // stay, and re-rating later restores it.
+      await tx.animeRating.updateMany({
+        where: { userId, animeId: resolvedId, deletedAt: null },
+        data: { deletedAt: new Date() },
       });
       await tx.favorite.deleteMany({
         where: { userId, animeId: resolvedId },
@@ -275,6 +278,11 @@ export async function DELETE(
       };
 
       return { success: true, animeId: resolvedId, counts };
+    });
+
+    // The removed rating must stop counting toward the OTAKUVA score.
+    recalculateAnimeAggregates(resolvedId).catch((err) => {
+      console.error('Error recalculating aggregates on library removal:', err);
     });
 
     return NextResponse.json(result);
