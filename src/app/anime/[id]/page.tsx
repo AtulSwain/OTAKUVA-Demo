@@ -391,6 +391,15 @@ export default function AnimeDetailPage() {
   const totalEp = anime.episodes ?? undefined;
   const displayTitle = getAnimeDisplayTitle(anime);
 
+  // The OTAKUVA score shown on this page is the plain average of OTAKUVA
+  // members' ratings, with its rating count — so a rating someone gives shows
+  // up as given. (The Bayesian-smoothed figure in RatingAggregate is for
+  // ranking, where one early rating shouldn't top a chart; shown here it made
+  // a single 9 read as ~7.6.) ratingSummary is refetched after every rating
+  // submit/delete, so every surface below updates together.
+  const otakuvaRatingCount = ratingSummary?.ratingCount ?? 0;
+  const otakuvaScore = otakuvaRatingCount > 0 ? ratingSummary?.rawAverage ?? null : null;
+
   const handleDetailedRateClick = () => {
     setIsRatingModalOpen(true);
   };
@@ -442,6 +451,8 @@ export default function AnimeDetailPage() {
         studioName={mainStudioName}
         studioSlug={studioSlug}
         nextEpisodeNumber={nextEpisodeNumber}
+        otakuvaScore={otakuvaScore}
+        otakuvaRatingCount={otakuvaRatingCount}
       />
 
       <main className={styles.mainContainer}>
@@ -507,12 +518,11 @@ export default function AnimeDetailPage() {
               <OtakuvaVibe
                 animeTitle={displayTitle}
                 categoryAggregates={ratingSummary?.categories}
-                ratingCount={ratingSummary?.ratingCount ?? 0}
+                ratingCount={otakuvaRatingCount}
                 confidence={ratingSummary?.confidence}
-                rawAverage={ratingSummary?.rawAverage}
                 onOpenRateModal={handleDetailedRateClick}
                 genres={genresList}
-                score={ratingSummary?.score ?? null}
+                score={otakuvaScore}
               />
             </section>
 
@@ -603,8 +613,8 @@ export default function AnimeDetailPage() {
             {/* 3. Community Score Breakdown & Rating Distribution */}
             <div className={styles.sidebarSection}>
               <RatingDistributionCard
-                score={ratingSummary?.score ?? null}
-                ratingCount={ratingSummary?.ratingCount ?? 0}
+                score={otakuvaScore}
+                ratingCount={otakuvaRatingCount}
                 distribution={ratingSummary?.distribution}
                 reviewCount={reviews.length + (userReview ? 1 : 0)}
                 onOpenRateModal={handleDetailedRateClick}
@@ -636,6 +646,7 @@ export default function AnimeDetailPage() {
         userRating={effectiveUserRating}
         onOpenRatingModal={handleDetailedRateClick}
         onOpenTrailer={openTrailer}
+        otakuvaScore={otakuvaScore}
       />
 
       {/* 17. TRAILER MODAL */}

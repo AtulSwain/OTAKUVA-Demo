@@ -96,6 +96,27 @@ describe('ratings', () => {
     assert.equal(again.score, 8.4);
   });
 
+  test('the OTAKUVA score shown on the anime page is what members rated', async () => {
+    // The hero reads RatingSummary.rawAverage; a single rating of 9 must read
+    // as 9.0 from 1 rating, not the ranking-smoothed ~7.6.
+    const [first, second] = [await createUser(), await createUser()];
+    const anime = await createAnime({ score: 6.1, scoredBy: 1000 });
+    const rate = (as: any, score: number) =>
+      ratingPOST(request('POST', `/api/anime/${anime.id}/rating`, { as, body: { score } }), { params: { id: anime.id } });
+    const summary = async () =>
+      (await read(await ratingSummaryGET(request('GET', `/api/anime/${anime.id}/rating-summary`), { params: { id: anime.id } }))).body;
+
+    await rate(first, 9);
+    let s = await summary();
+    assert.equal(s.rawAverage, 9);
+    assert.equal(s.ratingCount, 1);
+
+    await rate(second, 7);
+    s = await summary();
+    assert.equal(s.rawAverage, 8, 'average of 9 and 7');
+    assert.equal(s.ratingCount, 2);
+  });
+
   test('removing an anime from the library stops its rating counting', async () => {
     const user = await createUser();
     const anime = await createAnime();

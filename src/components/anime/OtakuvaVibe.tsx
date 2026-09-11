@@ -37,16 +37,9 @@ interface OtakuvaVibeProps {
   ratingCount?: number | null;
   confidence?: RatingConfidenceTier;
   onOpenRateModal?: () => void;
-  /**
-   * Unsmoothed community mean. The headline score is Bayesian-adjusted
-   * (pulled toward the site average of 7.5 until ~25 ratings exist), so with
-   * a handful of low ratings the tier can read "Decent" while every person
-   * who rated it actually gave it a 2. Passing the raw mean lets the card
-   * disclose that instead of quietly overstating a badly-rated show.
-   */
-  rawAverage?: number | null;
   // Backward compatibility
   genres?: string[];
+  /** Average of OTAKUVA members' ratings — the same number the hero shows. */
   score?: number | null;
 }
 
@@ -56,7 +49,6 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
   ratingCount = 0,
   confidence = 'NO_DATA',
   onOpenRateModal,
-  rawAverage = null,
   score = null,
 }) => {
   // Only display categories with real community responses
@@ -113,9 +105,10 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
   // overall rather than just its single best-scoring dimension.
   const overallScore = typeof score === 'number' ? score : primaryAspect.averageScore;
   const overallTier = getRatingTier(overallScore);
-  // Below the Bayesian smoothing threshold (m = 25 in ratingService) the
-  // headline number is dominated by the prior, not by the people who rated.
-  const isProvisional = (ratingCount || 0) > 0 && (ratingCount || 0) < 25;
+  // The headline is the plain average of members' ratings (the page passes
+  // RatingSummary.rawAverage), so with only a few ratings it is simply an
+  // early read — say so rather than present it as settled.
+  const isProvisional = (ratingCount || 0) > 0 && (ratingCount || 0) < 10;
   const overallColor = getScoreColor(overallScore);
   const overallLabel = overallTier ? overallTier.label : NO_SCORE_LABEL;
 
@@ -222,20 +215,8 @@ export const OtakuvaVibe: React.FC<OtakuvaVibeProps> = ({
 
           {isProvisional && (
             <p className={styles.provisionalNote}>
-              <strong>Provisional tier.</strong> With{' '}
-              {(ratingCount || 0).toLocaleString()} rating
-              {(ratingCount || 0) === 1 ? '' : 's'} the score is still weighted
-              toward the site average.
-              {typeof rawAverage === 'number' && (
-                <>
-                  {' '}
-                  Raters alone gave it{' '}
-                  <span style={{ color: getScoreColor(rawAverage), fontWeight: 800 }}>
-                    {rawAverage.toFixed(1)} · {getRatingTier(rawAverage)?.label ?? NO_SCORE_LABEL}
-                  </span>
-                  .
-                </>
-              )}
+              <strong>Early score.</strong> Based on {(ratingCount || 0).toLocaleString()} rating
+              {(ratingCount || 0) === 1 ? '' : 's'} so far — it will settle as more members rate.
             </p>
           )}
         </div>

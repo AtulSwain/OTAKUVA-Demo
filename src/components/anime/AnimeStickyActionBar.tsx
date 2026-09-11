@@ -13,6 +13,8 @@ interface AnimeStickyActionBarProps {
   userRating?: number | null;
   onOpenRatingModal: () => void;
   onOpenTrailer?: () => void;
+  /** Average of OTAKUVA members' ratings, as shown in the hero. */
+  otakuvaScore?: number | null;
 }
 
 export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
@@ -20,6 +22,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
   userRating,
   onOpenRatingModal,
   onOpenTrailer,
+  otakuvaScore = null,
 }) => {
   const { getStatus, getItem, updateStatus, toggleFavorite } = useLibrary();
   const [isVisible, setIsVisible] = useState(false);
@@ -77,7 +80,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
         <div className={styles.titleBlock}>
           <span className={styles.title}>{displayTitle}</span>
           <span className={styles.meta}>
-            {[anime.type, typeof anime.score === 'number' ? `Score ${anime.score.toFixed(1)}` : null].filter(Boolean).join(' • ')}
+            {[anime.type, typeof otakuvaScore === 'number' ? `OTAKUVA ${otakuvaScore.toFixed(1)}` : null].filter(Boolean).join(' • ')}
           </span>
         </div>
       </div>

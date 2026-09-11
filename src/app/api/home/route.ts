@@ -43,7 +43,13 @@ function mapAnime(anime: any) {
     status: normalizeStatus(anime.status),
     episodes: anime.episodes,
     score: typeof anime.score === 'number' ? anime.score : null,
-    otakuvaScore: typeof anime.score === 'number' ? Math.round(anime.score * 10) : null,
+    // OTAKUVA's own score: the average of members' ratings (the same figure
+    // the anime page shows). This used to be the provider score x10.
+    otakuvaScore:
+      anime.ratingAggregate?.ratingCount > 0 && typeof anime.ratingAggregate.rawAverage === 'number'
+        ? anime.ratingAggregate.rawAverage
+        : null,
+    otakuvaRatingCount: anime.ratingAggregate?.ratingCount ?? 0,
     ratingCount: typeof anime.scoredBy === 'number' ? anime.scoredBy : 0,
     scoredBy: typeof anime.scoredBy === 'number' ? anime.scoredBy : 0,
     rank: typeof anime.rank === 'number' ? anime.rank : null,
@@ -84,6 +90,7 @@ async function section<T>(fallback: T, loader: () => Promise<T>) {
 const animeInclude = {
   animeGenres: { include: { genre: true } },
   animeStudios: { include: { studio: true } },
+  ratingAggregate: { select: { rawAverage: true, ratingCount: true } },
 };
 
 export async function GET(request: NextRequest) {

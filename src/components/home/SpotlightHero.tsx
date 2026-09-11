@@ -56,7 +56,14 @@ export const SpotlightHero: React.FC<SpotlightHeroProps> = ({
     currentAnime.posterImage ||
     (currentAnime as any).posterUrl;
 
-  const scoreVal = currentAnime.score ? Number(currentAnime.score).toFixed(1) : '—';
+  // The badge says OTAKUVA SCORE, so it shows OTAKUVA members' average —
+  // not the provider score it used to show under that name.
+  const otakuvaCount = currentAnime.otakuvaRatingCount ?? 0;
+  const scoreVal =
+    typeof currentAnime.otakuvaScore === 'number' && otakuvaCount > 0
+      ? currentAnime.otakuvaScore.toFixed(1)
+      : '—';
+  const scoreCountLabel = otakuvaCount > 0 ? `${otakuvaCount.toLocaleString()} rating${otakuvaCount === 1 ? '' : 's'}` : 'No ratings yet';
   // Facts on record only — this used to fill gaps with "TV", 2026,
   // "24 Episodes" and "Finished".
   const metaText = [
@@ -91,7 +98,7 @@ export const SpotlightHero: React.FC<SpotlightHeroProps> = ({
           <div className={styles.scoreBadge}>
             <span>OTAKUVA SCORE</span>
             <strong className={styles.scoreNum}>{scoreVal}</strong>
-            <span className={styles.scoreStars}>★★★★★</span>
+            <span className={styles.scoreStars}>{scoreCountLabel}</span>
           </div>
         </div>
 
