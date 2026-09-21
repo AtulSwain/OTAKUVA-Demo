@@ -63,6 +63,15 @@ export async function refreshCommunityAggregates(communityIds: string[]): Promis
   ]);
 }
 
+/** For membership hooks: a stale cache must never fail the join/leave/ban itself. */
+export async function refreshCommunityAggregatesSafe(communityId: string): Promise<void> {
+  try {
+    await refreshCommunityAggregates([communityId]);
+  } catch (err) {
+    logger.error('community badge aggregate refresh failed', { component: 'badges/counting', communityId, err });
+  }
+}
+
 /** Everything cached that depends on this user's tier. */
 export async function refreshAggregatesForUser(userId: string): Promise<void> {
   const [reviews, memberships] = await Promise.all([

@@ -5,7 +5,7 @@
 import { prisma } from '../prisma';
 import { BADGE_RULES } from './config';
 import { isCriticEligible } from './rules';
-import { progressToNext, getTier, isTierKey, type TierKey, type TierProgressInfo } from './tiers';
+import { progressToNext, getTier, isTierKey, tierIndex, TIERS, type TierKey, type TierProgressInfo } from './tiers';
 
 export interface UserBadgeSnapshot {
   userId: string;
@@ -79,6 +79,23 @@ export async function getCriticEligibleUserIds(userIds: string[], now = new Date
     }
   }
   return eligible;
+}
+
+/**
+ * Prisma `user` filter for critic-eligible reviewers (same rule as
+ * isCriticEligible): minimum tier, clean record, recent counted activity.
+ */
+export function criticUserWhere(now: Date = new Date()) {
+  const cfg = BADGE_RULES.critics;
+  const min = tierIndex(cfg.minTier);
+  const since = new Date(now.getTime() - cfg.recentActivityDays * 86_400_000);
+  return {
+    badgeStats: {
+      currentTier: { in: TIERS.filter((t) => tierIndex(t) >= min).map((t) => t.key) },
+      ...(cfg.requireCleanRecord ? { hasConfirmedSpam: false } : {}),
+    },
+    reviews: { some: { countState: 'COUNTED', countedAt: { gte: since }, deletedAt: null } },
+  };
 }
 
 export async function getAnimeBadgeDistribution(animeId: string): Promise<Record<string, number>> {

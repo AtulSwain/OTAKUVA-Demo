@@ -1,0 +1,41 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--surface-base);
+  border: 1px solid var(--border-default);
+}
+.head { display: flex; align-items: center; gap: 20px; }
+.headText { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.username { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.title { margin: 0; color: var(--text-primary); font-size: 15px; }
+.meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-secondary); font-size: 13px; font-variant-numeric: tabular-nums; }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.blockTitle { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.blockSub { margin: -6px 0 0; font-size: 12px; color: var(--text-muted); }
+.communities { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.community { display: flex; align-items: center; gap: 12px; }
+.tile {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.communityText { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.communityName { color: var(--text-primary); font-size: 14px; font-weight: 500; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.communityName:hover { text-decoration: underline; }
+.communityMeta { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.role { flex: none; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 10px; border: 1px solid var(--text-secondary); }
+.roleFilled { background: var(--text-primary); color: var(--text-inverse); border-color: var(--text-primary); }
+.roleOutlined { color: var(--text-secondary); background: transparent; }
+@media (max-width: 520px) {
+  .panel { padding: 16px; }
+  .head { gap: 14px; }
+}

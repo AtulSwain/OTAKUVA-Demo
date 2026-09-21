@@ -1,0 +1,14 @@
+.wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.text { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+.label { color: var(--text-secondary); }
+.togo { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.track {
+  --b-bar: var(--b-bar-dark, var(--b-bar-light));
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-active, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+}
+:global([data-badge-theme='light']) .track { --b-bar: var(--b-bar-light); background: rgba(0, 0, 0, 0.08); }
+.bar { height: 100%; border-radius: 3px; background: var(--b-bar); transition: width 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }

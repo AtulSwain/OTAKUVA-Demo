@@ -16,6 +16,12 @@ export function tierVars(tier: Tier | TierKey): CSSProperties {
     '--b-ink-light': t.ink ?? 'var(--text-muted, currentColor)',
     '--b-stroke-light': t.stroke ?? 'transparent',
   };
+  // Bars and dots: black lacquer / ivory tiers use their gold stroke so they stay visible;
+  // dark navy uses its lightened stroke on dark surfaces.
+  vars['--b-bar-light'] = t.special ? (t.stroke ?? t.fill ?? 'currentColor') : (t.fill ?? 'var(--text-muted, currentColor)');
+  vars['--b-bar-dark'] = t.special
+    ? (t.stroke ?? t.fill ?? 'currentColor')
+    : (t.dark?.stroke ?? t.dark?.fill ?? t.fill ?? 'var(--text-muted, currentColor)');
   if (t.dark?.fill) vars['--b-fill-dark'] = t.dark.fill;
   if (t.dark?.ink) vars['--b-ink-dark'] = t.dark.ink;
   if (t.dark?.stroke) vars['--b-stroke-dark'] = t.dark.stroke;
