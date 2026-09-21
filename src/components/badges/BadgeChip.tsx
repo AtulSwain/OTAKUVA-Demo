@@ -14,7 +14,7 @@ export interface BadgeChipProps {
 
 /**
  * Small pill with the romaji name. Never uses kanji: at 11px it is
- * unreadable, and Senpai (先輩) / Sensei (先生) share the character 先.
+ * unreadable, and Senpai and Sensei share their first kanji.
  */
 export default function BadgeChip({ tier, count, locked, className }: BadgeChipProps) {
   const t = typeof tier === 'string' ? getTier(tier) : tier;

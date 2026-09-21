@@ -22,6 +22,7 @@ export function tierVars(tier: Tier | TierKey): CSSProperties {
   vars['--b-bar-dark'] = t.special
     ? (t.stroke ?? t.fill ?? 'currentColor')
     : (t.dark?.stroke ?? t.dark?.fill ?? t.fill ?? 'var(--text-muted, currentColor)');
+  if (t.chipFill) vars['--b-chip-fill'] = t.chipFill;
   if (t.dark?.fill) vars['--b-fill-dark'] = t.dark.fill;
   if (t.dark?.ink) vars['--b-ink-dark'] = t.dark.ink;
   if (t.dark?.stroke) vars['--b-stroke-dark'] = t.dark.stroke;

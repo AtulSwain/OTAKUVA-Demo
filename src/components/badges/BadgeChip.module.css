@@ -13,7 +13,7 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
   vertical-align: middle;
-  background: var(--b-fill);
+  background: var(--b-chip-fill, var(--b-fill));
   color: var(--b-ink);
   border: 1px solid transparent;
 }

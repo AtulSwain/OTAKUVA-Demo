@@ -49,15 +49,20 @@ export interface Tier {
   special: boolean;
   /** Dark-theme overrides for tiers that lose contrast on a dark surface. */
   dark?: { fill?: string; ink?: string; stroke?: string; outline?: string };
+  /**
+   * Slightly darker fill used ONLY behind 11px chip text where the seal colour gives
+   * under 4.5:1 with the ink (Kōhai 3.9, Buchō 4.0). Seals keep the specified colour.
+   */
+  chipFill?: string;
   /** Message key in BADGE_STRINGS (see strings.ts) for the English meaning. */
   glossKey: string;
 }
 
 export const TIERS: readonly Tier[] = [
   { key: 'shoshinsha', name: 'Shoshinsha', kanji: '初', kanjiFull: '初心者', min: 0, fill: null, ink: null, stroke: null, special: false, glossKey: 'shoshinsha' },
-  { key: 'kohai', name: 'Kōhai', kanji: '後輩', kanjiFull: '後輩', min: 10, fill: '#3F8F68', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'kohai' },
+  { key: 'kohai', name: 'Kōhai', kanji: '後輩', kanjiFull: '後輩', min: 10, fill: '#3F8F68', ink: '#FFFFFF', stroke: null, special: false, chipFill: '#357A57', glossKey: 'kohai' },
   { key: 'senpai', name: 'Senpai', kanji: '先輩', kanjiFull: '先輩', min: 100, fill: '#2B6CA3', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'senpai' },
-  { key: 'buchou', name: 'Buchō', kanji: '部長', kanjiFull: '部長', min: 200, fill: '#1E8C93', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'buchou' },
+  { key: 'buchou', name: 'Buchō', kanji: '部長', kanjiFull: '部長', min: 200, fill: '#1E8C93', ink: '#FFFFFF', stroke: null, special: false, chipFill: '#1B7A80', glossKey: 'buchou' },
   { key: 'mekiki', name: 'Mekiki', kanji: '目利', kanjiFull: '目利き', min: 300, fill: '#6A3F9C', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'mekiki' },
   { key: 'sensei', name: 'Sensei', kanji: '先生', kanjiFull: '先生', min: 500, fill: '#B7282E', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'sensei' },
   // Iron navy vanishes into a dark surface: lighten the fill and add a stroke there.
