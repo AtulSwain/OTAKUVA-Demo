@@ -151,6 +151,24 @@ export async function recalculateUser(userId: string, now: Date = new Date()): P
       });
     }
 
+    // Crossing into the critic's-section tier band: tell them (eligibility still needs a clean
+    // record and recent activity, checked when the section is built).
+    if (
+      rose &&
+      tierIndex(previousTier) < tierIndex(BADGE_RULES.critics.minTier) &&
+      tierIndex(resolved) >= tierIndex(BADGE_RULES.critics.minTier)
+    ) {
+      await tx.notification.create({
+        data: {
+          userId,
+          type: 'CRITIC_PICK',
+          title: "You can now appear in the critic's section",
+          body: 'Keep reviewing to stay eligible.',
+          linkUrl: user ? `/profile/${user.username}` : null,
+        },
+      });
+    }
+
     // Progress moments (not badges): fire once ever per milestone, upward only.
     const crossed = BADGE_RULES.milestones.filter((m) => stats.countedReviewCount < m && countedReviewCount >= m);
     if (crossed.length) {
