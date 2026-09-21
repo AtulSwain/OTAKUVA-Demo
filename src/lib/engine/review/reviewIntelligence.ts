@@ -6,6 +6,8 @@
 
 import { prisma } from '../../prisma';
 import { emitEngineEvent } from '../events/eventEngine';
+import { initializeReviewCounting, withdrawIfUnpublished } from '../../badges/countingService';
+import { logger } from '../../logger';
 export { recalculateAnimeAggregates, validateRatingScore } from '../../rating/ratingService';
 import { recalculateAnimeAggregates, validateRatingScore } from '../../rating/ratingService';
 
@@ -373,6 +375,12 @@ export async function createAndAnalyzeReview(input: IngestReviewInput) {
     return targetReview;
   });
 
+  // Reviewer badges: decide whether this review can ever count (PENDING vs
+  // INELIGIBLE). Never blocks or fails the submission itself.
+  await initializeReviewCounting(review).catch((err) =>
+    logger.error('badge counting init failed', { component: 'reviews', reviewId: review.id, err })
+  );
+
   // Non-blocking Community Opinion & Rating aggregates recalculation
   recalculateCommunityOpinion(resolvedAnimeId).catch(() => {});
   recalculateAnimeAggregates(resolvedAnimeId).catch(() => {});
@@ -481,6 +489,10 @@ export async function updateReview(input: UpdateReviewInput) {
     return rev;
   });
 
+  await initializeReviewCounting(updated).catch((err) =>
+    logger.error('badge counting re-evaluation failed', { component: 'reviews', reviewId, err })
+  );
+
   recalculateCommunityOpinion(existing.animeId).catch(() => {});
   recalculateAnimeAggregates(existing.animeId).catch(() => {});
 
@@ -515,6 +527,10 @@ export async function deleteReview(userId: string, reviewId: string, isAdmin: bo
     where: { id: reviewId },
     data: { deletedAt: new Date(), status: 'DELETED' },
   });
+
+  await withdrawIfUnpublished(reviewId).catch((err) =>
+    logger.error('badge count withdrawal failed', { component: 'reviews', reviewId, err })
+  );
 
   recalculateCommunityOpinion(existing.animeId).catch(() => {});
   recalculateAnimeAggregates(existing.animeId).catch(() => {});

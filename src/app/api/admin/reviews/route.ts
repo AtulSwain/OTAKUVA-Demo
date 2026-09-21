@@ -3,6 +3,8 @@ import { prisma } from '../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../lib/auth';
 import { recalculateAnimeAggregates } from '../../../../lib/rating/ratingService';
 import { getAnimeDisplayTitle } from '../../../../lib/animeTitleResolver';
+import { removeReviewFromCount, withdrawIfUnpublished } from '../../../../lib/badges/countingService';
+import { logger } from '../../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -134,7 +136,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reviewId, status, resolveReports } = body;
+    const { reviewId, status, resolveReports, confirmSpam } = body;
 
     if (!reviewId || !status) {
       return NextResponse.json({ error: 'reviewId and target status are required' }, { status: 400 });
@@ -172,6 +174,18 @@ export async function PATCH(request: NextRequest) {
 
       return rev;
     });
+
+    // Reviewer badges: a confirmed-spam removal also marks the reviewer's record;
+    // any other unpublishing simply withdraws the review's count.
+    try {
+      if (confirmSpam === true && status !== 'PUBLISHED') {
+        await removeReviewFromCount(reviewId, 'SPAM_CONFIRMED', { confirmedSpam: true });
+      } else {
+        await withdrawIfUnpublished(reviewId);
+      }
+    } catch (err) {
+      logger.error('badge count update after moderation failed', { component: 'admin/reviews', reviewId, err });
+    }
 
     // Recalculate aggregates if status changed
     if (review.status !== status) {
