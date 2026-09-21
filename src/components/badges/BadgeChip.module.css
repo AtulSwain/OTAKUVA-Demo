@@ -1,0 +1,33 @@
+.chip {
+  --b-fill: var(--b-fill-dark, var(--b-fill-light));
+  --b-ink: var(--b-ink-dark, var(--b-ink-light));
+  --b-stroke: var(--b-stroke-dark, var(--b-stroke-light));
+  --b-muted: var(--text-muted, currentColor);
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font: 600 11px/1 var(--font-sans, system-ui, sans-serif);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: var(--b-fill);
+  color: var(--b-ink);
+  border: 1px solid transparent;
+}
+:global([data-badge-theme='light']) .chip {
+  --b-fill: var(--b-fill-light);
+  --b-ink: var(--b-ink-light);
+  --b-stroke: var(--b-stroke-light);
+}
+/* Meijin (black fill, gold stroke + text) and Densetsu (ivory fill, gold stroke, vermilion text). */
+.special { border-color: var(--b-stroke); }
+/* Shoshinsha / locked: dashed outline, muted text. */
+.locked {
+  background: transparent;
+  color: var(--b-muted);
+  border: 1px dashed var(--b-muted);
+  font-weight: 500;
+}

@@ -1,0 +1,25 @@
+.wrap { position: relative; display: inline-flex; outline: none; border-radius: 8px; }
+.wrap:focus-visible { box-shadow: 0 0 0 2px var(--accent-focus, rgba(76, 141, 255, 0.5)); }
+.tip {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: 156px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-overlay, #22222b);
+  color: var(--text-primary, #f5f5f7);
+  border: 1px solid var(--border-elevated, #2e2e39);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font: 400 12px/1.4 var(--font-sans, system-ui, sans-serif);
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.kanji { display: block; font: 700 20px/1.2 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif; }
+.name { display: block; font-weight: 600; font-size: 13px; margin-top: 2px; }
+.meaning { display: block; color: var(--text-secondary, #a1a1aa); }
+.req { display: block; margin-top: 4px; color: var(--text-muted, #71717a); font-size: 11px; }
+.below { bottom: auto; top: calc(100% + 8px); }

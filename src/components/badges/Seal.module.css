@@ -1,0 +1,30 @@
+/* Theme resolution: dark is the default (the site is dark-only); an ancestor
+   with data-badge-theme="light" switches to the light set. */
+.seal {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  --b-fill: var(--b-fill-dark, var(--b-fill-light));
+  --b-ink: var(--b-ink-dark, var(--b-ink-light));
+  --b-stroke: var(--b-stroke-dark, var(--b-stroke-light));
+  --b-outline: var(--b-outline-dark, transparent);
+  --b-muted: var(--text-muted, currentColor);
+}
+:global([data-badge-theme='light']) .seal {
+  --b-fill: var(--b-fill-light);
+  --b-ink: var(--b-ink-light);
+  --b-stroke: var(--b-stroke-light);
+  --b-outline: transparent;
+}
+
+.plate { fill: var(--b-fill); }
+.outline { fill: none; stroke: var(--b-outline); stroke-width: 1.4; }
+.border { fill: none; stroke-width: 1.2; }
+.borderPlain { stroke: var(--b-ink); stroke-opacity: 0.55; }
+.borderSpecial { stroke: var(--b-stroke); stroke-opacity: 0.7; }
+.glyph { fill: var(--b-ink); }
+.rim { fill: none; stroke: var(--b-stroke); stroke-width: 1.6; }
+
+/* Shoshinsha: not yet earned — dashed outline, muted glyph. */
+.empty { fill: none; stroke: var(--b-muted); stroke-width: 1.4; stroke-dasharray: 4 3; opacity: 0.8; }
+.emptyGlyph { fill: var(--b-muted); opacity: 0.8; }
