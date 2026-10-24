@@ -156,8 +156,8 @@ async function runEngineCoreTests() {
     rating: 9.5,
     review: 'Magnificent narrative tension and cinematography!',
   });
-  assert(ratedEp.rating === 9.5, 'Episode rating recorded as 9.5');
-  assert(ratedEp.review === 'Magnificent narrative tension and cinematography!', 'Episode micro-review saved');
+  assert(ratedEp.score === 9.5, 'Episode rating recorded as 9.5');
+  assert(ratedEp.note === 'Magnificent narrative tension and cinematography!', 'Episode micro-review saved');
 
   const epRatings = await getEpisodeRatings(testAnime.id, 1);
   assert(epRatings.totalRatings >= 1, 'Retrieved episode ratings list');

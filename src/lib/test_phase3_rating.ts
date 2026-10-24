@@ -154,8 +154,8 @@ async function runPhase3RatingTests() {
     rating: 9.5,
     review: 'Incredible pilot episode setting the stage!',
   });
-  assert(epRating1.rating === 9.5, 'Episode rating recorded as 9.5');
-  assert(epRating1.review === 'Incredible pilot episode setting the stage!', 'Micro-review saved');
+  assert(epRating1.score === 9.5, 'Episode rating recorded as 9.5');
+  assert(epRating1.note === 'Incredible pilot episode setting the stage!', 'Micro-review saved');
 
   // 2. User 1 edits Episode 1 rating to 9.0
   const epRatingEdited = await rateEpisode({
@@ -165,11 +165,12 @@ async function runPhase3RatingTests() {
     rating: 9.0,
     review: 'Revised review: Still amazing upon re-watch.',
   });
-  assert(epRatingEdited.rating === 9.0, 'Episode rating edited to 9.0');
+  assert(epRatingEdited.score === 9.0, 'Episode rating edited to 9.0');
 
   // Verify only 1 active rating row exists for User 1 + Episode 1
   const allUser1Ep1 = await prisma.episodeRating.findMany({
-    where: { userId: user1.id, episodeId: epRatingEdited.episodeId },
+    // Keyed by anime + episode number since 2026-10-19 (episodeId is optional).
+    where: { userId: user1.id, animeId: testAnime.id, episodeNumber: epRatingEdited.episodeNumber },
   });
   assert(allUser1Ep1.length === 1, 'Only 1 active episode rating record exists per user');
 
