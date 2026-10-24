@@ -21,6 +21,7 @@ import { GET as listsGET, POST as listsPOST } from '../src/app/api/lists/route';
 import { GET as statsGET } from '../src/app/api/stats/route';
 import { POST as joinPOST } from '../src/app/api/communities/[slug]/join/route';
 import { POST as requestsPOST } from '../src/app/api/communities/[slug]/requests/route';
+import { POST as newsPOST } from '../src/app/api/news/route';
 
 after(async () => {
   await prisma.$disconnect();
@@ -35,6 +36,9 @@ describe('admin and sync endpoints', () => {
       ['GET /api/admin/images', (as?: any) => adminImagesGET(request('GET', '/api/admin/images', { as }))],
       ['POST /api/admin/anime/import', (as?: any) => importPOST(request('POST', '/api/admin/anime/import', { as, body: { action: 'reset' } }))],
       ['GET /api/admin/data', (as?: any) => adminDataGET(request('GET', '/api/admin/data', { as }))],
+      // Was open to anyone: an anonymous POST ran a full provider news sync.
+      ['POST /api/news (sync)', (as?: any) => newsPOST(request('POST', '/api/news', { as, body: { provider: 'all', limit: 100000 } }))],
+      ['POST /api/news (manual entry)', (as?: any) => newsPOST(request('POST', '/api/news', { as, body: { isManual: true, title: 'x' } }))],
     ] as const) {
       assert.equal((await call()).status, 401, `${name} anonymous`);
       assert.equal((await call(user)).status, 403, `${name} as USER`);
@@ -99,9 +103,18 @@ describe('private community content', () => {
     assert.ok((await listIds()).includes(publicThread.id));
   });
 
-  test('discussion search no longer 500s on SQLite', async () => {
-    const res = await discussionsGET(request('GET', '/api/discussions?q=test'));
+  test('discussion search works and is case-insensitive', async () => {
+    // Originally just guarded against a 500 (`mode: 'insensitive'` used to
+    // be omitted because the SQLite connector rejected it outright — see
+    // the route's comment). Query in a different case than the fixture
+    // title ("A test discussion") so this actually exercises
+    // case-insensitivity, not just "doesn't crash" — a same-case query
+    // would still pass even with the case-sensitivity regression the
+    // Postgres migration introduced everywhere `mode: 'insensitive'` was
+    // missing (see CLAUDE.md).
+    const res = await read(await discussionsGET(request('GET', '/api/discussions?q=TEST')));
     assert.equal(res.status, 200);
+    assert.ok(res.body.discussions.some((d: any) => d.id === publicThread.id));
   });
 
   test('replying in a community requires active membership, and parentId must belong to the thread', async () => {

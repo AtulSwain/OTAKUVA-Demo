@@ -8,6 +8,7 @@
 
 # next.js
 /.next/
+/.next-verify/
 /out/
 
 # production
@@ -35,16 +36,36 @@ next-env.d.ts
 *.next.zip
 .next.zip
 
-# local dev database (SQLite). Canonical data lives in the DB, not in git.
-# Back this up separately — git is not a backup for a live database.
+# legacy dev database (SQLite, pre-Postgres-migration; see
+# docs/production/RUNBOOK.md). Kept around locally as a migration source /
+# rollback reference. Canonical data lives in Postgres now, not in git —
+# back it up separately, git is not a backup for a live database.
 prisma/dev.db
 prisma/dev.db-journal
 prisma/*.db
 prisma/*.db-journal
 
+# transient build artifact generated on every run of
+# scripts/migrate_sqlite_to_postgres.ts (see that file) — never committed
+prisma/_sqlite_snapshot.prisma
+
 # scratch / local working notes
 /scratch
+
+# audit logs from one-off data-cleanup scripts (contain user emails/PII)
+/scripts/cleanup_logs
+/scripts/import_logs
+
+# compressed archives of expired DeadLetterQueue rows (scripts/retry_dead_letters.ts)
+/scripts/dead_letter_archive
 
 # runtime user-uploaded media (avatars, banners, community icons).
 # User data, not source. Production target is Cloudflare R2 (§46-§54).
 /public/uploads
+
+# Never publish: database copies hold real member data (names, emails, phones)
+prisma/*.db.backup*
+prisma/*.backup*
+# Local tool settings / scratch output
+/.claude/
+/Claude outputs/

@@ -291,7 +291,7 @@ export class CandidateGenerationEngine {
         id: { notIn: Array.from(excludedIds) },
         score: { gte: 7.8 },
       },
-      orderBy: { score: 'desc' },
+      orderBy: { score: { sort: 'desc', nulls: 'last' } },
       take: limit,
       include: this.getAnimeIncludeBlock(),
     });
@@ -431,7 +431,7 @@ export class CandidateGenerationEngine {
           none: { genre: { name: { in: taste.topGenres } } },
         },
       },
-      orderBy: { score: 'desc' },
+      orderBy: { score: { sort: 'desc', nulls: 'last' } },
       take: limit,
       include: this.getAnimeIncludeBlock(),
     });

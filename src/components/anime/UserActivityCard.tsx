@@ -28,8 +28,8 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
   const watched = libraryItem?.episodesWatched ?? 0;
 
   return (
-    <div className={styles.card} aria-label="Your Personal Activity">
-      <h3 className={styles.heading}>Your Activity</h3>
+    <div className={styles.card} aria-label="Your Anime Journey">
+      <h3 className={styles.heading}>Your Anime Journey</h3>
       {user ? (
         <>
           <div className={styles.row}>

@@ -6,6 +6,7 @@ import {
   getJikanAnimeEpisodes,
   getJikanAnimeRelations,
 } from './jikanService';
+import { CacheManager } from './performance/cacheManager';
 
 export interface AnimeCardData {
   id: string;
@@ -51,7 +52,28 @@ export interface AnimeDetailData extends AnimeCardData {
   malId?: number | null;
 }
 
+/**
+ * Public, unauthenticated data — the whole point of stale-while-revalidate
+ * caching it (CacheManager.getOrSetCatalog, 'anime-detail': 1h fresh +
+ * default 30min stale-but-servable grace, background-refreshed — see
+ * src/lib/performance/cacheManager.ts). Tagged `tag:anime:<slugOrId>` so
+ * the existing `CacheManager.invalidateTag(\`tag:anime:\${animeId}\`)`
+ * call sites (searchSync.ts, ingestionPipeline.ts, adminDuplicateReview.ts)
+ * evict it on edit/re-ingestion when called with the same value this was
+ * looked up by. Known gap: those call sites always use the real DB id: a
+ * slug-keyed lookup (the common case — anime pages route by slug) won't
+ * match that tag and instead just rides out the TTL/stale-grace window
+ * (≤ ~1.5h) rather than being invalidated immediately. Fine for now given
+ * that bound; tighten later by also tagging `tag:anime:<realId>` once the
+ * row is fetched, if 1.5h turns out to be too stale in practice.
+ */
 export async function getAnimeBySlugOrId(slugOrId: string): Promise<AnimeDetailData | null> {
+  return CacheManager.getOrSetCatalog('anime-detail', `anime:detail:${slugOrId}`, () => fetchAnimeBySlugOrId(slugOrId), {
+    tags: [`tag:anime:${slugOrId}`],
+  });
+}
+
+async function fetchAnimeBySlugOrId(slugOrId: string): Promise<AnimeDetailData | null> {
   const anime = await prisma.anime.findFirst({
     where: {
       OR: [{ slug: slugOrId }, { id: slugOrId }],
@@ -224,12 +246,14 @@ export async function getAnimeCharactersData(animeId: string) {
   if (characters.length > 0) {
     return characters.map((c) => ({
       id: c.character.id,
+      slug: c.character.slug,
       name: c.character.name,
       nameKanji: c.character.nameKanji,
       imageUrl: c.character.imageUrl,
       role: c.role,
       voiceActors: c.character.voiceRoles.map((vr) => ({
         personId: vr.person.id,
+        slug: vr.person.slug,
         name: vr.person.name,
         nameKanji: vr.person.nameKanji,
         imageUrl: vr.person.imageUrl,
@@ -253,7 +277,7 @@ export async function getAnimeCharactersData(animeId: string) {
       prisma.anime.update({ where: { id: anime.id }, data: { malId: targetMalId } }).catch(() => {});
     }
 
-    const jikanChars = await getJikanAnimeCharacters(targetMalId);
+    const jikanChars = await boundedLiveLookup(`characters:${targetMalId}`, () => getJikanAnimeCharacters(targetMalId));
     if (jikanChars && jikanChars.length > 0) {
       return jikanChars;
     }
@@ -279,6 +303,7 @@ export async function getAnimeStaffData(animeId: string) {
       role: s.role,
       person: {
         id: s.person.id,
+        slug: s.person.slug,
         name: s.person.name,
         nameKanji: s.person.nameKanji,
         imageUrl: s.person.imageUrl,
@@ -301,7 +326,7 @@ export async function getAnimeStaffData(animeId: string) {
       prisma.anime.update({ where: { id: anime.id }, data: { malId: targetMalId } }).catch(() => {});
     }
 
-    const jikanStaff = await getJikanAnimeStaff(targetMalId);
+    const jikanStaff = await boundedLiveLookup(`staff:${targetMalId}`, () => getJikanAnimeStaff(targetMalId));
     if (jikanStaff && jikanStaff.length > 0) {
       return jikanStaff;
     }
@@ -332,6 +357,37 @@ function toRelatedAnime(target: { id: string; slug: string; posterUrl: string; t
     type: target.type,
     year: target.year ?? null,
   };
+}
+
+const LIVE_LOOKUP_BUDGET_MS = 2000;
+const LIVE_LOOKUP_MISS_TTL_MS = 15 * 60 * 1000;
+/** "kind:malId" -> epoch ms until which a failed/slow live lookup is not retried (per process). */
+const liveLookupMisses = new Map<string, number>();
+
+/**
+ * Live provider fallbacks (Jikan characters/staff/relations) sit on the
+ * anime page's request path, and Jikan is often degraded: a 504 with
+ * retry/backoff took ~22s per call, per page view. Give each lookup a short
+ * budget and remember a miss for a while. On a miss the section simply
+ * stays empty — nothing is invented — and a slow-but-successful answer
+ * still lands in jikanService's cache for the next view.
+ */
+async function boundedLiveLookup<T>(key: string, lookup: () => Promise<T[] | null | undefined>): Promise<T[] | null> {
+  const missUntil = liveLookupMisses.get(key);
+  if (missUntil && missUntil > Date.now()) return null;
+  const pending = lookup().catch(() => null);
+  const result = await Promise.race([
+    pending,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), LIVE_LOOKUP_BUDGET_MS)),
+  ]);
+  if (!result) {
+    liveLookupMisses.set(key, Date.now() + LIVE_LOOKUP_MISS_TTL_MS);
+    void pending.then((r) => {
+      if (r && r.length > 0) liveLookupMisses.delete(key);
+    });
+    return null;
+  }
+  return result;
 }
 
 export async function getAnimeRelationsData(animeId: string) {
@@ -369,7 +425,8 @@ export async function getAnimeRelationsData(animeId: string) {
   });
   if (!anime?.malId) return [];
 
-  const jikanRel = await getJikanAnimeRelations(anime.malId);
+  const jikanRel = await boundedLiveLookup(`relations:${anime.malId}`, () => getJikanAnimeRelations(anime.malId as number));
+  if (!jikanRel) return [];
   const malIds = jikanRel.map((r) => r.malId).filter((id): id is number => typeof id === 'number');
   if (malIds.length === 0) return [];
 

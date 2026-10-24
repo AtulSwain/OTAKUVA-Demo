@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useIsomorphicLayoutEffect } from '../lib/useIsomorphicLayoutEffect';
 import { UserWatchStatus } from '../types/anime';
 import { useToast } from './ToastContext';
@@ -49,6 +49,16 @@ interface LibraryContextType {
   toggleFavorite: (animeId: string) => Promise<boolean>;
   removeFromLibrary: (animeId: string) => Promise<boolean>;
   refreshLibrary: () => Promise<void>;
+  /**
+   * Local-only patch (no network) after another endpoint already wrote the
+   * change — e.g. the episode-progress API, which returns the authoritative
+   * status/episodesWatched. Every component reading the library (hero
+   * progress box, journey card, sticky bar) updates immediately.
+   */
+  applyTracking: (
+    idOrSlug: string,
+    patch: { status?: string | null; episodesWatched?: number; episodeNumber?: number; watched?: boolean }
+  ) => void;
 }
 
 const DEFAULT_COUNTS: LibraryCounts = {
@@ -368,6 +378,10 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       if (data.counts) setCounts(data.counts);
+      // Offer a quick review once a series is finished (see BadgeEventHost).
+      if (typeof window !== 'undefined' && String(newStatus).toLowerCase() === 'completed') {
+        window.dispatchEvent(new CustomEvent('otakuva:anime-completed', { detail: { slug: idOrSlug } }));
+      }
       showToast(
         `Updated to ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`,
         'success'
@@ -383,17 +397,50 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const updateStatusRef = useRef(updateStatus);
+  updateStatusRef.current = updateStatus;
+
   // Automatically fulfill pending ADD_TO_LIBRARY intent when user logs in
   useEffect(() => {
     if (user && pendingIntent && pendingIntent.type === 'ADD_TO_LIBRARY') {
       const intent = consumePendingIntent();
       if (intent && intent.type === 'ADD_TO_LIBRARY') {
-        updateStatus(intent.animeId, intent.status);
+        updateStatusRef.current(intent.animeId, intent.status);
       }
     }
   }, [user, pendingIntent, consumePendingIntent]);
 
   // Toggle Episode Watched / Unwatched
+  const applyTracking: LibraryContextType['applyTracking'] = (idOrSlug, patch) => {
+    const key = getItem(idOrSlug)?.animeId || aliasMap[idOrSlug] || idOrSlug;
+    const status = patch.status ? (patch.status.toLowerCase() as UserWatchStatus) : undefined;
+
+    setLibrary((prev) => {
+      const existing = prev[key] || prev[idOrSlug];
+      const updated: UserAnimeState = {
+        ...(existing || { animeId: key, episodesWatched: 0, isFavorite: false, status: status || 'watching' }),
+        ...(status ? { status } : {}),
+        ...(typeof patch.episodesWatched === 'number' ? { episodesWatched: Math.max(0, patch.episodesWatched) } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+      const next = { ...prev, [key]: updated };
+      if (idOrSlug !== key) next[idOrSlug] = updated;
+      setCounts(calculateCounts(next));
+      return next;
+    });
+
+    if (typeof patch.episodeNumber === 'number' && typeof patch.watched === 'boolean') {
+      const n = patch.episodeNumber;
+      setWatchedEpisodesMap((prev) => {
+        const list = prev[key] || [];
+        const nextList = patch.watched
+          ? Array.from(new Set([...list, n])).sort((a, b) => a - b)
+          : list.filter((e) => e !== n);
+        return { ...prev, [key]: nextList };
+      });
+    }
+  };
+
   const toggleEpisode = async (
     animeId: string,
     episodeNumber: number,
@@ -653,6 +700,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateStatus,
         advanceOneEpisode,
         toggleEpisode,
+        applyTracking,
         setRating,
         toggleFavorite,
         removeFromLibrary,

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       prisma.anime.findMany({
         where,
-        orderBy: [{ score: 'desc' }, { popularity: 'asc' }],
+        orderBy: [{ score: { sort: 'desc', nulls: 'last' } }, { popularity: 'asc' }],
         skip,
         take: limit,
         include: {

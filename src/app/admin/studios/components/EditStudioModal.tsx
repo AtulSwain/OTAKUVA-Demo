@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 import {
   X,
   Building2,
@@ -127,7 +128,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
         const res = await fetch(`/api/anime?q=${encodeURIComponent(animeQuery.trim())}&limit=6`);
         if (res.ok) {
           const data = await res.json();
-          setAnimeResults(data.anime || data.results || []);
+          setAnimeResults(data.animes || data.anime || data.results || []); // GET /api/anime returns `animes`
         }
       } catch (e) {
         console.error(e);
@@ -307,7 +308,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
       <div className={styles.modalCard} style={{ maxWidth: '820px' }}>
         <div className={styles.modalHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Building2 color="#8b5cf6" size={24} />
+            <Building2 color="#A1A1AA" size={24} />
             <div>
               <h2 className={styles.modalTitle}>{studio?.name || 'Edit Studio'}</h2>
               <span style={{ fontSize: '12px', color: '#64748b' }}>ID: {studio?.id}</span>
@@ -624,8 +625,8 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
                       style={{
                         padding: '8px 12px',
                         borderRadius: '6px',
-                        background: selectedAnimeId === a.id ? 'rgba(139, 92, 246, 0.25)' : 'rgba(255, 255, 255, 0.04)',
-                        border: selectedAnimeId === a.id ? '1px solid #8b5cf6' : '1px solid transparent',
+                        background: selectedAnimeId === a.id ? 'rgba(161, 161, 170, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                        border: selectedAnimeId === a.id ? '1px solid #A1A1AA' : '1px solid transparent',
                         cursor: 'pointer',
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -720,7 +721,14 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
                 <span className={styles.label}>Current Logo</span>
                 <div className={styles.logoThumb} style={{ width: '80px', height: '80px', borderRadius: '12px' }}>
                   {studio?.displayImageUrl ? (
-                    <img src={studio.displayImageUrl} alt="Logo" className={styles.logoImg} />
+                    <NextImage
+                      src={studio.displayImageUrl}
+                      alt="Logo"
+                      width={80}
+                      height={80}
+                      unoptimized
+                      className={styles.logoImg}
+                    />
                   ) : (
                     <Building2 color="#64748b" size={32} />
                   )}
@@ -790,7 +798,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
                   {studioAnalytics.genreDistribution.slice(0, 6).map((g: any) => (
                     <div key={g.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
                       <span style={{ color: '#ffffff' }}>{g.name}</span>
-                      <span style={{ color: '#8b5cf6', fontWeight: 600 }}>{g.percentage}% ({g.count})</span>
+                      <span style={{ color: '#A1A1AA', fontWeight: 600 }}>{g.percentage}% ({g.count})</span>
                     </div>
                   ))}
                 </div>
@@ -914,7 +922,15 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
                 {studioMediaItems.map((m) => (
                   <div key={m.id} style={{ padding: '10px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                    <img src={m.url} alt={m.mediaType} style={{ width: '100%', height: '110px', objectFit: 'cover', borderRadius: '6px' }} />
+                    <div style={{ position: 'relative', width: '100%', height: '110px' }}>
+                      <NextImage
+                        src={m.url}
+                        alt={m.mediaType}
+                        fill
+                        unoptimized
+                        style={{ objectFit: 'cover', borderRadius: '6px' }}
+                      />
+                    </div>
                     <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                       <span style={{ color: '#ffffff', fontWeight: 600 }}>{m.mediaType}</span>
                       <span style={{ color: '#4ade80' }}>{m.status}</span>
@@ -949,7 +965,7 @@ export function EditStudioModal({ studioId, isOpen, onClose, onSuccess }: Props)
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 700, color: '#8b5cf6', fontSize: '13px' }}>Version {v.versionNumber}</span>
+                        <span style={{ fontWeight: 700, color: '#A1A1AA', fontSize: '13px' }}>Version {v.versionNumber}</span>
                         <span style={{ color: '#ffffff', fontSize: '13px' }}>— {v.changesSummary || 'Snapshot'}</span>
                       </div>
                       <span style={{ fontSize: '11px', color: '#64748b' }}>

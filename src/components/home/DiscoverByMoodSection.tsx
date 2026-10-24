@@ -28,7 +28,7 @@ export const DiscoverByMoodSection: React.FC = () => {
         {MOODS.map((mood) => (
           <Link
             key={mood.label}
-            href={`/explore?genre=${encodeURIComponent(mood.query)}`}
+            href={`/anime?genre=${encodeURIComponent(mood.query)}`}
             className={styles.moodChip}
           >
             <span>{mood.label}</span>

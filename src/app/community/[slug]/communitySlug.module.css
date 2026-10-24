@@ -684,3 +684,205 @@
   font-weight: 700;
   color: var(--text-primary);
 }
+
+/* ==========================================================================
+   Shelf language (matches the front page): large soft radii, pill controls,
+   white primary button, chip filters, no boxed borders on content rows.
+   Overrides visual properties only; layout above is unchanged.
+   ========================================================================== */
+.container { gap: 28px; }
+.backLink { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.bannerContainer { height: 220px; border: 0; border-radius: 22px; }
+.headerCard { border: 0; border-radius: 22px; padding: 24px 28px; background: var(--surface-base); }
+.iconWrap { width: 84px; height: 84px; border-radius: 22px; border: 0; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); }
+.name { font-size: clamp(28px, 3.4vw, 40px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.description { font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
+.statsRow { font-size: 14px; color: var(--text-secondary); }
+.categoryBadge, .visibilityBadge { border: 0; border-radius: 9999px; padding: 4px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: var(--surface-elevated); color: var(--text-secondary); }
+
+.tabBar { border-bottom: 0; padding-bottom: 0; gap: 8px; }
+.tabBtn, .chBtn { border: 0; border-radius: 9999px; background: var(--surface-elevated); color: var(--text-secondary); font-size: 14px; font-weight: 600; padding: 9px 18px; transition: background var(--transition-fast), color var(--transition-fast); }
+.chBtn { font-size: 13px; padding: 7px 14px; }
+.tabBtn:hover, .chBtn:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.tabBtnActive, .chBtnActive { background: #fff; color: #141416; font-weight: 700; }
+.tabBtnActive:hover, .chBtnActive:hover { background: #fff; color: #141416; }
+
+.joinBtn, .postBtn, .newDiscBtn { border: 0; border-radius: 9999px; padding: 10px 22px; font-size: 14px; font-weight: 600; background: #fff; color: #141416; transition: transform var(--duration-micro, 180ms) var(--ease-out-cubic, ease-out), background var(--transition-fast); }
+.joinBtn:hover, .postBtn:hover, .newDiscBtn:hover { background: #e8e8ec; }
+.joinBtn:active, .postBtn:active, .newDiscBtn:active { transform: scale(0.97); }
+.joinedBtn { background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
+.joinedBtn:hover { background: rgba(255, 255, 255, 0.22); }
+.cancelBtn, .textBtn { border: 0; border-radius: 9999px; padding: 10px 18px; font-size: 14px; font-weight: 600; background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
+.joinBtn:focus-visible, .postBtn:focus-visible, .newDiscBtn:focus-visible, .tabBtn:focus-visible, .chBtn:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+
+.sectionCard, .sideCard, .aboutCard, .composerCard, .announcementCard, .emptyCard { border: 0; border-radius: 22px; padding: 22px 24px; background: var(--surface-base); }
+.sectionTitle, .aboutTitle { font-size: clamp(20px, 2vw, 24px); font-weight: 700; letter-spacing: -0.03em; }
+.feedCard { border: 0; border-radius: 18px; padding: 20px 22px; gap: 10px; background: var(--surface-base); transition: transform var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out), box-shadow var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out); }
+.feedCard:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45); }
+.feedTitle { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.feedBody { font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
+.feedAuthor { font-size: 14px; font-weight: 600; }
+.feedTime, .feedChannel, .feedStat, .feedType { font-size: 13px; color: var(--text-muted); }
+.discItem, .memberCard { border: 0; border-radius: 16px; padding: 12px 16px; background: var(--surface-elevated); }
+.memberAvatar { border-radius: 50%; }
+.memberName { font-size: 14px; font-weight: 600; }
+.memberRole { font-size: 12px; color: var(--text-muted); }
+.input, .textarea, .select { border: 1px solid transparent; border-radius: 14px; padding: 12px 16px; font-size: 14px; background: var(--surface-elevated); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.input:focus, .textarea:focus, .select:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+.ruleItem { border-radius: 16px; }
+
+/* Community page: space and rhythm. */
+.homeLayout { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 900px) { .homeLayout { grid-template-columns: 1fr; } }
+.mainCol, .sideCol { gap: 20px; min-width: 0; }
+.discFeed { gap: 14px; }
+.discList { gap: 8px; }
+.channelsList { gap: 6px; }
+.membersGrid { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+.statsRow { font-size: 14px; gap: 12px; }
+.headerActions { align-self: center; }
+.headerCard { align-items: center; }
+.infoCol { gap: 10px; }
+.tabBar { margin-top: 4px; }
+@media (max-width: 640px) {
+  .bannerContainer { height: 150px; border-radius: 18px; }
+  .headerCard { padding: 18px; margin-top: -32px; }
+  .headerActions, .headerActions > button { width: 100%; justify-content: center; }
+}
+
+/* ==========================================================================
+   Full-screen community workspace (Discord-style). The site header/footer
+   are hidden for this route by AppShell; this owns the whole viewport.
+   ========================================================================== */
+.workspace {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.workspaceState {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.nav {
+  display: flex;
+  height: 100%;
+  flex: none;
+  z-index: 40;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.backdrop,
+.memberBackdrop {
+  display: none;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.memberDock { height: 100%; flex: none; z-index: 40; }
+
+/* Non-chat views (overview / members / about / manage). */
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panelHeader {
+  height: 52px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.panelTitle { margin: 0; font-size: 16px; font-weight: 700; }
+
+.panelNavBtn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  margin-left: -6px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.panelScroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+.panelInner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 3vw, 32px) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panelInner .sectionCard,
+.panelInner .sideCard,
+.panelInner .aboutCard,
+.panelInner .manageCard,
+.panelInner .announcementCard { background: var(--bg-secondary); }
+
+/* Narrow: channel nav becomes a slide-in drawer, member list an overlay. */
+@media (max-width: 1180px) {
+  .memberDock { position: absolute; top: 0; right: 0; bottom: 0; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5); }
+  .memberBackdrop { display: block; position: absolute; inset: 0; z-index: 35; }
+}
+
+@media (max-width: 768px) {
+  .nav {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    max-width: calc(100vw - 48px);
+    transform: translateX(-100%);
+    transition: transform 220ms var(--ease-out-cubic, ease-out);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  .navOpen { transform: translateX(0); }
+  .backdrop { display: block; position: absolute; inset: 0; z-index: 35; }
+  .panelNavBtn { display: inline-flex; }
+  .memberDock { max-width: calc(100vw - 48px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav { transition: none; }
+}
+
+/* ── OTAKUVA identity pass (2026-10-20): a step smaller everywhere ── */
+.name { font-size: clamp(24px, 2.8vw, 34px); }
+.description { font-size: 14px; }
+.sectionTitle, .aboutTitle { font-size: clamp(18px, 1.7vw, 21px); }
+.sectionTitle, .aboutTitle, .panelTitle { display: flex; align-items: center; gap: 8px; }
+.sectionTitle::before, .aboutTitle::before, .panelTitle::before { content: ''; width: 12px; height: 2px; border-radius: 2px; background: var(--accent-gradient); flex: none; }
+.feedTitle { font-size: 16px; }
+.feedBody { font-size: 13.5px; }
+.panelTitle { font-size: 14px; }
+.channelSlash { display: inline-grid; place-items: center; width: 13px; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 300; color: var(--text-muted); }

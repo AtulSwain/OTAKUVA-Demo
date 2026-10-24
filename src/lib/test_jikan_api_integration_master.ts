@@ -33,7 +33,7 @@ function assert(condition: boolean, description: string) {
 async function runJikanTestSuite() {
   console.log('========================================================================');
   console.log('  OTAKUVA — JIKAN V4 API INTEGRATION MASTER TEST SUITE');
-  console.log('  API Reference: https://docs.api.jikan.moe/');
+  console.log('  API Reference: https://docs.api.jikan.moe/'); // provider-call-check-ignore: docs link, not a call
   console.log('========================================================================\n');
 
   // STAGE 1: TOP & SEASONAL ANIME APIs

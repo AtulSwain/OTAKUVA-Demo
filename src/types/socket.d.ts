@@ -21,5 +21,10 @@ export interface ChatMessage {
     id: string;
     username: string;
     avatarUrl?: string | null;
+    /** Community-scoped role (display only). */
+    role?: 'FOUNDER' | 'ADMIN' | 'MODERATOR' | 'MEMBER';
+    /** Reviewer badge tier key (see src/lib/badges/tiers.ts). */
+    tier?: string;
+    reviewCount?: number;
   };
 }

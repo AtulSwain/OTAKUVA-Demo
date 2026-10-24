@@ -64,10 +64,12 @@ export async function PATCH(
     console.error('Error updating community:', error);
     const status = error.message.includes('Unauthorized')
       ? 403
+      : error.message.startsWith('Validation')
+      ? 400
       : error.message.includes('not found')
       ? 404
       : 500;
-    return NextResponse.json({ error: error.message || 'Failed to update community' }, { status });
+    return NextResponse.json({ error: (error.message || 'Failed to update community').replace(/^Validation: /, '') }, { status });
   }
 }
 

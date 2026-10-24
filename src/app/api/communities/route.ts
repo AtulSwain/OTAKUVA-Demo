@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../lib/auth';
+import { RateLimiter } from '../../../lib/security/rateLimiter';
+import { logger } from '../../../lib/logger';
 import {
   listDiscoverableCommunities,
   createCommunity,
@@ -18,6 +20,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category') || undefined;
     const communityType = searchParams.get('type') || undefined;
     const animeId = searchParams.get('animeId') || undefined;
+    const genre = searchParams.get('genre') || undefined;
     const query = searchParams.get('q') || undefined;
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '30', 10)));
@@ -29,6 +32,7 @@ export async function GET(request: NextRequest) {
       category,
       communityType,
       animeId,
+      genre,
       query,
       page,
       limit,
@@ -52,18 +56,33 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to create a community' }, { status: 401 });
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
+
+    const rate = RateLimiter.checkRateLimit('COMMUNITY', authUser.id);
+    if (!rate.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please wait a moment.' }, { status: 429 });
     }
 
     const body = await request.json();
-    const community = await createCommunity(authUser.id, body);
+    // Members-only communities come back with their first invitation; its
+    // access key is in this response only (never stored in plaintext).
+    const { invitation, ...community } = await createCommunity(authUser.id, body);
 
-    return NextResponse.json({ success: true, community }, { status: 201 });
+    return NextResponse.json(
+      { success: true, community, invitation },
+      { status: 201, headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error: any) {
-    console.error('Error creating community:', error);
-    const status = error.message?.includes('Validation') || error.message?.includes('must be') ? 400 : 500;
-    return NextResponse.json({ error: error.message || 'Failed to create community' }, { status });
+    logger.error('Error creating community', { component: 'communities', err: error });
+    const status = error.message?.startsWith('Forbidden')
+      ? 403
+      : error.message?.includes('Validation') || error.message?.includes('must be') || error.message?.includes('cannot exceed')
+      ? 400
+      : 500;
+    return NextResponse.json(
+      { error: (error.message || 'Failed to create community').replace(/^(Validation|Forbidden): /, '') },
+      { status }
+    );
   }
 }

@@ -63,7 +63,10 @@ export function ReviewBadgeHighlights({ animeId, animeTitle }: Props) {
 
   if (failed || !data) return null;
   const hasBadgedReviews = Object.values(data.distribution).some((n) => n > 0);
-  if (!hasBadgedReviews && data.totalWritten === 0) return null;
+  // Nothing worth a panel (no badge breakdown, no top or rising reviews): show
+  // nothing rather than an empty "No counted reviews yet." box. Once someone
+  // has switched to Critics, keep the panel so they can switch back.
+  if (!hasBadgedReviews && data.reviews.length === 0 && data.rising.length === 0 && view === 'top') return null;
 
   return (
     <section className={styles.wrap} aria-label="Reviews by reviewer badge">

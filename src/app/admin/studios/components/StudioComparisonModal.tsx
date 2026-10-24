@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import {
   GitCompare,
   X,
@@ -37,7 +38,7 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
     }
   }, [initialStudioId]);
 
-  const handleCompare = async () => {
+  const handleCompare = useCallback(async () => {
     if (!studioAId || !studioBId) return;
     setLoading(true);
     setError(null);
@@ -54,13 +55,13 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
     } finally {
       setLoading(false);
     }
-  };
+  }, [studioAId, studioBId]);
 
   useEffect(() => {
     if (isOpen && studioAId && studioBId) {
       handleCompare();
     }
-  }, [isOpen, studioAId, studioBId]);
+  }, [isOpen, studioAId, studioBId, handleCompare]);
 
   if (!isOpen) return null;
 
@@ -201,7 +202,14 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div className={styles.logoThumb} style={{ width: '42px', height: '42px' }}>
                       {comparison.studioA.imageUrl ? (
-                        <img src={comparison.studioA.imageUrl} alt={comparison.studioA.name} className={styles.logoImg} />
+                        <Image
+                          src={comparison.studioA.imageUrl}
+                          alt={comparison.studioA.name}
+                          width={42}
+                          height={42}
+                          unoptimized
+                          className={styles.logoImg}
+                        />
                       ) : (
                         <Building2 size={20} color="#64748b" />
                       )}
@@ -253,7 +261,7 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
                           key={g}
                           style={{
                             padding: '2px 8px',
-                            background: 'rgba(139, 92, 246, 0.15)',
+                            background: 'rgba(161, 161, 170, 0.15)',
                             borderRadius: '4px',
                             fontSize: '11px',
                             color: '#c4b5fd',
@@ -281,7 +289,14 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div className={styles.logoThumb} style={{ width: '42px', height: '42px' }}>
                       {comparison.studioB.imageUrl ? (
-                        <img src={comparison.studioB.imageUrl} alt={comparison.studioB.name} className={styles.logoImg} />
+                        <Image
+                          src={comparison.studioB.imageUrl}
+                          alt={comparison.studioB.name}
+                          width={42}
+                          height={42}
+                          unoptimized
+                          className={styles.logoImg}
+                        />
                       ) : (
                         <Building2 size={20} color="#64748b" />
                       )}
@@ -333,7 +348,7 @@ export function StudioComparisonModal({ isOpen, onClose, initialStudioId, studio
                           key={g}
                           style={{
                             padding: '2px 8px',
-                            background: 'rgba(139, 92, 246, 0.15)',
+                            background: 'rgba(161, 161, 170, 0.15)',
                             borderRadius: '4px',
                             fontSize: '11px',
                             color: '#c4b5fd',

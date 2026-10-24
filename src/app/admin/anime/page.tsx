@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ImportJobState } from '../../../lib/ingestion/jikanImportJob';
+import type { ImportJobState } from '../../../lib/queue/importJobState';
 
 export default function AdminAnimeDashboardPage() {
   const [job, setJob] = useState<ImportJobState | null>(null);
@@ -135,7 +135,7 @@ export default function AdminAnimeDashboardPage() {
               fontWeight: 700,
               backgroundColor:
                 job?.status === 'RUNNING'
-                  ? 'rgba(201, 106, 114, 0.2)'
+                  ? 'var(--accent-subtle, rgba(161, 161, 170, 0.2))'
                   : job?.status === 'COMPLETED'
                   ? 'rgba(16, 185, 129, 0.2)'
                   : '#27272B',

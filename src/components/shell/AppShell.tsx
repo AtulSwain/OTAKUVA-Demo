@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Header } from './Header';
-import { MobileNav } from './MobileNav';
+import { BottomNav } from './BottomNav';
 import { Footer } from './Footer';
 import { SearchModal } from '../ui/SearchModal';
 import { QuickLogModal } from '../ui/QuickLogModal';
@@ -11,6 +12,9 @@ import { ToastContainer } from '../ui/ToastContainer';
 import { LibraryProvider } from '../../context/LibraryContext';
 import { AuthProvider } from '../../context/AuthContext';
 import { AuthModal } from '../ui/AuthModal';
+import { BadgeEventHost } from '../badges/BadgeEventHost';
+import { VerifyPhoneBanner } from '../auth/VerifyPhoneBanner';
+import { VerifyPhonePrompt } from '../auth/VerifyPhonePrompt';
 import styles from './AppShell.module.css';
 
 interface AppShellProps {
@@ -18,6 +22,28 @@ interface AppShellProps {
 }
 
 const ShellContent: React.FC<AppShellProps> = ({ children }) => {
+  const pathname = usePathname() || '';
+  // Home and single-anime pages open with a full-bleed hero under the header.
+  const isBleed =
+    pathname === '/' ||
+    (/^\/anime\/[^/]+$/.test(pathname) && !['/anime/airing', '/anime/rankings', '/anime/seasonal'].includes(pathname)) ||
+    // Profiles: the banner runs edge to edge; the page constrains its own content.
+    /^\/profile\/[^/]+$/.test(pathname) ||
+    // Shared lists (/l/<token>): full-bleed poster card with its own glow.
+    /^\/l\/[^/]+$/.test(pathname);
+  // Catalog / directory pages fill the same width as the header instead of a
+  // narrow centred column (owner, 2026-10-20).
+  const isWide =
+    !isBleed &&
+    (pathname === '/anime' ||
+      pathname === '/studios' ||
+      // Creator dashboard + community management fill the screen too (owner, 2026-10-24).
+      pathname === '/creator' ||
+      pathname.startsWith('/creator/communities/') ||
+      ['/browse', '/top-picks', '/seasonal', '/rankings', '/artists'].some((p) => pathname === p || pathname.startsWith(`${p}/`)));
+  // A single community (/community/<slug>) is its own full-screen workspace,
+  // Discord-style: no site header, footer or bottom nav around it.
+  const isImmersive = /^\/community\/(?!create(?:\/|$))[^/]+\/?$/.test(pathname);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
@@ -27,6 +53,14 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
+      } else if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // "/" opens search unless the user is already typing somewhere.
+        const el = e.target as HTMLElement | null;
+        const typing = el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+        if (!typing) {
+          e.preventDefault();
+          setIsSearchOpen(true);
+        }
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setIsQuickLogOpen((prev) => !prev);
@@ -38,22 +72,29 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
 
   return (
     <div className={styles.layoutRoot}>
-      {/* 1. Global Dark + Grey Top Navigation Bar */}
-      <Header
-        onOpenSearch={() => setIsSearchOpen(true)}
-        onQuickAdd={() => setIsQuickLogOpen(true)}
-      />
+      {isImmersive ? (
+        // The community workspace renders its own <main> and navigation.
+        children
+      ) : (
+        <>
+          {/* 1. Global Dark + Grey Top Navigation Bar */}
+          <Header
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onQuickAdd={() => setIsQuickLogOpen(true)}
+          />
 
-      {/* 2. Main Content Viewport */}
-      <main className={styles.contentArea}>
-        <div className={styles.contentInner}>{children}</div>
-      </main>
+          {/* 2. Main Content Viewport */}
+          <main className={styles.contentArea}>
+            <div className={isBleed ? styles.contentBleed : isWide ? `${styles.contentInner} ${styles.contentWide}` : styles.contentInner}>{children}</div>
+          </main>
 
-      {/* 3. Dark Footer */}
-      <Footer />
+          {/* 3. Dark Footer */}
+          <Footer />
 
-      {/* 4. Responsive Mobile Bottom Navigation */}
-      <MobileNav onOpenSearch={() => setIsSearchOpen(true)} />
+          {/* 4. Responsive Mobile Bottom Navigation */}
+          <BottomNav />
+        </>
+      )}
 
       {/* 5. Command Palette Dialog */}
       <SearchModal
@@ -72,6 +113,13 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
 
       {/* 8. Floating Micro-interaction Toast Container */}
       <ToastContainer />
+
+      {/* 9. Reviewer-badge unlock / milestone toasts and completion prompt */}
+      <BadgeEventHost />
+
+      {/* 10. "Verify your email" prompt for signed-in, unverified accounts */}
+      <VerifyPhoneBanner />
+      <VerifyPhonePrompt />
     </div>
   );
 };

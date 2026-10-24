@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { CommunityScoreBadge } from '../../../components/rating/CommunityScoreBadge';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import styles from './page.module.css';
-import { ArrowLeft, Star } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface ProductionItem {
   id: string;
@@ -21,7 +23,7 @@ interface ProductionItem {
   relationship: string;
   position: number;
   genres: string[];
-  studios: string[];
+  studios: (string | { id: string; name: string; slug: string | null })[];
 }
 
 interface FranchiseDetail {
@@ -36,6 +38,7 @@ interface FranchiseDetail {
 }
 
 export default function FranchisePage({ params }: { params: { slug: string } }) {
+  const router = useRouter();
   const [franchise, setFranchise] = useState<FranchiseDetail | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'release' | 'recommended'>('timeline');
   const [loading, setLoading] = useState(true);
@@ -69,7 +72,7 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
   if (error || !franchise) {
     return (
       <div className={styles.container}>
-        <Link href="/discover" className={styles.backLink}>
+        <Link href="/anime" className={styles.backLink}>
           <ArrowLeft size={14} aria-hidden="true" /> Back to Catalog
         </Link>
         <h1 className={styles.title}>Franchise Not Found</h1>
@@ -88,7 +91,7 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Link href="/discover" className={styles.backLink}>
+        <Link href="/anime" className={styles.backLink}>
           <ArrowLeft size={14} aria-hidden="true" /> Back to Catalog
         </Link>
         <h1 className={styles.title}>{franchise.name}</h1>
@@ -149,14 +152,47 @@ export default function FranchisePage({ params }: { params: { slug: string } }) 
                 <span>{item.year || 'Unknown Year'}</span>
                 {item.studios.length > 0 && (
                   <span>
-                    {item.studios.map((s: any) => (typeof s === 'string' ? s : s?.name)).filter(Boolean).join(', ')}
+                    {item.studios.map((s: any, sIdx: number) => {
+                      const studioName = typeof s === 'string' ? s : s?.name;
+                      if (!studioName) return null;
+                      // The whole production card above is itself a <Link>, so
+                      // these can't be nested <Link>/<a> tags (invalid HTML,
+                      // breaks hydration) — navigate imperatively instead and
+                      // stop the click from also triggering the card's link.
+                      const studioHref = typeof s === 'object' && (s?.slug || s?.id) ? `/studio/${s.slug || s.id}` : null;
+                      return (
+                        <React.Fragment key={s?.id || studioName}>
+                          {sIdx > 0 && ', '}
+                          {studioHref ? (
+                            <span
+                              role="link"
+                              tabIndex={0}
+                              className={styles.studioLink}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(studioHref);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  router.push(studioHref);
+                                }
+                              }}
+                            >
+                              {studioName}
+                            </span>
+                          ) : (
+                            studioName
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </span>
                 )}
-                {item.score && (
-                  <span className={styles.cardRating}>
-                    <Star size={12} fill="currentColor" className={styles.starIcon} aria-hidden="true" /> {item.score.toFixed(1)}
-                  </span>
-                )}
+                {/* Members' OTAKUVA score + retention (not the provider score). */}
+                <CommunityScoreBadge animeId={item.id} />
               </div>
             </div>
           </Link>

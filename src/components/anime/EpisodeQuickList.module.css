@@ -1,295 +1,155 @@
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
+/* Episode Guide (v5, 2026-10-22 — owner: "modern and simple, but better").
+   Plain one-line rows (number · title · retention ramp · watched tick) on
+   the page, no boxes; a progress strip on top; "Up next" marks the first
+   aired episode you haven't ticked. Semantic colours only (watched green,
+   retention bands). Earlier layered versions were folded into this file. */
+.section { display: flex; flex-direction: column; gap: 14px; width: 100%; }
 
-.sectionHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
+/* ── Header ── */
+.sectionHead { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px 16px; }
+.titleArea { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.titleRow { display: flex; align-items: center; gap: 8px; }
+.sectionIcon { color: var(--text-secondary); }
+.title { margin: 0; font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); }
+.subtitle { font-size: 13px; color: var(--text-muted); }
 
-.titleArea {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.headerActions { display: flex; align-items: center; gap: 8px; }
+.markAllBtn, .trailerBtn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px;
+  border: 0; border-radius: var(--radius-pill, 999px); background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
+.markAllBtn:hover, .trailerBtn:hover { background: rgba(255, 255, 255, 0.11); color: var(--text-primary); }
+.trailerBtn { color: var(--text-primary); }
 
-.titleRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sectionIcon {
-  color: var(--accent-primary-hover);
-}
-
-.title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.3px;
-  color: var(--text-primary, #F4F4F2);
-}
-
-.subtitle {
-  color: var(--text-muted, #71717A);
-  font-size: 11.5px;
-}
-
-.headerActions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.markAllBtn {
-  background: var(--surface-elevated, #18181B);
-  border: 1px solid var(--border-default, #27272A);
-  color: var(--text-secondary, #A1A1AA);
-  padding: 4px 9px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.markAllBtn:hover {
-  border-color: var(--border-hover, #3F3F46);
-  color: var(--text-primary, #F4F4F2);
-}
-
-.trailerBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(201, 106, 114, 0.12);
-  border: 1px solid rgba(201, 106, 114, 0.3);
-  color: #A5B4FC;
-  padding: 4px 9px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.trailerBtn:hover {
-  background: rgba(201, 106, 114, 0.22);
-  color: #FFFFFF;
-}
-
-/* Season Tabs */
-.seasonTabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
-}
-
-.seasonTabs::-webkit-scrollbar {
-  display: none;
-}
-
+/* ── Season tabs (white active pill, like the Seasons bar) ── */
+.seasonTabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.seasonTabs::-webkit-scrollbar { display: none; }
 .tab {
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border-default, #27272A);
-  background-color: var(--surface-base, #121214);
-  color: var(--text-muted, #8E8E93);
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 150ms ease;
+  flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 16px;
+  border: 0; border-radius: var(--radius-pill, 999px); background: var(--pill-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tab:hover { background: var(--pill-bg-hover, rgba(255, 255, 255, 0.1)); color: var(--text-primary); }
+.activeTab, .activeTab:hover { background: #fff; color: #000; }
+.tabSeasonName { color: inherit; }
+.tabEpCount { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
+.activeTab .tabEpCount { background: rgba(0, 0, 0, 0.08); color: rgba(0, 0, 0, 0.62); }
+
+/* ── Progress strip ── */
+.progress { display: flex; flex-direction: column; gap: 8px; }
+.progressText { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; font-variant-numeric: tabular-nums; }
+.progressText strong { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+.progressText span { font-size: 13px; color: var(--text-muted); }
+.progressText em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.progressText .progressDone { color: #10b981; }
+.strip { display: flex; gap: 3px; height: 6px; }
+.strip span { flex: 1; min-width: 2px; border-radius: 2px; transition: background-color 0.25s ease; }
+.segWatched { background: #10b981; }
+.segAired { background: rgba(255, 255, 255, 0.14); }
+.segUpcoming { background: rgba(255, 255, 255, 0.05); }
+
+/* ── Episode rows ── */
+.epLines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.epLine {
+  position: relative;
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, 340px) 32px; align-items: center; gap: 16px;
+  min-height: 56px; padding: 8px 10px; border-radius: 12px;
+  transition: background-color 0.15s ease;
+}
+.epLine + .epLine::before {
+  content: ''; position: absolute; top: 0; left: 10px; right: 10px; height: 1px; background: rgba(255, 255, 255, 0.055);
+}
+.epLine:hover { background: rgba(255, 255, 255, 0.03); }
+.epLine:hover::before, .epLine:hover + .epLine::before { opacity: 0; }
+.epLineUpcoming { opacity: 0.5; }
+
+/* Up next: a soft highlight and a white edge */
+.epLineNext { background: rgba(255, 255, 255, 0.035); }
+.epLineNext::after { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; background: #fff; }
+
+.epLineNo {
+  display: flex; flex-direction: column; align-items: flex-start; line-height: 1;
+  font-size: 16px; font-weight: 800; letter-spacing: -0.03em; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.epLineNo small { margin-bottom: 3px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.16em; color: var(--text-muted); }
+.epLineWatched .epLineNo { color: #10b981; }
+.epLineWatched .epLineNo small { color: rgba(16, 185, 129, 0.7); }
+
+.epLineText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.epLineTitleRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.epLineTitle, .epLineTitleMuted { min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
+.epLineTitleMuted { color: var(--text-secondary); font-weight: 500; }
+.epLineWatched .epLineTitle { color: var(--text-secondary); }
+.epLineMeta { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); }
+
+.nextBadge, .newBadge, .fillerBadge, .recapBadge {
+  flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.nextBadge { background: #fff; color: #111113; }
+.newBadge { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+.fillerBadge { background: rgba(239, 68, 68, 0.14); color: #F87171; }
+.recapBadge { background: rgba(234, 179, 8, 0.14); color: #FBBF24; }
+
+.epLineRate { display: flex; min-width: 0; }
+.notAired {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); font-size: 11.5px; font-weight: 600; color: var(--text-muted);
 }
 
-.tab:hover {
-  border-color: var(--border-hover, #3F3F46);
-  color: var(--text-primary, #F4F4F2);
+/* Watched tick: a ring that fills green with a little pop */
+.epTick {
+  justify-self: end; display: grid; place-items: center; width: 30px; height: 30px; padding: 0;
+  border: 0; border-radius: 50%; cursor: pointer;
+  background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.18);
+  color: transparent; transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
-
-.activeTab {
-  background-color: var(--surface-elevated, #202024);
-  color: #F4F4F2;
-  border-color: var(--accent-hover);
-  font-weight: 600;
+.epTick:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px rgba(16, 185, 129, 0.85); color: rgba(16, 185, 129, 0.85); }
+.epTick:active:not(:disabled) { transform: scale(0.9); }
+.epTick:disabled { cursor: default; opacity: 0.4; }
+.epTick:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 2px; }
+.epTickOn, .epTickOn:hover:not(:disabled) {
+  background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14); color: #fff;
+  animation: tickPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+@keyframes tickPop { 0% { transform: scale(0.7); } 100% { transform: scale(1); } }
 
-.tabSeasonName {
-  color: inherit;
-}
-
-.tabEpCount {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-secondary, #A1A1AA);
-}
-
-.activeTab .tabEpCount {
-  background: rgba(129, 140, 248, 0.25);
-  color: #C7D2FE;
-}
-
-/* Compact Episode List Container */
-.episodesContainer {
-  border: 1px solid var(--border-default, #27272A);
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: var(--surface-base, #101012);
-  display: flex;
-  flex-direction: column;
-}
-
-.episodeRow {
-  display: grid;
-  grid-template-columns: 42px 1fr 34px;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 12px;
-  background-color: var(--surface-base, #101012);
-  border-bottom: 1px solid var(--border-default, #1F1F22);
-  cursor: pointer;
-  transition: background-color 150ms ease;
-}
-
-.episodeRow:last-child {
-  border-bottom: none;
-}
-
-.episodeRow:hover {
-  background-color: var(--surface-elevated, #161619);
-}
-
-.selectedRow {
-  background-color: var(--surface-elevated, #18181D) !important;
-  box-shadow: inset 2px 0 0 var(--accent-hover);
-}
-
-.epNum {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--text-muted, #71717A);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.3px;
-}
-
-.epDetails {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.titleLine {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.epTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary, #EDEDEF);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.fillerBadge {
-  font-size: 8.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #F87171;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  flex-shrink: 0;
-}
-
-.recapBadge {
-  font-size: 8.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(234, 179, 8, 0.15);
-  color: #FBBF24;
-  border: 1px solid rgba(234, 179, 8, 0.25);
-  flex-shrink: 0;
-}
-
-.epMeta {
-  color: var(--text-muted, #71717A);
-  font-size: 10px;
-}
-
-/* Compact Checkmark Button */
-.checkBtn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border-default, #3F3F46);
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  justify-self: end;
-  transition: all 150ms ease;
-  padding: 0;
-}
-
-.checkBtnUnwatched:hover {
-  border-color: var(--accent-hover);
-  background: rgba(129, 140, 248, 0.1);
-}
-
-.checkBtnWatched {
-  background: #10B981;
-  border-color: #10B981;
-  color: #FFFFFF;
-}
-
-.checkBtnWatched:hover {
-  background: #059669;
-  border-color: #059669;
-}
-
-/* Expand / Collapse Button */
+/* ── Show all ── */
 .expandToggleBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 100%;
-  padding: 7px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--accent-primary-hover);
-  background: var(--surface-base, #121214);
-  border: 1px solid var(--border-default, #27272A);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 150ms ease;
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 42px;
+  border: 0; border-radius: var(--radius-pill, 999px); background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
+.expandToggleBtn:hover { background: rgba(255, 255, 255, 0.09); color: var(--text-primary); }
 
-.expandToggleBtn:hover {
-  background: var(--surface-elevated, #18181B);
-  border-color: var(--border-hover, #3F3F46);
-  color: #FFFFFF;
+/* ── Progress counter when no episode list exists (2026-10-17) ── */
+.counterCard { display: flex; flex-direction: column; gap: 16px; padding: 4px 0; }
+.counterNote { margin: 0; color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+.counterRow { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.counterBtn {
+  width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--pill-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary); font-size: 24px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.counterBtn:hover:not(:disabled) { background: var(--pill-bg-hover, rgba(255, 255, 255, 0.1)); }
+.counterBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.counterValue { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 4px; min-width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+.counterValue strong { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; }
+.counterValue span { color: var(--text-secondary); font-size: 18px; font-weight: 600; }
+.counterValue .counterLabel { flex-basis: 100%; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.counterBar { height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.counterBar span { display: block; height: 100%; border-radius: 4px; background: #10b981; transition: width 300ms ease; }
+
+@media (max-width: 720px) {
+  .epLine { grid-template-columns: 34px minmax(0, 1fr) 30px; row-gap: 8px; gap: 12px; padding: 10px 6px; }
+  .epLine + .epLine::before { left: 6px; right: 6px; }
+  .epLineRate { grid-column: 2 / 4; grid-row: 2; }
+  .epLineNo { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .epLine, .epTick, .strip span { transition: none; }
+  .epTickOn { animation: none; }
 }

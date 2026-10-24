@@ -14,6 +14,12 @@ interface AnimeImageProps {
   priority?: boolean;
   sizes?: string;
   style?: React.CSSProperties;
+  /**
+   * Serve the source file as-is (default). Re-encoding an already-compressed
+   * provider JPEG at the optimizer's quality 75 added visible grain/blocking
+   * to artwork; pass `false` only where a large source must be shrunk.
+   */
+  unoptimized?: boolean;
 }
 
 export const AnimeImage: React.FC<AnimeImageProps> = ({
@@ -26,6 +32,7 @@ export const AnimeImage: React.FC<AnimeImageProps> = ({
   priority = false,
   sizes,
   style,
+  unoptimized = true,
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +53,7 @@ export const AnimeImage: React.FC<AnimeImageProps> = ({
           alt={alt || 'Anime Artwork'}
           fill
           priority={priority}
+          unoptimized={unoptimized}
           sizes={sizes || '(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw'}
           className={className}
           onLoad={() => setIsLoading(false)}
@@ -70,6 +78,7 @@ export const AnimeImage: React.FC<AnimeImageProps> = ({
       width={width || 200}
       height={height || 300}
       priority={priority}
+      unoptimized={unoptimized}
       sizes={sizes}
       className={className}
       onLoad={() => setIsLoading(false)}

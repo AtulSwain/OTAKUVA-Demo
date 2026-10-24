@@ -2,8 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Database, Image as ImageIcon, Activity, RefreshCw, Layers, MessageSquare } from 'lucide-react';
+import { Database, Image as ImageIcon, Activity, RefreshCw, Layers, MessageSquare, ArrowRightLeft } from 'lucide-react';
 import styles from './page.module.css';
+
+const STATUS_CLASS: Record<string, string> = {
+  HEALTHY: 'statusHealthy',
+  DEGRADED: 'statusDegraded',
+  DOWN: 'statusDown',
+  UNKNOWN: 'statusUnknown',
+};
 
 export default function AdminDataCenterPage() {
   const [data, setData] = useState<any>(null);
@@ -44,6 +51,8 @@ export default function AdminDataCenterPage() {
     cacheHits: 0,
     status: 'HEALTHY',
   };
+
+  const providerFailover = data?.providerFailover || { adapters: [], recentFailoverEvents: [] };
 
   return (
     <div className={styles.container}>
@@ -105,6 +114,65 @@ export default function AdminDataCenterPage() {
             <RefreshCw size={14} />
             <span>Refresh Metrics</span>
           </button>
+        </div>
+      </div>
+
+      <div className={styles.sectionBox}>
+        <h2 className={styles.sectionTitle}>
+          <ArrowRightLeft size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />
+          Provider Failover
+        </h2>
+        <p style={{ color: 'var(--text-secondary, #BDBDBD)', fontSize: 13, margin: '0 0 16px 0' }}>
+          Anime data (title/synopsis, episodes, characters, staff) is fetched through a failover chain — if the
+          preferred adapter errors, times out, or comes back empty where a full record should have data, the same
+          entity is automatically retried against the other registered adapter. Status below reflects each
+          adapter&apos;s most recent activity, not its lifetime total.
+        </p>
+
+        <div className={styles.adapterGrid}>
+          {providerFailover.adapters.length === 0 && <p className={styles.emptyState}>No provider activity recorded yet this process.</p>}
+          {providerFailover.adapters.map((adapter: any) => (
+            <div key={adapter.provider} className={styles.adapterCard}>
+              <div className={styles.adapterHeader}>
+                <span className={styles.adapterName}>{adapter.provider}</span>
+                <span className={`${styles.statusBadge} ${styles[STATUS_CLASS[adapter.status] || 'statusUnknown']}`}>
+                  {adapter.status}
+                </span>
+              </div>
+              <div className={styles.adapterStats}>
+                {adapter.totalCalls === 0 ? (
+                  <>No calls recorded yet.</>
+                ) : (
+                  <>
+                    {adapter.successCount}/{adapter.totalCalls} succeeded
+                    {adapter.successRate !== null && <> ({Math.round(adapter.successRate * 100)}%)</>}
+                    <br />
+                    {adapter.failureCount} failure(s) — {adapter.timeoutCount} timeout, {adapter.incompleteCount} incomplete
+                    <br />
+                    {adapter.lastFailureAt && <>Last failure: {new Date(adapter.lastFailureAt).toLocaleString()}</>}
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary, #F4F4F2)', margin: '20px 0 10px 0' }}>
+          Recent Failover Events
+        </h3>
+        <div className={styles.failoverEventList}>
+          {providerFailover.recentFailoverEvents.length === 0 && (
+            <p className={styles.emptyState}>No failovers recorded yet this process — every adapter has been serving its own requests directly.</p>
+          )}
+          {providerFailover.recentFailoverEvents.map((event: any, i: number) => (
+            <div key={i} className={styles.failoverEvent}>
+              <span className={styles.failoverEventTime}>{new Date(event.timestamp).toLocaleTimeString()}</span>
+              <span>
+                <strong>{event.method}</strong>({event.externalId}): <strong>{event.fromProvider}</strong> →{' '}
+                <strong>{event.toProvider}</strong> — {event.reason} ({event.detail})
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

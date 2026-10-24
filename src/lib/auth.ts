@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { Role, hasMinRole } from './roles';
+import { isPhoneVerificationRequired } from './identity/identityConfig';
 
 const JWT_EXPIRES_IN = '30d';
 const JWT_ALGORITHM = 'HS256';
@@ -29,7 +30,8 @@ function getJwtSecret(): string {
 export interface TokenPayload {
   userId: string;
   username: string;
-  email: string;
+  /** Null for phone-only accounts. Informational only — never used for authorization. */
+  email?: string | null;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -56,29 +58,149 @@ export function verifyJwtToken(token: string): TokenPayload | null {
 export interface AuthenticatedUser {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   role: string;
+  phoneVerifiedAt: Date | null;
+}
+
+function extractTokenFromRequest(request: NextRequest): { token: string | null; fromCookie: boolean } {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return { token: authHeader.substring(7).trim(), fromCookie: false };
+  }
+  const cookie = request.cookies.get('anilog_token');
+  return { token: cookie ? cookie.value : null, fromCookie: true };
+}
+
+const CSRF_UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// CSRF defense for the `anilog_token` cookie path. A Bearer header can't be
+// attached to a cross-site request by a browser without the target site's
+// CORS cooperation, so only the cookie-authenticated path is exposed — a
+// browser will happily replay the cookie on a form/fetch submitted from any
+// origin. SameSite=Lax on the cookie (see the two `response.cookies.set`
+// call sites) already blocks the common case, but it's not a complete
+// answer on its own: it depends on browser support, doesn't cover
+// same-site-but-different-subdomain attackers, and (per the documented
+// "text/plain form built to look like JSON" technique) a same-site CORS
+// allowlist doesn't stop a simple, non-preflighted cross-origin form
+// submission either. Verifying Origin (falling back to Referer) against
+// the app's own origin is the OWASP-recommended lightweight alternative to
+// a double-submit token here — the codebase has no shared frontend fetch
+// wrapper, so threading a CSRF token header through every one of the ~40
+// mutating `fetch()` call sites across components would be a much larger,
+// riskier change for the same protection. Browsers always send Origin (or
+// at minimum Referer) on a cross-origin-capable POST/PUT/PATCH/DELETE, so
+// this doesn't require any frontend change — same-origin requests already
+// carry a matching header. See docs/production/ARCHITECTURE.md §3.1.
+function isLocalDevHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname.endsWith('.local')) return true;
+  const m = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function isTrustedOrigin(request: NextRequest): boolean {
+  const source = request.headers.get('origin') || request.headers.get('referer');
+  if (!source) return false;
+
+  let sourceHost: string;
+  try {
+    sourceHost = new URL(source).host;
+  } catch {
+    return false;
+  }
+
+  const expectedHosts = new Set<string>([request.nextUrl.host]);
+  // The host the browser actually used to reach us. `nextUrl.host` is the
+  // server's own configured host (always `localhost:3000` in dev), so without
+  // this every legitimate same-origin request from 127.0.0.1, a LAN IP (a
+  // phone on the same Wi-Fi) or a proxy/custom domain was rejected as
+  // cross-origin. A cross-site attacker cannot make the browser send a
+  // matching Origin AND a victim Host, so this doesn't weaken the check.
+  for (const headerName of ['host', 'x-forwarded-host']) {
+    const value = request.headers.get(headerName)?.split(',')[0]?.trim();
+    if (value) expectedHosts.add(value);
+  }
+  for (const envVar of [process.env.NEXT_PUBLIC_APP_URL, process.env.NEXTAUTH_URL]) {
+    if (!envVar) continue;
+    try {
+      expectedHosts.add(new URL(envVar).host);
+    } catch {
+      // ignore malformed env values
+    }
+  }
+
+  if (expectedHosts.has(sourceHost)) return true;
+
+  // Development only: `next dev` rewrites Host/X-Forwarded-Host to
+  // `localhost:<port>`, so a browser that reached the dev server at
+  // 127.0.0.1 or a LAN address (a phone on the same Wi-Fi) can never match
+  // above. Trust loopback and private-network origins there. Never in
+  // production, where the Host header and NEXT_PUBLIC_APP_URL are authoritative.
+  if (process.env.NODE_ENV !== 'production') {
+    return isLocalDevHost(sourceHost.replace(/:\d+$/, ''));
+  }
+  return false;
+}
+
+/**
+ * Like getAuthUserFromRequest(), but a local JWT verify only — no DB
+ * lookup. Returns whatever userId the token claims, without re-checking
+ * the account still exists or its role hasn't changed. Not a substitute
+ * for getAuthUserFromRequest()/requireRole() for authorization decisions
+ * — only for cheap, best-effort request tagging (e.g. attaching a user id
+ * to error-tracking context on every request; see
+ * src/lib/observability/sentryUser.ts) where a stale/forged-but-expired
+ * distinction doesn't matter and a DB round trip on every request would.
+ */
+export function getUserIdFromRequestFast(request: NextRequest): string | null {
+  const { token } = extractTokenFromRequest(request);
+  if (!token) return null;
+  const payload = verifyJwtToken(token);
+  return payload?.userId || null;
+}
+
+/**
+ * Same lookup as getAuthUserFromRequest(), but for a Server Component (no
+ * NextRequest available there) — reads the `anilog_token` cookie via
+ * next/headers. Read-only by construction (Server Components can only ever
+ * render a GET), so the CSRF/origin check that guards cookie-authenticated
+ * mutations in getAuthUserFromRequest() does not apply here.
+ */
+export async function getAuthUserFromCookies(): Promise<AuthenticatedUser | null> {
+  try {
+    const { cookies } = await import('next/headers');
+    const token = cookies().get('anilog_token')?.value;
+    if (!token) return null;
+
+    const payload = verifyJwtToken(token);
+    if (!payload || !payload.userId) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true },
+    });
+
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 export async function getAuthUserFromRequest(request: NextRequest): Promise<AuthenticatedUser | null> {
   try {
-    // 1. Check Authorization header Bearer token
-    const authHeader = request.headers.get('authorization');
-    let token: string | null = null;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.substring(7).trim();
+    const { token, fromCookie } = extractTokenFromRequest(request);
+    if (!token) {
+      return null;
     }
 
-    // 2. Check Cookie if no header token
-    if (!token) {
-      const cookie = request.cookies.get('anilog_token');
-      if (cookie) {
-        token = cookie.value;
-      }
-    }
-
-    if (!token) {
+    // See isTrustedOrigin() above: a cookie-authenticated mutation from an
+    // untrusted origin is treated as unauthenticated (same as a missing/
+    // invalid token) rather than surfaced as a distinct error — the
+    // request never had valid credentials from this origin's perspective.
+    if (fromCookie && CSRF_UNSAFE_METHODS.has(request.method) && !isTrustedOrigin(request)) {
       return null;
     }
 
@@ -92,7 +214,7 @@ export async function getAuthUserFromRequest(request: NextRequest): Promise<Auth
     // without waiting for the token to expire.
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, email: true, role: true },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true },
     });
 
     return user;
@@ -125,6 +247,56 @@ export async function requireRole(
   return user;
 }
 
+/**
+ * Enforces authentication AND a verified phone number on an API route.
+ * Returns the authenticated user on success, or a ready-to-return
+ * NextResponse (401 if unauthenticated, 403 with code PHONE_NOT_VERIFIED
+ * if the account hasn't proven ownership of a phone number by SMS OTP).
+ *
+ * Use this instead of a bare getAuthUserFromRequest() call on any route
+ * that lets a user post content — reviews, ratings, discussions/comments,
+ * community creation/posts/chat. One phone number can back only one
+ * account (User.phone is unique), which is what keeps one person from
+ * running many accounts to push ratings around. Accounts created by phone
+ * sign-up are verified from the start; legacy email/password accounts stay
+ * gated until they link a phone (POST /api/auth/phone/verify).
+ *
+ * Usage:
+ *   const auth = await requireVerifiedUser(request);
+ *   if (auth instanceof NextResponse) return auth;
+ *   // auth is AuthenticatedUser here, and auth.phoneVerifiedAt is set
+ */
+export async function requireVerifiedUser(request: NextRequest): Promise<AuthenticatedUser | NextResponse> {
+  const user = await getAuthUserFromRequest(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+  // Off while testing (PHONE_VERIFICATION_REQUIRED, src/lib/identity/identityConfig.ts).
+  if (!user.phoneVerifiedAt && isPhoneVerificationRequired()) {
+    return NextResponse.json(
+      {
+        error: 'Please verify your phone number before posting. It only takes a one-time SMS code.',
+        code: 'PHONE_NOT_VERIFIED',
+      },
+      { status: 403 }
+    );
+  }
+  return user;
+}
+
+const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days, matches JWT_EXPIRES_IN
+
+/** Sets the httpOnly session cookie that getAuthUserFromRequest() reads. */
+export function setSessionCookie(response: NextResponse, token: string): void {
+  response.cookies.set('anilog_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE_SEC,
+  });
+}
+
 // Bootstraps SUPER_ADMIN access without requiring direct DB access: if the
 // given email appears in OTAKUVA_SUPER_ADMIN_EMAILS (comma-separated), the
 // account is promoted on login/registration. This only ever promotes —
@@ -132,7 +304,8 @@ export async function requireRole(
 // demotion is a deliberate action via the role-management API.
 // Returns the user's effective role after the check — the promoted role if
 // a promotion happened, otherwise `currentRole` unchanged.
-export async function syncSuperAdminBootstrap(userId: string, email: string, currentRole: string): Promise<string> {
+export async function syncSuperAdminBootstrap(userId: string, email: string | null, currentRole: string): Promise<string> {
+  if (!email) return currentRole;
   const list = (process.env.OTAKUVA_SUPER_ADMIN_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())

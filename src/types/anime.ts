@@ -33,11 +33,30 @@ export interface Anime {
   trailerUrl?: string;
   genres: string[];
   themes?: string[];
-  studios: string[];
+  // Object shape carries the real DB slug so links to /studio/[slug] don't
+  // have to guess one from the name; plain strings kept for older callers.
+  studios: (string | { id: string; name: string; slug: string | null })[];
   duration?: string;
   source?: string;
   members?: number;
   favoritesCount?: number;
+  franchise?: {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    productions: {
+      id: string;
+      slug: string;
+      title: string;
+      canonicalTitle: string;
+      type: string;
+      year?: number | null;
+      relationship: string;
+      posterUrl: string;
+      score?: number | null;
+    }[];
+  } | null;
 }
 
 export interface UserAnimeProgress {

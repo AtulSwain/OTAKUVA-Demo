@@ -1,0 +1,56 @@
+/* "Creators on this anime" rail (2026-10-24). */
+.section { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: calc(var(--header-offset, 64px) + 16px); }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.title { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }
+.sub { font-size: 13px; color: var(--text-muted); }
+
+.rail {
+  list-style: none;
+  margin: 0;
+  padding: 2px 2px 8px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(250px, 280px);
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #1b1b1e;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  scroll-snap-align: start;
+}
+.cardHighlight { box-shadow: inset 0 0 0 2px #fff; }
+.person { display: flex; align-items: center; gap: 12px; min-width: 0; color: inherit; text-decoration: none; }
+.person:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.names { display: flex; flex-direction: column; min-width: 0; }
+.names strong, .names span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.names strong { font-size: 15px; font-weight: 750; }
+.names span { font-size: 12.5px; color: var(--text-muted); }
+
+.did { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+a.chip:hover { background: rgba(255, 255, 255, 0.12); color: var(--text-primary); }
+.chipHype { background: rgba(255, 90, 54, 0.14); color: #ff8a65; }
+.card > button { align-self: flex-start; }
+
+@media (max-width: 560px) { .rail { grid-auto-columns: 78%; } }

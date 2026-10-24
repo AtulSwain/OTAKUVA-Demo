@@ -107,7 +107,7 @@ export function StudioHistoryTab({ studioId }: Props) {
         const res = await fetch(`/api/anime?q=${encodeURIComponent(animeQuery.trim())}&limit=5`);
         if (res.ok) {
           const data = await res.json();
-          setAnimeResults(data.anime || data.results || []);
+          setAnimeResults(data.animes || data.anime || data.results || []); // GET /api/anime returns `animes`
         }
       } catch (e) {
         console.error(e);
@@ -286,7 +286,7 @@ export function StudioHistoryTab({ studioId }: Props) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#cbd5e1' }}>
-            <HistoryIcon size={16} color="#8b5cf6" />
+            <HistoryIcon size={16} color="#A1A1AA" />
             <span><strong>{stats?.totalEvents ?? events.length}</strong> Milestones</span>
           </div>
           <span style={{ color: '#475569' }}>•</span>
@@ -367,7 +367,7 @@ export function StudioHistoryTab({ studioId }: Props) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
-                <div style={{ minWidth: '60px', fontWeight: 800, color: '#8b5cf6', fontSize: '14px' }}>
+                <div style={{ minWidth: '60px', fontWeight: 800, color: '#A1A1AA', fontSize: '14px' }}>
                   {e.displayDate}
                 </div>
 
@@ -432,7 +432,7 @@ export function StudioHistoryTab({ studioId }: Props) {
           <div className={styles.modalCard} style={{ maxWidth: '720px' }}>
             <div className={styles.modalHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <HistoryIcon color="#8b5cf6" size={22} />
+                <HistoryIcon color="#A1A1AA" size={22} />
                 <h3 className={styles.modalTitle}>{editingEventId ? 'Edit History Milestone' : 'Add History Milestone'}</h3>
               </div>
               <button aria-label="Close" className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
@@ -578,7 +578,7 @@ export function StudioHistoryTab({ studioId }: Props) {
                           }}
                           style={{
                             padding: '6px 10px',
-                            background: animeId === a.id ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.04)',
+                            background: animeId === a.id ? 'rgba(161, 161, 170, 0.2)' : 'rgba(255,255,255,0.04)',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             fontSize: '12.5px',

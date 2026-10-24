@@ -178,6 +178,8 @@ export interface ProviderReviewItem {
 export interface ProviderStreamingLink {
   name: string;
   url: string;
+  /** Audio/subtitle language of the listing when the provider says (AniList does; Jikan doesn't). */
+  language?: string | null;
 }
 
 export interface ProviderStatistics {

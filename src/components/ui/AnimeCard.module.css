@@ -276,3 +276,6 @@
   border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
+
+/* Destructive option in the status menu, same rose as the library menu (2026-10-17). */
+.removeOption { color: var(--accent-rose); border-top: 1px solid var(--border-subtle); }

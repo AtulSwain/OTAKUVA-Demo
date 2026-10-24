@@ -6,7 +6,7 @@ import { canUserViewCommunityContent } from '../../../lib/engine/community/commu
 
 export const dynamic = 'force-dynamic';
 
-const TARGET_TYPES = new Set(['DISCUSSION', 'COMMENT', 'MESSAGE', 'USER', 'COMMUNITY']);
+const TARGET_TYPES = new Set(['DISCUSSION', 'COMMENT', 'MESSAGE', 'USER', 'COMMUNITY', 'ARTICLE', 'ARTICLE_COMMENT']);
 // Categories offered in the UI, plus the older values existing reports use.
 const REASONS = new Set(['SPAM', 'HARASSMENT', 'OFFENSIVE', 'SPOILER', 'MISINFORMATION', 'OTHER', 'HATE', 'SPOILER_MISUSE', 'PIRACY']);
 
@@ -35,6 +35,17 @@ async function targetVisibleTo(targetType: string, targetId: string, userId: str
       select: { channel: { select: { community } } },
     });
     return Boolean(m) && canUserViewCommunityContent(m!.channel.community, userId);
+  }
+  if (targetType === 'ARTICLE') {
+    return Boolean(await prisma.userArticle.findFirst({ where: { id: targetId, status: 'PUBLISHED' }, select: { id: true } }));
+  }
+  if (targetType === 'ARTICLE_COMMENT') {
+    return Boolean(
+      await prisma.userArticleComment.findFirst({
+        where: { id: targetId, deletedAt: null, status: 'PUBLISHED', article: { status: 'PUBLISHED' } },
+        select: { id: true },
+      })
+    );
   }
   if (targetType === 'USER') return Boolean(await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } }));
   if (targetType === 'COMMUNITY') return Boolean(await prisma.community.findUnique({ where: { id: targetId }, select: { id: true } }));

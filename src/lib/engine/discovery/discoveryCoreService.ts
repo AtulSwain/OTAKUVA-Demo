@@ -137,7 +137,7 @@ export class DiscoveryCoreService {
       // Guest / Cold-Start Catalog Candidates
       const guestAnime = await prisma.anime.findMany({
         where: { score: { gte: 7.5 } },
-        orderBy: { score: 'desc' },
+        orderBy: { score: { sort: 'desc', nulls: 'last' } },
         take: Math.max(limit * 3, 40),
         include: this.getAnimeIncludeBlock(),
       });

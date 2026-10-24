@@ -16,8 +16,13 @@
 
 import { randomBytes } from 'crypto';
 import { prisma } from '../../prisma';
+import { notifyFollowersOfDiscussion } from '../../social/followService';
 import { generateSlug } from '../../normalizers';
 import { emitEngineEvent } from '../events/eventEngine';
+import { refreshCommunityAggregatesSafe } from '../../badges/countingService';
+import { getChatAuthorMeta } from '../../community/chatAuthorMeta';
+import { isInviteOnly, resolveNewCommunityAccess, resolveVisibilityChange } from '../../community/communityPolicy';
+import { issueInvitation, type InvitationDto } from '../../community/invitations';
 
 export const COMMUNITY_ENGINE_VERSION = 2;
 
@@ -72,6 +77,8 @@ export interface CreateCommunityInput {
   bannerUrl?: string | null;
   bannerSource?: 'UPLOAD' | 'URL';
   animeId?: string | null;
+  /** Genre ids or slugs the community is about (max COMMUNITY_GENRES_MAX). */
+  genreIds?: string[];
   rules?: { title: string; content: string }[];
 }
 
@@ -87,6 +94,10 @@ export interface UpdateCommunityInput {
   iconSource?: 'UPLOAD' | 'URL';
   bannerUrl?: string | null;
   bannerSource?: 'UPLOAD' | 'URL';
+  /** Anime id or slug; null unlinks. Omitted leaves it as is. */
+  animeId?: string | null;
+  /** Replaces the community's genres when given. */
+  genreIds?: string[];
   rules?: { title: string; content: string }[];
 }
 
@@ -95,6 +106,8 @@ export interface ListCommunitiesOptions {
   category?: string;
   communityType?: string;
   animeId?: string;
+  /** Genre slug: communities tagged with it, or about an anime in it. */
+  genre?: string;
   query?: string;
   page?: number;
   limit?: number;
@@ -290,6 +303,26 @@ export async function canModerateCommunity(userId: string, communityId: string):
  * =========================================================================
  */
 
+export const COMMUNITY_GENRES_MAX = 5;
+
+/** Anime id or slug -> stored anime id. Unknown values are rejected, never guessed. */
+async function resolveCommunityAnime(animeId: string): Promise<string> {
+  const anime = await prisma.anime.findFirst({ where: { OR: [{ id: animeId }, { slug: animeId }] }, select: { id: true } });
+  if (!anime) throw new Error('Validation: the linked anime could not be found');
+  return anime.id;
+}
+
+/** Genre ids or slugs -> stored genre ids (deduplicated, capped). */
+async function resolveCommunityGenres(raw: unknown): Promise<string[]> {
+  if (!Array.isArray(raw)) return [];
+  const keys = Array.from(new Set(raw.filter((g): g is string => typeof g === 'string' && g.trim() !== '').map((g) => g.trim())));
+  if (keys.length > COMMUNITY_GENRES_MAX) throw new Error(`Validation: pick at most ${COMMUNITY_GENRES_MAX} genres`);
+  if (keys.length === 0) return [];
+  const genres = await prisma.genre.findMany({ where: { OR: [{ id: { in: keys } }, { slug: { in: keys } }] }, select: { id: true } });
+  if (genres.length !== keys.length) throw new Error('Validation: one of the genres could not be found');
+  return genres.map((g) => g.id);
+}
+
 export async function createCommunity(userId: string, input: CreateCommunityInput) {
   if (!canCreateCommunity(userId)) {
     throw new Error('Authentication required to create a community');
@@ -299,9 +332,6 @@ export async function createCommunity(userId: string, input: CreateCommunityInpu
     name,
     description,
     category = 'ANIME',
-    communityType = 'GENERAL',
-    visibility = 'PUBLIC',
-    joinPolicy = 'OPEN',
     iconUrl,
     iconSource = 'URL',
     bannerUrl,
@@ -326,6 +356,13 @@ export async function createCommunity(userId: string, input: CreateCommunityInpu
     throw new Error('Description cannot exceed 2000 characters');
   }
 
+  // Visibility, join policy and type are decided here from the creator's real
+  // role — never taken from the request as-is. Members-only (PRIVATE) needs a
+  // CREATOR account.
+  const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!actor) throw new Error('Authentication required to create a community');
+  const { visibility, joinPolicy, communityType } = resolveNewCommunityAccess(input, actor.role);
+
   // Safe unique slug generation with collision handling
   const baseSlug = generateSlug(name);
   let uniqueSlug = baseSlug;
@@ -336,13 +373,8 @@ export async function createCommunity(userId: string, input: CreateCommunityInpu
     counter++;
   }
 
-  let verifiedAnimeId: string | null = null;
-  if (animeId) {
-    const anime = await prisma.anime.findFirst({
-      where: { OR: [{ id: animeId }, { slug: animeId }] },
-    });
-    if (anime) verifiedAnimeId = anime.id;
-  }
+  const verifiedAnimeId = animeId ? await resolveCommunityAnime(animeId) : null;
+  const genreIds = await resolveCommunityGenres(input.genreIds);
 
   // Atomic transaction
   const community = await prisma.$transaction(async (tx) => {
@@ -362,6 +394,7 @@ export async function createCommunity(userId: string, input: CreateCommunityInpu
         bannerUrl: bannerUrl || null,
         bannerSource,
         animeId: verifiedAnimeId,
+        genres: genreIds.length ? { create: genreIds.map((genreId) => ({ genreId })) } : undefined,
         memberCount: 1,
         rules: Array.isArray(rules) && rules.length > 0 ? {
           create: rules
@@ -397,18 +430,25 @@ export async function createCommunity(userId: string, input: CreateCommunityInpu
       },
     });
 
-    return created;
+    // Members-only: the first invitation is issued in the same transaction,
+    // so a private community never exists without a way in.
+    const firstInvite = visibility === 'PRIVATE' ? await issueInvitation(tx, { communityId: created.id, userId }) : null;
+    return { created, firstInvite };
   });
 
   await emitEngineEvent({
     eventType: 'COMMUNITY_CREATED',
     userId,
     entityType: 'COMMUNITY',
-    entityId: community.id,
-    metadata: { name: community.name, slug: community.slug, visibility, communityType },
+    entityId: community.created.id,
+    metadata: { name: community.created.name, slug: community.created.slug, visibility, communityType },
   });
 
-  return community;
+  // The access key is in this response only — it is never stored in plaintext.
+  const invitation: (InvitationDto & { key: string }) | null = community.firstInvite
+    ? { ...community.firstInvite.invitation, key: community.firstInvite.key }
+    : null;
+  return { ...community.created, invitation };
 }
 
 export async function ensureDefaultCommunityChannels(communityId: string) {
@@ -488,6 +528,7 @@ export async function getCommunityByIdOrSlug(idOrSlug: string, userId?: string |
       anime: {
         select: { id: true, canonicalTitle: true, slug: true, posterUrl: true, bannerUrl: true },
       },
+      genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
       members: {
         where: { status: 'ACTIVE' },
         take: 20,
@@ -600,6 +641,7 @@ export async function listDiscoverableCommunities(options: ListCommunitiesOption
     category,
     communityType,
     animeId,
+    genre,
     query,
     page = 1,
     limit = 30,
@@ -635,14 +677,30 @@ export async function listDiscoverableCommunities(options: ListCommunitiesOption
     where.animeId = animeId;
   }
 
-  if (query && query.trim()) {
-    const q = query.trim().toLowerCase();
-    where.OR = [
-      { name: { contains: q } },
-      { description: { contains: q } },
-      { slug: { contains: q } },
-    ];
+  const and: any[] = [];
+  if (genre && genre.trim()) {
+    const g = genre.trim();
+    and.push({
+      OR: [
+        { genres: { some: { genre: { slug: g } } } },
+        { anime: { animeGenres: { some: { genre: { slug: g } } } } },
+      ],
+    });
   }
+
+  if (query && query.trim()) {
+    // Postgres `contains` is case-sensitive unless told otherwise.
+    const q = query.trim();
+    and.push({
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        { anime: { canonicalTitle: { contains: q, mode: 'insensitive' } } },
+      ],
+    });
+  }
+  if (and.length) where.AND = and;
 
   let orderBy: any = { memberCount: 'desc' };
   if (filter === 'new') {
@@ -659,6 +717,7 @@ export async function listDiscoverableCommunities(options: ListCommunitiesOption
         channels: { select: { id: true, name: true, slug: true, type: true } },
         rules: { select: { id: true, title: true, content: true } },
         anime: { select: { id: true, canonicalTitle: true, slug: true, posterUrl: true } },
+        genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
         _count: { select: { members: true, discussions: true } },
       },
       orderBy,
@@ -705,6 +764,7 @@ export async function listDiscoverableCommunities(options: ListCommunitiesOption
       channels: c.channels,
       rules: c.rules,
       anime: c.anime,
+      genres: c.genres.map((g) => g.genre),
       currentUserMembership: membership,
       membershipStatus: membership ? membership.status : null,
     };
@@ -749,10 +809,30 @@ export async function updateCommunity(
     updateData.description = input.description.trim();
   }
   if (input.category) updateData.category = input.category.toUpperCase();
-  if (input.communityType) updateData.communityType = input.communityType;
-  if (input.visibility) updateData.visibility = input.visibility.toUpperCase();
-  if (input.joinPolicy) updateData.joinPolicy = input.joinPolicy.toUpperCase();
-  if (input.status) updateData.status = input.status.toUpperCase();
+  // Who can join is the owner's decision, checked against their real role
+  // (members-only needs CREATOR); join policy always follows visibility.
+  const actor = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (input.visibility) {
+    const change = resolveVisibilityChange(input.visibility, { userId, role: actor?.role ?? 'USER' }, community);
+    if (change) Object.assign(updateData, change);
+  }
+  if (input.communityType && !updateData.communityType) {
+    const type = String(input.communityType).toUpperCase();
+    const creatorTypes = ['CREATOR', 'CREATOR_EXCLUSIVE'];
+    if (creatorTypes.includes(type) || creatorTypes.includes(community.communityType)) {
+      // Creator types follow visibility (set above); not changed directly.
+    } else if (['ANIME', 'SEASON', 'GENRE', 'STUDIO', 'GENERAL'].includes(type)) {
+      updateData.communityType = type;
+    } else {
+      throw new Error('Validation: unknown community type');
+    }
+  }
+  if (input.status) {
+    const status = String(input.status).toUpperCase();
+    // Deleting goes through DELETE (owner only); settings can only archive/restore.
+    if (!['ACTIVE', 'ARCHIVED'].includes(status)) throw new Error('Validation: status must be ACTIVE or ARCHIVED');
+    updateData.status = status;
+  }
   if (input.iconUrl !== undefined) {
     updateData.iconUrl = input.iconUrl;
     if (input.iconSource) updateData.iconSource = input.iconSource;
@@ -761,6 +841,10 @@ export async function updateCommunity(
     updateData.bannerUrl = input.bannerUrl;
     if (input.bannerSource) updateData.bannerSource = input.bannerSource;
   }
+  if (input.animeId !== undefined) {
+    updateData.animeId = input.animeId ? await resolveCommunityAnime(input.animeId) : null;
+  }
+  const genreIds = input.genreIds !== undefined ? await resolveCommunityGenres(input.genreIds) : null;
 
   const updated = await prisma.$transaction(async (tx) => {
     const res = await tx.community.update({
@@ -772,6 +856,13 @@ export async function updateCommunity(
         owner: { select: { id: true, username: true, avatarUrl: true } },
       },
     });
+
+    if (genreIds) {
+      await tx.communityGenre.deleteMany({ where: { communityId: community.id } });
+      if (genreIds.length) {
+        await tx.communityGenre.createMany({ data: genreIds.map((genreId) => ({ communityId: community.id, genreId })) });
+      }
+    }
 
     if (Array.isArray(input.rules)) {
       await tx.communityRule.deleteMany({ where: { communityId: community.id } });
@@ -936,15 +1027,21 @@ export async function joinCommunity(
     throw new Error('You are banned from this community');
   }
 
-  // Creator exclusive validation
-  let creatorVerified = false;
-  let verificationProvider: string | null = null;
-  if (community.joinPolicy === 'CREATOR_ONLY' || community.communityType === 'CREATOR_EXCLUSIVE') {
-    if (!verificationData?.token) {
-      throw new Error('This is a creator-exclusive community requiring verified membership');
+  // Members-only communities are joined only through an invitation link +
+  // key (src/lib/community/invitations.ts). Knowing the slug or sending any
+  // "verification" token is not enough — this path used to accept any
+  // token unchecked, and PRIVATE+OPEN communities fell through to a plain join.
+  void verificationData;
+  const creatorVerified = false;
+  const verificationProvider: string | null = null;
+  if (isInviteOnly(community)) {
+    const existing = await prisma.communityMember.findUnique({
+      where: { communityId_userId: { communityId: community.id, userId } },
+    });
+    if (existing?.status === 'ACTIVE') {
+      return { success: true, status: 'ACTIVE', role: existing.role, memberCount: community.memberCount };
     }
-    creatorVerified = true;
-    verificationProvider = verificationData.provider || 'CUSTOM';
+    throw new Error('Forbidden: this community is members-only. Join with the invitation link and access key from its creator.');
   }
 
   // Approval required workflow
@@ -1044,6 +1141,8 @@ export async function joinCommunity(
     return { membership, totalMembers };
   });
 
+  await refreshCommunityAggregatesSafe(community.id);
+
   await emitEngineEvent({
     eventType: 'MEMBER_JOINED',
     userId,
@@ -1092,6 +1191,8 @@ export async function leaveCommunity(userId: string, communitySlug: string) {
 
     return { totalMembers };
   });
+
+  await refreshCommunityAggregatesSafe(community.id);
 
   await emitEngineEvent({
     eventType: 'MEMBER_LEFT',
@@ -1173,6 +1274,8 @@ export async function reviewJoinRequest(
         },
       });
     });
+
+    await refreshCommunityAggregatesSafe(communityId);
 
     await emitEngineEvent({
       eventType: 'JOIN_REQUEST_APPROVED',
@@ -1272,6 +1375,10 @@ export async function listJoinRequests(
   };
 }
 
+/**
+ * @deprecated Legacy plaintext-token invite with no redemption path. Use
+ * src/lib/community/invitations.ts (hashed access keys) instead.
+ */
 export async function createCommunityInvite(
   inviterId: string,
   communityId: string,
@@ -1301,7 +1408,8 @@ export async function createCommunityInvite(
     userId: inviterId,
     entityType: 'COMMUNITY',
     entityId: communityId,
-    metadata: { inviteToken: token },
+    // Never put the token itself in the event log.
+    metadata: { inviteId: invite.id },
   });
 
   return invite;
@@ -1478,6 +1586,8 @@ export async function banCommunityMember(
     });
   });
 
+  await refreshCommunityAggregatesSafe(communityId);
+
   await emitEngineEvent({
     eventType: 'MEMBER_BANNED',
     userId: moderatorId,
@@ -1521,6 +1631,8 @@ export async function unbanCommunityMember(
       },
     });
   });
+
+  await refreshCommunityAggregatesSafe(communityId);
 
   await emitEngineEvent({
     eventType: 'MEMBER_UNBANNED',
@@ -1648,6 +1760,14 @@ export async function createCommunityPost(input: CreatePostInput) {
   // Extract @mentions and trigger notifications
   await extractMentionsAndNotify(body, authorId, `/community/${communityId}/discussion/${post.id}`, title);
 
+  // A new post is "new activity" for every other active member of the
+  // community — mentions above already covers anyone @mentioned in the
+  // body specifically.
+  await notifyCommunityMembersOfNewDiscussion(communityId, post.id, title, authorId);
+
+  // Followers: "active in the community" (public communities only, once a day).
+  await notifyFollowersOfDiscussion(authorId, post.id);
+
   await emitEngineEvent({
     eventType: 'POST_CREATED',
     userId: authorId,
@@ -1772,6 +1892,59 @@ export async function extractMentionsAndNotify(
         body: `You were mentioned in "${contextTitle.slice(0, 40)}"`,
         linkUrl,
       },
+    });
+  }
+}
+
+/**
+ * Notifies every other active member of a community when a new
+ * discussion post is created in it — "new activity" for the community.
+ * Best-effort (mirrors notifyCommunityManagers above): a notification
+ * failure must never fail or roll back the post itself.
+ *
+ * No per-user mute/opt-out exists yet (no NotificationPreference model
+ * in the schema as of this writing) and no member-count cap is applied
+ * here — every active member of even a very large community gets
+ * notified on every post. That's consistent with how every other
+ * notification in this codebase behaves today (unconditional), but is
+ * worth flagging: a preference/mute gate is the natural next step if
+ * this turns out to be too noisy for large communities in practice.
+ */
+export async function notifyCommunityMembersOfNewDiscussion(
+  communityId: string,
+  discussionId: string,
+  discussionTitle: string,
+  authorId: string
+): Promise<void> {
+  try {
+    const [community, author, members] = await Promise.all([
+      prisma.community.findUnique({ where: { id: communityId }, select: { name: true } }),
+      prisma.user.findUnique({ where: { id: authorId }, select: { username: true } }),
+      prisma.communityMember.findMany({
+        where: { communityId, status: 'ACTIVE', userId: { not: authorId } },
+        select: { userId: true },
+      }),
+    ]);
+
+    if (members.length === 0 || !community) return;
+
+    const who = author?.username ? `@${author.username}` : 'Someone';
+    const linkUrl = `/community/${communityId}/discussion/${discussionId}`;
+
+    await prisma.notification.createMany({
+      data: members.map((m) => ({
+        userId: m.userId,
+        type: 'COMMUNITY_NEW_DISCUSSION',
+        title: `New post in ${community.name}`,
+        body: `${who} posted "${discussionTitle.slice(0, 60)}"`,
+        linkUrl,
+      })),
+    });
+  } catch (err) {
+    console.error('[community] Failed to notify members of new discussion', {
+      communityId,
+      discussionId,
+      error: err instanceof Error ? err.message : String(err),
     });
   }
 }
@@ -1942,7 +2115,7 @@ export async function sendCommunityChatMessage(
     throw new Error('Message exceeds 2000 characters limit');
   }
 
-  const message = await prisma.communityMessage.create({
+  const created = await prisma.communityMessage.create({
     data: {
       channelId,
       authorId: userId,
@@ -1954,6 +2127,12 @@ export async function sendCommunityChatMessage(
       author: { select: { id: true, username: true, avatarUrl: true } },
     },
   });
+
+  // Role + reviewer badge ride along so every client can show who is talking.
+  const authorMeta = (
+    await getChatAuthorMeta(channel.communityId, channel.community.ownerId, [userId])
+  ).get(userId);
+  const message = { ...created, author: { ...created.author, ...authorMeta } };
 
   await emitEngineEvent({
     eventType: 'MESSAGE_CREATED',

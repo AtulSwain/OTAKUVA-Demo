@@ -4,7 +4,6 @@ export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
-  'image/avif',
 ];
 
 export const MAX_ICON_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -46,16 +45,7 @@ export function validateImageMagicBytes(buffer: Buffer): { valid: boolean; detec
     return { valid: true, detectedMime: 'image/webp' };
   }
 
-  // AVIF: ....ftypavif or ftypavis
-  const ftypIndex = buffer.indexOf(Buffer.from('ftyp'));
-  if (ftypIndex >= 4 && ftypIndex <= 16) {
-    const brand = buffer.toString('utf8', ftypIndex + 4, ftypIndex + 8);
-    if (brand === 'avif' || brand === 'avis' || brand === 'mif1') {
-      return { valid: true, detectedMime: 'image/avif' };
-    }
-  }
-
-  return { valid: false, error: 'Unsupported or corrupted image format. Please use JPEG, PNG, WebP, or AVIF.' };
+  return { valid: false, error: 'Unsupported or corrupted image format. Please use JPEG, PNG, or WebP.' };
 }
 
 /**

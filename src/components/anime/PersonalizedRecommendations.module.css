@@ -1,110 +1,151 @@
-.section {
-  padding: 42px 0;
-  border-bottom: 1px solid var(--border-default, #202020);
+/* Recommendations (v2, 2026-10-22): a spotlight for the engine's top pick,
+   then a rail of poster cards. Black & grey theme, no coloured glows. */
+.section { display: flex; flex-direction: column; gap: 18px; }
+
+.sectionHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.kicker {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 0 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary);
+}
+.title { margin: 0; font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); }
+.subtitle { display: block; margin-top: 4px; font-size: 13px; color: var(--text-muted); }
+
+.arrows { display: inline-flex; gap: 6px; }
+.arrow {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); color: var(--text-primary); cursor: pointer; transition: background 0.15s ease, opacity 0.15s ease;
+}
+.arrow:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.arrow:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Spotlight ── */
+.spot {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: end; gap: 22px;
+  min-height: 240px; padding: 22px; border-radius: 22px;
+  background: #101012; color: inherit; text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.spotArt { position: absolute; inset: 0; z-index: -2; }
+.spotBanner { object-fit: cover; transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.spotBlur { object-fit: cover; filter: blur(56px) saturate(0.85); transform: scale(1.3); opacity: 0.4; }
+.spot:hover .spotBanner { transform: scale(1.03); }
+.spotShade {
+  position: absolute; inset: 0; z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(12, 12, 14, 0.94) 0%, rgba(12, 12, 14, 0.78) 45%, rgba(12, 12, 14, 0.35) 100%),
+    linear-gradient(0deg, rgba(12, 12, 14, 0.85), transparent 60%);
+}
+.spotPoster {
+  position: relative; display: block; width: 132px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 14px;
+  background: var(--surface-elevated); box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: transform 0.3s ease;
+}
+.spot:hover .spotPoster { transform: translateY(-4px) rotate(-1deg); }
+.spotBody { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.spotTag {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 999px;
+  background: var(--accent-gradient); color: var(--accent-on, #111113);
+  font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.spotTitle {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: clamp(20px, 2.4vw, 30px); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: #fff;
+}
+.spotMeta { font-size: 13px; color: rgba(255, 255, 255, 0.7); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { height: 24px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.09); color: rgba(255, 255, 255, 0.85); font-size: 11.5px; font-weight: 600; }
+.why { display: flex; flex-direction: column; gap: 3px; max-width: 62ch; margin-top: 2px; }
+.whyLabel { font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+.whyItem { position: relative; padding-left: 14px; font-size: 13px; line-height: 1.45; color: rgba(255, 255, 255, 0.82); }
+.whyItem::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.55); }
+.spotCta {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; margin-top: 4px; padding: 0 16px; border-radius: 999px;
+  background: #fff; color: #000; font-size: 13px; font-weight: 800; transition: gap 0.2s ease;
+}
+.spot:hover .spotCta { gap: 10px; }
+.spot:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 3px; }
+
+/* ── Rail ── */
+.rail {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 176px; gap: 16px;
+  overflow-x: auto; scroll-snap-type: x proximity; scroll-behavior: smooth; padding-bottom: 6px; scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+.card { display: flex; flex-direction: column; gap: 10px; min-width: 0; scroll-snap-align: start; color: inherit; text-decoration: none; }
+.thumb {
+  position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 14px;
+  background: var(--surface-elevated); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.thumb img { transition: transform 0.35s ease; }
+.card:hover .thumb img { transform: scale(1.05); }
+.rank {
+  position: absolute; top: 0; left: 0; z-index: 2; padding: 5px 9px; border-radius: 14px 0 12px 0;
+  background: rgba(12, 12, 14, 0.78); color: #fff; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(4px);
+}
+.hoverWhy {
+  position: absolute; inset: auto 0 0 0; z-index: 3; display: flex; align-items: flex-start; gap: 6px;
+  padding: 40px 10px 10px; background: linear-gradient(transparent, rgba(8, 8, 10, 0.95) 45%);
+  color: rgba(255, 255, 255, 0.92); font-size: 11.5px; line-height: 1.35;
+  opacity: 0; transform: translateY(8px); transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.hoverWhy svg { flex: none; margin-top: 2px; }
+.card:hover .hoverWhy, .card:focus-visible .hoverWhy { opacity: 1; transform: none; }
+.cardBody { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cardTitle {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 14px; font-weight: 700; line-height: 1.3; color: var(--text-primary);
+}
+.cardMeta { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardGenres { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.spotHeadText, .spotFoot { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+
+/* Tablet */
+@media (max-width: 900px) {
+  .spot { grid-template-columns: 112px minmax(0, 1fr); gap: 18px; padding: 18px; }
+  .spotPoster { width: 112px; }
+  .rail { grid-auto-columns: 158px; gap: 14px; }
 }
 
-.sectionHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 22px;
-}
-
-.title {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.8px;
-  color: var(--text-primary, #F4F4F2);
-}
-
-.subtitle {
-  color: var(--text-muted, #777777);
-  font-size: 13px;
-}
-
-.cardsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-@media (min-width: 600px) {
-  .cardsGrid {
-    grid-template-columns: repeat(3, 1fr);
+/* Phone (2026-10-22, owner: "looks odd on phone"): poster + title side by
+   side on top, then genres (one swipeable row), one reason and a full-width
+   button. Rail cards ~2.4 per screen. */
+@media (max-width: 640px) {
+  .section { gap: 14px; }
+  .arrows { display: none; }
+  .spot {
+    grid-template-columns: 88px minmax(0, 1fr); align-items: center; column-gap: 14px; row-gap: 14px;
+    min-height: 0; padding: 14px; border-radius: 18px;
   }
+  .spotShade { background: linear-gradient(180deg, rgba(12, 12, 14, 0.55) 0%, rgba(12, 12, 14, 0.92) 55%, rgba(12, 12, 14, 0.97) 100%); }
+  .spotPoster { width: 88px; border-radius: 12px; }
+  .spot:hover .spotPoster { transform: none; }
+  .spotBody { display: contents; }
+  .spotHeadText { gap: 6px; }
+  .spotFoot { grid-column: 1 / -1; gap: 10px; align-items: stretch; }
+  .spotTag { height: 20px; padding: 0 8px; font-size: 9px; }
+  .spotTitle { font-size: 18px; line-height: 1.2; }
+  .spotMeta { font-size: 12px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; height: 26px; }
+  .whyLabel { display: none; }
+  .whyItem { font-size: 12.5px; }
+  .whyItem:nth-child(n+3) { display: none; }
+  .spotCta { justify-content: center; height: 42px; margin-top: 0; font-size: 14px; }
+  .rail { grid-auto-columns: calc((100% - 24px) / 2.4); gap: 12px; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 4px; scroll-padding: 0 16px; }
+  .thumb { border-radius: 12px; }
+  .rank { font-size: 11px; padding: 4px 8px; border-radius: 12px 0 10px 0; }
+  .cardTitle { font-size: 13px; }
+  .cardMeta { font-size: 11.5px; }
+  .cardGenres { display: none; }
 }
-
-@media (min-width: 900px) {
-  .cardsGrid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+@media (hover: none) {
+  .hoverWhy { display: none; }
 }
-
-@media (min-width: 1200px) {
-  .cardsGrid {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
-
-.card {
-  border: 1px solid var(--border-default, #292929);
-  border-radius: 10px;
-  overflow: hidden;
-  background-color: var(--surface-base, #101010);
-  text-decoration: none;
-  display: flex;
-  flex-direction: column;
-  transition: all var(--transition-fast, 150ms ease);
-}
-
-.card:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-hover, #3E3E44);
-  background-color: var(--surface-elevated, #18181B);
-}
-
-.thumbWrapper {
-  aspect-ratio: 2/3;
-  position: relative;
-  background-color: var(--surface-elevated, #18181B);
-}
-
-.cardBody {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.animeTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary, #F4F4F2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metaRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-muted, #8E8E8E);
-}
-
-.scoreBadge {
-  color: #F59E0B;
-  font-weight: 700;
-}
-
-.reasonBadge {
-  font-size: 10px;
-  color: var(--accent-primary-hover);
-  background-color: rgba(201, 106, 114, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  align-self: flex-start;
-  margin-top: 2px;
+@media (prefers-reduced-motion: reduce) {
+  .spotBanner, .spotPoster, .thumb img, .hoverWhy, .spotCta { transition: none; }
+  .rail { scroll-behavior: auto; }
 }

@@ -1,26 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { CommunityScoreBadge } from '../rating/CommunityScoreBadge';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Search,
-  X,
-  Star,
-  Film,
-  Building2,
-  Users2,
-  Newspaper,
-  MessageSquareHeart,
-  Calendar,
-  Trophy,
-  Bookmark,
-  Clock,
-  Settings,
-  ArrowRight,
-  CornerDownLeft,
-  Loader2,
-} from 'lucide-react';
+import { Search, X, Film, Layers, Building2, Users2, Newspaper, MessageSquareHeart, Calendar, Trophy, Bookmark, Clock, Settings, ArrowRight, CornerDownLeft, Loader2 } from 'lucide-react';
 import { AnimePoster } from './AnimePoster';
 import { sanitizePublicEntityName } from '../../lib/normalizers';
 import styles from './SearchModal.module.css';
@@ -39,14 +23,14 @@ interface CommandAction {
 }
 
 const COMMAND_ACTIONS: CommandAction[] = [
-  { id: 'cmd_explore', label: 'Explore Anime Catalog', category: 'COMMAND', href: '/explore', icon: Search },
-  { id: 'cmd_airing', label: 'View Airing Schedule', category: 'COMMAND', href: '/airing', icon: Calendar },
-  { id: 'cmd_collections', label: 'Curated Editorial Collections', category: 'COMMAND', href: '/collections', icon: Bookmark },
+  { id: 'cmd_explore', label: 'Explore Anime Catalog', category: 'COMMAND', href: '/anime', icon: Search },
+  { id: 'cmd_airing', label: 'View Airing Schedule', category: 'COMMAND', href: '/schedule', icon: Calendar },
+  { id: 'cmd_collections', label: 'Curated Collections', category: 'COMMAND', href: '/collections', icon: Bookmark },
   { id: 'cmd_rankings', label: 'View All-Time Rankings', category: 'COMMAND', href: '/rankings', icon: Trophy },
   { id: 'cmd_news', label: 'Latest Anime News & Industry Stories', category: 'COMMAND', href: '/news', icon: Newspaper },
-  { id: 'cmd_spaces', label: 'Anime Spaces & Communities', category: 'COMMAND', href: '/spaces', icon: MessageSquareHeart },
+  { id: 'cmd_spaces', label: 'Anime Communities', category: 'COMMAND', href: '/community', icon: MessageSquareHeart },
   { id: 'cmd_studios', label: 'Browse Production Studios', category: 'COMMAND', href: '/studios', icon: Building2 },
-  { id: 'cmd_people', label: 'Creators & Voice Cast Encyclopedia', category: 'COMMAND', href: '/people', icon: Users2 },
+  { id: 'cmd_people', label: 'Creators & Voice Cast Encyclopedia', category: 'COMMAND', href: '/artists', icon: Users2 },
   { id: 'cmd_library', label: 'Open My Library', category: 'COMMAND', href: '/library', icon: Bookmark },
   { id: 'cmd_history', label: 'View Watch History', category: 'COMMAND', href: '/history', icon: Clock },
   { id: 'cmd_settings', label: 'System Settings', category: 'COMMAND', href: '/settings', icon: Settings },
@@ -55,23 +39,57 @@ const COMMAND_ACTIONS: CommandAction[] = [
 export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ANIME' | 'STUDIOS' | 'PEOPLE' | 'NEWS' | 'SPACES'>('ALL');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [data, setData] = useState<{
     anime: any[];
     studios: any[];
     people: any[];
     news: any[];
     communities: any[];
+    franchises: any[];
   }>({
     anime: [],
     studios: [],
     people: [],
     news: [],
     communities: [],
+    franchises: [],
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load recent searches from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('otakuva_recent_searches');
+        if (saved) {
+          setRecentSearches(JSON.parse(saved).slice(0, 5));
+        }
+      } catch {}
+    }
+  }, []);
+
+  const saveRecentSearch = (term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed || typeof window === 'undefined') return;
+    try {
+      const updated = [trimmed, ...recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, 5);
+      setRecentSearches(updated);
+      localStorage.setItem('otakuva_recent_searches', JSON.stringify(updated));
+    } catch {}
+  };
+
+  const clearRecentSearches = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRecentSearches([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('otakuva_recent_searches');
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -79,8 +97,28 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
       setSelectedIndex(0);
     } else {
       setQuery('');
+      setActiveTab('ALL');
     }
   }, [isOpen]);
+
+  // While open: stop the page behind from scrolling (matters on phones) and
+  // hand focus back to the control that opened the search when it closes.
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      opener?.focus?.();
+    };
+  }, [isOpen]);
+
+  // Keep the keyboard-selected result in view.
+  useEffect(() => {
+    if (!isOpen) return;
+    document.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [selectedIndex, isOpen]);
 
   // Global Esc key listener
   useEffect(() => {
@@ -116,7 +154,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
       } finally {
         if (!isCancelled) setIsLoading(false);
       }
-    }, 180);
+    }, 150);
 
     return () => {
       isCancelled = true;
@@ -124,18 +162,29 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
     };
   }, [query, isOpen]);
 
+  // Filter entities according to activeTab
+  const visibleAnime = activeTab === 'ALL' || activeTab === 'ANIME' ? data.anime : [];
+  const visibleStudios = activeTab === 'ALL' || activeTab === 'STUDIOS' ? data.studios : [];
+  const visiblePeople = activeTab === 'ALL' || activeTab === 'PEOPLE' ? data.people : [];
+  const visibleNews = activeTab === 'ALL' || activeTab === 'NEWS' ? data.news : [];
+  const visibleCommunities = activeTab === 'ALL' || activeTab === 'SPACES' ? data.communities : [];
+  // Franchise has no dedicated tab (a small, secondary result type) — shown
+  // only in the combined ALL view.
+  const visibleFranchises = activeTab === 'ALL' ? (data.franchises || []) : [];
+
   // Build flattened selectable list for keyboard navigation
   const flatItems: Array<{ id: string; href: string }> = [];
 
-  if (query.trim() === '') {
+  if (query.trim() === '' && activeTab === 'ALL') {
     COMMAND_ACTIONS.forEach((cmd) => flatItems.push({ id: cmd.id, href: cmd.href }));
   }
 
-  data.anime.forEach((a) => flatItems.push({ id: `anime_${a.id}`, href: `/anime/${a.slug || a.id}` }));
-  data.studios.forEach((s) => flatItems.push({ id: `studio_${s.id}`, href: `/studios/${s.slug || s.id}` }));
-  data.people.forEach((p) => flatItems.push({ id: `person_${p.id}`, href: `/people/${p.slug || p.id}` }));
-  data.news.forEach((n) => flatItems.push({ id: `news_${n.id}`, href: `/news/${n.slug || n.id}` }));
-  data.communities.forEach((c) => flatItems.push({ id: `comm_${c.id}`, href: `/spaces/${c.slug || c.id}` }));
+  visibleAnime.forEach((a) => flatItems.push({ id: `anime_${a.id}`, href: `/anime/${a.slug || a.id}` }));
+  visibleStudios.forEach((s) => flatItems.push({ id: `studio_${s.id}`, href: `/studios/${s.slug || s.id}` }));
+  visiblePeople.forEach((p) => flatItems.push({ id: `person_${p.id}`, href: `/people/${p.slug || p.id}` }));
+  visibleNews.forEach((n) => flatItems.push({ id: `news_${n.id}`, href: `/news/${n.slug || n.id}` }));
+  visibleCommunities.forEach((c) => flatItems.push({ id: `comm_${c.id}`, href: `/community/${c.slug || c.id}` }));
+  visibleFranchises.forEach((f) => flatItems.push({ id: `franchise_${f.id}`, href: `/franchise/${f.slug || f.id}` }));
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -147,119 +196,245 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (flatItems[selectedIndex]) {
+        if (query.trim()) saveRecentSearch(query.trim());
         router.push(flatItems[selectedIndex].href);
+        onClose();
+      } else if (query.trim()) {
+        saveRecentSearch(query.trim());
+        router.push(`/search?q=${encodeURIComponent(query.trim())}`);
         onClose();
       }
     }
   };
 
+  const handleItemClick = (href: string) => {
+    if (query.trim()) saveRecentSearch(query.trim());
+    router.push(href);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
+  const totalResultsCount =
+    visibleAnime.length + visibleStudios.length + visiblePeople.length + visibleNews.length + visibleCommunities.length + visibleFranchises.length;
+
   return (
-    <div className={styles.backdrop} onClick={onClose} role="dialog" aria-modal="true">
+    <div className={styles.backdrop} onClick={onClose} role="dialog" aria-modal="true" aria-label="Search">
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        {/* Command Search Input */}
+        {/* Search Header & Input */}
         <div className={styles.inputRow}>
           {isLoading ? (
-            <Loader2 size={18} className={styles.spinIcon} />
+            <Loader2 size={20} className={styles.spinIcon} />
           ) : (
-            <Search size={18} className={styles.searchIcon} />
+            <Search size={20} className={styles.searchIcon} />
           )}
           <input
             ref={inputRef}
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            aria-label="Search anime, studios, artists, news and spaces"
             className={styles.input}
-            placeholder="Type a command or search anime, studios, people, news..."
+            placeholder="Search anime, studios, news"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
           />
           {query ? (
-            <button aria-label="Clear search" type="button" className={styles.clearBtn} onClick={() => setQuery('')}>
+            <button
+              aria-label="Clear search"
+              type="button"
+              className={styles.clearBtn}
+              onClick={() => setQuery('')}
+            >
               <X size={16} />
             </button>
           ) : (
-            <span className={styles.kbdTag}>ESC to close</span>
+            <kbd className={styles.kbdTag}>ESC</kbd>
           )}
+          <button type="button" className={styles.cancelBtn} onClick={onClose}>
+            Cancel
+          </button>
         </div>
 
-        {/* Results / Commands Scrollable Area */}
-        <div className={styles.resultsContainer}>
-          {/* Quick Navigation Commands (shown when empty or matching) */}
-          {query.trim() === '' && (
+        {/* Entity Category Filter Tabs */}
+        <div className={styles.tabFilterRow}>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'ALL' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('ALL')}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'ANIME' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('ANIME')}
+          >
+            Anime {data.anime?.length > 0 ? `(${data.anime.length})` : ''}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'STUDIOS' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('STUDIOS')}
+          >
+            Studios {data.studios?.length > 0 ? `(${data.studios.length})` : ''}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'PEOPLE' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('PEOPLE')}
+          >
+            Artists {data.people?.length > 0 ? `(${data.people.length})` : ''}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'NEWS' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('NEWS')}
+          >
+            News {data.news?.length > 0 ? `(${data.news.length})` : ''}
+          </button>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'SPACES' ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab('SPACES')}
+          >
+            Spaces {data.communities?.length > 0 ? `(${data.communities.length})` : ''}
+          </button>
+        </div>
+
+        {/* Results & Suggestions Scrollable Area */}
+        <div className={styles.resultsContainer} role="listbox" aria-label="Search results">
+          {/* Recent Searches (when query is empty) */}
+          {query.trim() === '' && recentSearches.length > 0 && (
+            <div className={styles.resultGroup}>
+              <div className={styles.groupHeadingRow}>
+                <span className={styles.groupHeading}>Recent Searches</span>
+                <button type="button" className={styles.clearRecentBtn} onClick={clearRecentSearches}>
+                  Clear
+                </button>
+              </div>
+              <div className={styles.recentTagsRow}>
+                {recentSearches.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    className={styles.recentTag}
+                    onClick={() => {
+                      setQuery(term);
+                    }}
+                  >
+                    <Clock size={12} className={styles.recentIcon} />
+                    <span>{term}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Commands (when query is empty and on ALL tab) */}
+          {query.trim() === '' && activeTab === 'ALL' && (
             <div className={styles.resultGroup}>
               <span className={styles.groupHeading}>Quick Commands</span>
-              {COMMAND_ACTIONS.map((cmd, idx) => {
-                const Icon = cmd.icon;
-                const isSelected = selectedIndex === idx;
-                return (
-                  <Link
-                    key={cmd.id}
-                    href={cmd.href}
-                    onClick={onClose}
-                    className={`${styles.commandActionItem} ${isSelected ? styles.commandActionItemActive : ''}`}
-                  >
-                    <Icon size={16} className={styles.commandActionIcon} />
-                    <span>{cmd.label}</span>
-                  </Link>
-                );
-              })}
+              <div className={styles.commandsGrid}>
+                {COMMAND_ACTIONS.map((cmd, idx) => {
+                  const Icon = cmd.icon;
+                  const isSelected = selectedIndex === idx;
+                  return (
+                    <div
+                      key={cmd.id}
+                      onClick={() => handleItemClick(cmd.href)}
+                      role="option"
+                      aria-selected={isSelected}
+                      data-active={isSelected ? 'true' : undefined}
+                      className={`${styles.commandActionItem} ${isSelected ? styles.commandActionItemActive : ''}`}
+                    >
+                      <div className={styles.commandIconBox}>
+                        <Icon size={15} />
+                      </div>
+                      <span className={styles.commandLabel}>{cmd.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* No results state */}
+          {query.trim() !== '' && !isLoading && totalResultsCount === 0 && (
+            <div className={styles.noResultsState}>
+              <p className={styles.noResultsTitle}>No results found for &ldquo;{query}&rdquo;</p>
+              <p className={styles.noResultsDesc}>
+                Try checking for typos, searching by alternate Japanese titles, or exploring the general catalog.
+              </p>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}`}
+                onClick={onClose}
+                className={styles.catalogSearchLink}
+              >
+                See all catalog results for &ldquo;{query}&rdquo; <ArrowRight size={13} />
+              </Link>
             </div>
           )}
 
           {/* Group 1: Anime Results */}
-          {data.anime && data.anime.length > 0 && (
+          {visibleAnime.length > 0 && (
             <div className={styles.resultGroup}>
               <span className={styles.groupHeading}>Anime</span>
-              {data.anime.map((anime) => {
+              {visibleAnime.map((anime) => {
                 const itemIndex = flatItems.findIndex((x) => x.id === `anime_${anime.id}`);
                 const isSelected = selectedIndex === itemIndex;
                 return (
-                  <Link
+                  <div
                     key={anime.id}
-                    href={`/anime/${anime.slug || anime.id}`}
-                    onClick={onClose}
+                    onClick={() => handleItemClick(`/anime/${anime.slug || anime.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
                     className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
                   >
                     <AnimePoster
                       src={anime.posterUrl}
                       alt={anime.title}
-                      width={32}
-                      height={44}
+                      width={36}
+                      height={50}
                       className={styles.resultPoster}
                     />
                     <div className={styles.resultInfo}>
-                      <span className={styles.resultTitle}>{sanitizePublicEntityName(anime.title)}</span>
+                      <div className={styles.titleLine}>
+                        <span className={styles.resultTitle}>{sanitizePublicEntityName(anime.title)}</span>
+                        <CommunityScoreBadge animeId={anime.id} />
+                      </div>
                       <div className={styles.resultMeta}>
-                        <span>{anime.year || 'Unknown'}</span>
-                        <span>·</span>
-                        <span>{anime.type || 'TV'}</span>
-                        {anime.score && (
-                          <>
-                            <span>·</span>
-                            <span className={styles.resultScore}><Star size={12} fill="currentColor" aria-hidden="true" /> {Number(anime.score).toFixed(1)}</span>
-                          </>
-                        )}
+                        <span className={styles.metaBadge}>{anime.type || 'TV'}</span>
+                        {anime.year && <span>{anime.year}</span>}
                       </div>
                     </div>
-                  </Link>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
                 );
               })}
             </div>
           )}
 
           {/* Group 2: Studio Results */}
-          {data.studios && data.studios.length > 0 && (
+          {visibleStudios.length > 0 && (
             <div className={styles.resultGroup}>
               <span className={styles.groupHeading}>Studios</span>
-              {data.studios.map((studio) => {
+              {visibleStudios.map((studio) => {
                 const itemIndex = flatItems.findIndex((x) => x.id === `studio_${studio.id}`);
                 const isSelected = selectedIndex === itemIndex;
                 return (
-                  <Link
+                  <div
                     key={studio.id}
-                    href={`/studios/${studio.slug || studio.id}`}
-                    onClick={onClose}
+                    onClick={() => handleItemClick(`/studios/${studio.slug || studio.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
                     className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
                   >
                     <div className={styles.resultAvatar}>
@@ -267,26 +442,32 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                     </div>
                     <div className={styles.resultInfo}>
                       <span className={styles.resultTitle}>{sanitizePublicEntityName(studio.name)}</span>
-                      <span className={styles.resultMeta}>Production Studio</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>Studio</span>
+                        {studio.animeCount ? <span>{studio.animeCount} anime</span> : null}
+                      </div>
                     </div>
-                  </Link>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
                 );
               })}
             </div>
           )}
 
           {/* Group 3: People / Creators Results */}
-          {data.people && data.people.length > 0 && (
+          {visiblePeople.length > 0 && (
             <div className={styles.resultGroup}>
               <span className={styles.groupHeading}>People & Creators</span>
-              {data.people.map((person) => {
+              {visiblePeople.map((person) => {
                 const itemIndex = flatItems.findIndex((x) => x.id === `person_${person.id}`);
                 const isSelected = selectedIndex === itemIndex;
                 return (
-                  <Link
+                  <div
                     key={person.id}
-                    href={`/people/${person.slug || person.id}`}
-                    onClick={onClose}
+                    onClick={() => handleItemClick(`/people/${person.slug || person.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
                     className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
                   >
                     <div className={styles.resultAvatar}>
@@ -294,26 +475,32 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                     </div>
                     <div className={styles.resultInfo}>
                       <span className={styles.resultTitle}>{sanitizePublicEntityName(person.name)}</span>
-                      <span className={styles.resultMeta}>{person.primaryRole || 'Staff & Cast'}</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>Person</span>
+                        <span>{person.primaryRole || 'Staff & Cast'}</span>
+                      </div>
                     </div>
-                  </Link>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
                 );
               })}
             </div>
           )}
 
           {/* Group 4: Editorial & News */}
-          {data.news && data.news.length > 0 && (
+          {visibleNews.length > 0 && (
             <div className={styles.resultGroup}>
               <span className={styles.groupHeading}>News & Editorial</span>
-              {data.news.map((news) => {
+              {visibleNews.map((news) => {
                 const itemIndex = flatItems.findIndex((x) => x.id === `news_${news.id}`);
                 const isSelected = selectedIndex === itemIndex;
                 return (
-                  <Link
+                  <div
                     key={news.id}
-                    href={`/news/${news.slug || news.id}`}
-                    onClick={onClose}
+                    onClick={() => handleItemClick(`/news/${news.slug || news.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
                     className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
                   >
                     <div className={styles.resultAvatar}>
@@ -321,26 +508,32 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                     </div>
                     <div className={styles.resultInfo}>
                       <span className={styles.resultTitle}>{sanitizePublicEntityName(news.title)}</span>
-                      <span className={styles.resultMeta}>{news.category || 'Industry Story'}</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>News</span>
+                        <span>{news.category || 'Industry'}</span>
+                      </div>
                     </div>
-                  </Link>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
                 );
               })}
             </div>
           )}
 
           {/* Group 5: Spaces & Communities */}
-          {data.communities && data.communities.length > 0 && (
+          {visibleCommunities.length > 0 && (
             <div className={styles.resultGroup}>
-              <span className={styles.groupHeading}>Spaces &amp; Communities</span>
-              {data.communities.map((comm) => {
+              <span className={styles.groupHeading}>Spaces & Communities</span>
+              {visibleCommunities.map((comm) => {
                 const itemIndex = flatItems.findIndex((x) => x.id === `comm_${comm.id}`);
                 const isSelected = selectedIndex === itemIndex;
                 return (
-                  <Link
+                  <div
                     key={comm.id}
-                    href={`/spaces/${comm.slug || comm.id}`}
-                    onClick={onClose}
+                    onClick={() => handleItemClick(`/community/${comm.slug || comm.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
                     className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
                   >
                     <div className={styles.resultAvatar}>
@@ -348,9 +541,45 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                     </div>
                     <div className={styles.resultInfo}>
                       <span className={styles.resultTitle}>{sanitizePublicEntityName(comm.name)}</span>
-                      <span className={styles.resultMeta}>{comm.memberCount || 1} Members</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>Space</span>
+                        <span>{comm.memberCount || 1} members</span>
+                      </div>
                     </div>
-                  </Link>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Group 6: Franchises */}
+          {visibleFranchises.length > 0 && (
+            <div className={styles.resultGroup}>
+              <span className={styles.groupHeading}>Franchises</span>
+              {visibleFranchises.map((franchise) => {
+                const itemIndex = flatItems.findIndex((x) => x.id === `franchise_${franchise.id}`);
+                const isSelected = selectedIndex === itemIndex;
+                return (
+                  <div
+                    key={franchise.id}
+                    onClick={() => handleItemClick(`/franchise/${franchise.slug || franchise.id}`)}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-active={isSelected ? 'true' : undefined}
+                    className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
+                  >
+                    <div className={styles.resultAvatar}>
+                      <Layers size={16} />
+                    </div>
+                    <div className={styles.resultInfo}>
+                      <span className={styles.resultTitle}>{sanitizePublicEntityName(franchise.name)}</span>
+                      <div className={styles.resultMeta}>
+                        <span className={styles.metaBadge}>Franchise</span>
+                      </div>
+                    </div>
+                    <ArrowRight size={14} className={styles.itemArrow} />
+                  </div>
                 );
               })}
             </div>

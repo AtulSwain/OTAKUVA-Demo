@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  background-color: var(--bg-default, #070707);
+  background-color: var(--bg-primary, #131315);
   color: var(--text-primary, #F4F4F2);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -420,3 +420,70 @@
 .sidebarSection {
   width: 100%;
 }
+
+
+/* ===== Premium flat layout: no cards, no sidebar boxes =====
+   One centred reading column. Sections are separated by generous space and a
+   hairline; the boxes that each component draws around itself are stripped
+   from the section's direct child so the content sits on the page itself. */
+.mainContainer { max-width: 1180px; padding: 0 clamp(20px, 4vw, 56px) 96px; }
+.layoutGrid { display: block; margin-top: 8px; }
+.mainCol { gap: 0; }
+
+.contentSection {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding: 56px 0;
+}
+.mainCol > .contentSection:first-child { border-top: 0; padding-top: 40px; }
+
+/* Strip each component's own card chrome (root element only). */
+.page .contentSection > *,
+.page .bandCol > * {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+.page .bandCol > * { padding-top: 0; padding-bottom: 0; }
+
+/* Pre-premiere notice — replaces the ratings/availability/progress band for
+   a title that hasn't aired yet (nothing to rate, stream, or track). */
+.premiereNotice {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 16px);
+  padding: 20px 24px;
+  background: var(--surface-elevated, rgba(255, 255, 255, 0.03));
+}
+.premiereNoticeTitle { display: block; font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.premiereNoticeText { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-secondary); }
+
+.band { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+.bandCol { display: flex; flex-direction: column; gap: 40px; min-width: 0; }
+@media (max-width: 860px) { .band { grid-template-columns: 1fr; gap: 40px; } .contentSection { padding: 40px 0; } }
+
+.sectionTitle { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }
+.sectionSubtitle { font-size: 14px; color: var(--text-secondary); }
+.desc { max-width: 78ch; font-size: 15px; line-height: 1.7; color: rgba(245, 245, 247, 0.74); }
+.showMoreBtn { color: var(--accent-primary-hover); font-weight: 600; }
+
+/* Related titles: artwork-first tiles instead of boxed cards. */
+.relatedCardsGrid { gap: 20px; }
+.relatedCard { background: none; border: 0; border-radius: 0; padding: 0; }
+.relatedThumb { border-radius: 18px; overflow: hidden; box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.06); transition: transform var(--transition-normal); }
+.relatedCard:hover .relatedThumb { transform: scale(1.04); }
+@media (prefers-reduced-motion: reduce) { .relatedThumb { transition: none; } .relatedCard:hover .relatedThumb { transform: none; } }
+
+/* Just-premiered actions (2026-10-20) */
+.premiereActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.premiereBtnPrimary, .premiereBtn { min-height: 40px; padding: 0 18px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.premiereBtnPrimary { border: 0; background: #fff; color: #000; }
+.premiereBtn { border: 1px solid var(--border-default); background: transparent; color: var(--text-primary); }
+.premiereBtn:hover { border-color: var(--border-hover); }
+
+/* A section whose component rendered nothing (e.g. no creators yet) leaves no gap. */
+.contentSection:empty { display: none; }

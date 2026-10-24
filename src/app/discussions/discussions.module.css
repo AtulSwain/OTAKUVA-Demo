@@ -373,3 +373,42 @@
 .submitBtn:hover {
   background: var(--metallic-dark);
 }
+
+/* ==========================================================================
+   Shelf language (matches the front page). Visual properties only.
+   ========================================================================== */
+.title { font-size: clamp(32px, 4.4vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { font-size: 16px; color: var(--text-secondary); }
+.card { border: 0; border-radius: 18px; background: var(--surface-base); padding: 20px 22px; transition: transform var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out), box-shadow var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out); }
+.card:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45); }
+.discTitle { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.discBody { font-size: 15px; line-height: 1.55; color: var(--text-secondary); }
+.time, .statItem, .metaHeader { font-size: 13px; color: var(--text-muted); }
+.tagBadge { border: 0; border-radius: 9999px; padding: 3px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; background: var(--surface-elevated); color: var(--text-secondary); }
+.chip, .sortBtn { border: 0; border-radius: 9999px; background: var(--surface-elevated); color: var(--text-secondary); font-size: 13px; font-weight: 600; padding: 8px 16px; transition: background var(--transition-fast), color var(--transition-fast); }
+.chip:hover, .sortBtn:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.chipActive, .sortBtnActive { background: #fff; color: #141416; font-weight: 700; }
+.sortTabs, .typeChips { gap: 8px; border-bottom: 0; }
+.searchBox { border: 1px solid transparent; border-radius: 9999px; background: var(--surface-elevated); }
+.searchBox:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+.startBtn, .submitBtn { border: 0; border-radius: 9999px; padding: 10px 22px; font-size: 14px; font-weight: 600; background: #fff; color: #141416; transition: transform var(--duration-micro, 180ms) var(--ease-out-cubic, ease-out), background var(--transition-fast); }
+.startBtn:hover, .submitBtn:hover { background: #e8e8ec; }
+.startBtn:active, .submitBtn:active { transform: scale(0.97); }
+.startBtn:focus-visible, .submitBtn:focus-visible, .chip:focus-visible, .sortBtn:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+.modalBox { border: 0; border-radius: 22px; padding: 28px; background: var(--surface-overlay); }
+.modalTitle { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; }
+.formInput, .formTextarea { border: 1px solid transparent; border-radius: 14px; padding: 12px 16px; font-size: 14px; background: var(--surface-elevated); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.formInput:focus, .formTextarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); outline: none; }
+.poster { border-radius: 12px; }
+
+/* Phones: sort tabs and type chips scroll sideways instead of widening the
+   page (they pushed it to 472px at a 390px viewport). 2026-10-17 */
+.title { text-transform: none; }
+.navBar { min-width: 0; max-width: 100%; }
+.sortTabs, .typeChips { max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; padding-bottom: 2px; }
+.sortTabs::-webkit-scrollbar, .typeChips::-webkit-scrollbar { display: none; }
+.sortBtn, .typeChip { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 640px) {
+  .navBar { flex-direction: column; align-items: stretch; }
+  .searchBox { width: 100%; }
+}

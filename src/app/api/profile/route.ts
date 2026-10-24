@@ -4,6 +4,18 @@ import { prisma } from '../../../lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+/** Shared with the profile About section and edit modal. */
+const BIO_MAX_LENGTH = 500;
+/** Shared with the profile edit modal's Display Name field. */
+const DISPLAY_NAME_MAX_LENGTH = 40;
+
+/** Trims, collapses whitespace, drops control characters; '' clears the name. */
+function cleanDisplayName(raw: string): string | null {
+  // eslint-disable-next-line no-control-regex
+  const v = raw.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e]/g, '').replace(/\s+/g, ' ').trim();
+  return v ? v : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -15,6 +27,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           username: true,
+          displayName: true,
           bio: true,
           avatarUrl: true,
           bannerUrl: true,
@@ -40,7 +53,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         user: {
           ...user,
-          displayName: user.username,
+          displayName: user.displayName || user.username,
         },
       });
     }
@@ -55,6 +68,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         username: true,
+        displayName: true,
         email: true,
         bio: true,
         avatarUrl: true,
@@ -77,7 +91,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       user: {
         ...user,
-        displayName: user?.username,
+        displayName: user?.displayName || user?.username,
       },
     });
   } catch (error: any) {
@@ -94,14 +108,28 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { bio } = body;
+    const { bio, showJoinedCommunities, displayName } = body;
 
     const data: any = {};
     if (typeof bio === 'string') {
-      if (bio.length > 240) {
-        return NextResponse.json({ error: 'Bio cannot exceed 240 characters.' }, { status: 400 });
+      if (bio.length > BIO_MAX_LENGTH) {
+        return NextResponse.json({ error: `Bio cannot exceed ${BIO_MAX_LENGTH} characters.` }, { status: 400 });
       }
       data.bio = bio.trim();
+    }
+    if (displayName !== undefined) {
+      if (displayName !== null && typeof displayName !== 'string') {
+        return NextResponse.json({ error: 'Display name must be text.' }, { status: 400 });
+      }
+      const name = typeof displayName === 'string' ? cleanDisplayName(displayName) : null;
+      if (name && name.length > DISPLAY_NAME_MAX_LENGTH) {
+        return NextResponse.json({ error: `Display name cannot exceed ${DISPLAY_NAME_MAX_LENGTH} characters.` }, { status: 400 });
+      }
+      data.displayName = name;
+    }
+    // Communities the user founded are always shown; this only hides ones they joined.
+    if (typeof showJoinedCommunities === 'boolean') {
+      data.showJoinedCommunities = showJoinedCommunities;
     }
 
     const updatedUser = await prisma.user.update({
@@ -110,6 +138,7 @@ export async function PATCH(request: NextRequest) {
       select: {
         id: true,
         username: true,
+        displayName: true,
         email: true,
         bio: true,
         avatarUrl: true,
@@ -122,7 +151,7 @@ export async function PATCH(request: NextRequest) {
       success: true,
       user: {
         ...updatedUser,
-        displayName: updatedUser.username,
+        displayName: updatedUser.displayName || updatedUser.username,
       },
     });
   } catch (error: any) {

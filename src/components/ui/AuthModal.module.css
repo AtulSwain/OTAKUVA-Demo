@@ -247,3 +247,89 @@
   border-color: var(--border-elevated);
   background: rgba(255, 255, 255, 0.02);
 }
+
+.inputWithStatus {
+  position: relative;
+}
+
+.inputWithStatus .input {
+  padding-right: 36px;
+}
+
+.statusIcon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.inputOk,
+.inputOk:focus {
+  border-color: var(--accent-emerald);
+}
+
+.inputBad,
+.inputBad:focus {
+  border-color: var(--accent-rose);
+}
+
+.ok {
+  color: var(--accent-emerald);
+}
+
+.bad {
+  color: var(--accent-rose);
+}
+
+.fieldNote {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.legacyForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.legacyNote {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.textBtn {
+  align-self: center;
+  padding: 2px 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.textBtn:hover {
+  color: var(--text-primary);
+}
+
+/* Small phones / landscape with the keyboard open: the window can be taller
+   than the screen, so the overlay scrolls instead of cutting the top off. */
+.overlay {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-items: safe center;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+.modal { flex-shrink: 0; margin: auto 0; }
+.tabBtn, .textBtn { min-height: 40px; }
+
+/* Logo mark in the sign-in dialog (2026-10-17). */
+.brandTag { display: inline-flex; align-items: center; gap: 8px; }
+.brandMark { display: block; width: 36px; height: auto; }

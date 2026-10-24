@@ -186,7 +186,7 @@ export function MergeStudioModal({ isOpen, onClose, onSuccess, initialStudioId }
             <button type="button" className={styles.secondaryBtn} onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className={styles.primaryBtn} disabled={isSubmitting} style={{ background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' }}>
+            <button type="submit" className={styles.primaryBtn} disabled={isSubmitting} style={{ background: 'linear-gradient(135deg, #ec4899 0%, #A1A1AA 100%)' }}>
               {isSubmitting ? 'Merging...' : 'Confirm Safe Merge'}
             </button>
           </div>

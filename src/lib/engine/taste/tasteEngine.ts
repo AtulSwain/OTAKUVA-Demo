@@ -168,7 +168,7 @@ export async function rebuildTasteProfile(userId: string): Promise<UserTasteProf
 
     // 5. Written Reviews and Extracted Aspects
     prisma.review.findMany({
-      where: { userId, deletedAt: null },
+      where: { userId, deletedAt: null, status: 'PUBLISHED' },
       include: {
         aspects: true,
         anime: {
@@ -457,80 +457,86 @@ export async function rebuildTasteProfile(userId: string): Promise<UserTasteProf
     userFacingInsights.push('Story and narrative depth are essential elements in your favorite titles.');
   }
 
-  // Persist Profile to SQLite Database
-  const profile = await prisma.userTasteProfile.upsert({
-    where: { userId },
-    update: {
-      profileVersion: TASTE_ENGINE_VERSION,
-      confidenceTier,
-      overallConfidence,
-      totalSignalsCount: totalSignalCount,
-      topGenresJson: JSON.stringify(topGenres),
-      topThemesJson: JSON.stringify(topThemes),
-      topStudiosJson: JSON.stringify(topStudios),
-      aspectProfileJson: JSON.stringify(formattedAspects),
-      shortTermProfileJson: JSON.stringify({ genres: shortTermGenres, themes: shortTermThemes, studios: shortTermStudios }),
-      formatPreferencesJson: JSON.stringify(formattedFormats),
-      lengthPreferencesJson: JSON.stringify(formattedLengths),
-      seasonalityPreferencesJson: JSON.stringify(formattedSeasonality),
-      creatorPreferencesJson: JSON.stringify(formattedCreators),
-      derivedExplanationsJson: JSON.stringify(userFacingInsights),
-      updatedAt: new Date(),
-    },
-    create: {
-      userId,
-      profileVersion: TASTE_ENGINE_VERSION,
-      confidenceTier,
-      overallConfidence,
-      totalSignalsCount: totalSignalCount,
-      topGenresJson: JSON.stringify(topGenres),
-      topThemesJson: JSON.stringify(topThemes),
-      topStudiosJson: JSON.stringify(topStudios),
-      aspectProfileJson: JSON.stringify(formattedAspects),
-      shortTermProfileJson: JSON.stringify({ genres: shortTermGenres, themes: shortTermThemes, studios: shortTermStudios }),
-      formatPreferencesJson: JSON.stringify(formattedFormats),
-      lengthPreferencesJson: JSON.stringify(formattedLengths),
-      seasonalityPreferencesJson: JSON.stringify(formattedSeasonality),
-      creatorPreferencesJson: JSON.stringify(formattedCreators),
-      derivedExplanationsJson: JSON.stringify(userFacingInsights),
-    },
-  });
+  // Persist only for a real account. Guests come through as a placeholder id
+  // ('guest_user'), and upserting a profile for it violated the User foreign
+  // key — every anonymous GET /api/recommendations returned 500. They still
+  // get this computed (cold-start) profile; it just isn't stored.
+  const userExists = Boolean(await prisma.user.findUnique({ where: { id: userId }, select: { id: true } }));
+  if (userExists) {
+    const profile = await prisma.userTasteProfile.upsert({
+      where: { userId },
+      update: {
+        profileVersion: TASTE_ENGINE_VERSION,
+        confidenceTier,
+        overallConfidence,
+        totalSignalsCount: totalSignalCount,
+        topGenresJson: JSON.stringify(topGenres),
+        topThemesJson: JSON.stringify(topThemes),
+        topStudiosJson: JSON.stringify(topStudios),
+        aspectProfileJson: JSON.stringify(formattedAspects),
+        shortTermProfileJson: JSON.stringify({ genres: shortTermGenres, themes: shortTermThemes, studios: shortTermStudios }),
+        formatPreferencesJson: JSON.stringify(formattedFormats),
+        lengthPreferencesJson: JSON.stringify(formattedLengths),
+        seasonalityPreferencesJson: JSON.stringify(formattedSeasonality),
+        creatorPreferencesJson: JSON.stringify(formattedCreators),
+        derivedExplanationsJson: JSON.stringify(userFacingInsights),
+        updatedAt: new Date(),
+      },
+      create: {
+        userId,
+        profileVersion: TASTE_ENGINE_VERSION,
+        confidenceTier,
+        overallConfidence,
+        totalSignalsCount: totalSignalCount,
+        topGenresJson: JSON.stringify(topGenres),
+        topThemesJson: JSON.stringify(topThemes),
+        topStudiosJson: JSON.stringify(topStudios),
+        aspectProfileJson: JSON.stringify(formattedAspects),
+        shortTermProfileJson: JSON.stringify({ genres: shortTermGenres, themes: shortTermThemes, studios: shortTermStudios }),
+        formatPreferencesJson: JSON.stringify(formattedFormats),
+        lengthPreferencesJson: JSON.stringify(formattedLengths),
+        seasonalityPreferencesJson: JSON.stringify(formattedSeasonality),
+        creatorPreferencesJson: JSON.stringify(formattedCreators),
+        derivedExplanationsJson: JSON.stringify(userFacingInsights),
+      },
+    });
 
-  // Persist individual atomic signals to UserTasteSignal table
-  const allSignalEntries: { type: string; name: string; detail: TasteSignalDetail }[] = [
-    ...Object.entries(formattedGenres).map(([k, v]) => ({ type: 'GENRE', name: k, detail: v })),
-    ...Object.entries(formattedThemes).map(([k, v]) => ({ type: 'THEME', name: k, detail: v })),
-    ...Object.entries(formattedStudios).map(([k, v]) => ({ type: 'STUDIO', name: k, detail: v })),
-    ...Object.entries(formattedAspects).map(([k, v]) => ({ type: 'ASPECT', name: k, detail: v })),
-    ...Object.entries(formattedFormats).map(([k, v]) => ({ type: 'FORMAT', name: k, detail: v })),
-  ];
+    // Persist individual atomic signals to UserTasteSignal table
+    const allSignalEntries: { type: string; name: string; detail: TasteSignalDetail }[] = [
+      ...Object.entries(formattedGenres).map(([k, v]) => ({ type: 'GENRE', name: k, detail: v })),
+      ...Object.entries(formattedThemes).map(([k, v]) => ({ type: 'THEME', name: k, detail: v })),
+      ...Object.entries(formattedStudios).map(([k, v]) => ({ type: 'STUDIO', name: k, detail: v })),
+      ...Object.entries(formattedAspects).map(([k, v]) => ({ type: 'ASPECT', name: k, detail: v })),
+      ...Object.entries(formattedFormats).map(([k, v]) => ({ type: 'FORMAT', name: k, detail: v })),
+    ];
 
-  for (const s of allSignalEntries) {
-    await prisma.userTasteSignal.upsert({
-      where: {
-        profileId_signalType_targetName: {
+    for (const s of allSignalEntries) {
+      await prisma.userTasteSignal.upsert({
+        where: {
+          profileId_signalType_targetName: {
+            profileId: profile.id,
+            signalType: s.type,
+            targetName: s.name,
+          },
+        },
+        update: {
+          preferenceScore: s.detail.score,
+          confidenceScore: s.detail.confidence,
+          evidenceCount: s.detail.evidenceCount,
+          evidenceJson: JSON.stringify(s.detail.evidence),
+          lastUpdated: new Date(),
+        },
+        create: {
           profileId: profile.id,
           signalType: s.type,
           targetName: s.name,
+          preferenceScore: s.detail.score,
+          confidenceScore: s.detail.confidence,
+          evidenceCount: s.detail.evidenceCount,
+          evidenceJson: JSON.stringify(s.detail.evidence),
         },
-      },
-      update: {
-        preferenceScore: s.detail.score,
-        confidenceScore: s.detail.confidence,
-        evidenceCount: s.detail.evidenceCount,
-        evidenceJson: JSON.stringify(s.detail.evidence),
-        lastUpdated: new Date(),
-      },
-      create: {
-        profileId: profile.id,
-        signalType: s.type,
-        targetName: s.name,
-        preferenceScore: s.detail.score,
-        confidenceScore: s.detail.confidence,
-        evidenceCount: s.detail.evidenceCount,
-        evidenceJson: JSON.stringify(s.detail.evidence),
-      },
-    }).catch(() => {});
+      }).catch(() => {});
+    }
   }
 
   const genreAffinities = Object.entries(formattedGenres).map(([k, v]) => ({ name: k, score: v.score }));

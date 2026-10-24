@@ -19,7 +19,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SpoilerBlock } from '../../components/community/SpoilerBlock';
+import { EmptyState } from '../../components/ui/EmptyState';
 import styles from './discussions.module.css';
+import { CommunityHubNav } from '../../components/community/CommunityHubNav';
 
 interface DiscussionItem {
   id: string;
@@ -54,7 +56,17 @@ export default function PublicDiscussionsPage() {
   const [spoilerLevel, setSpoilerLevel] = useState('NO_SPOILER');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchDiscussions = async () => {
+  // "/discussions?new=1&title=…" (e.g. "Discuss this story" on a news page)
+  // opens the composer with the title filled in.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new') !== '1') return;
+    const preset = (params.get('title') || '').slice(0, 200);
+    if (preset) setTitle(preset);
+    setShowModal(true);
+  }, []);
+
+  const fetchDiscussions = React.useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -73,11 +85,11 @@ export default function PublicDiscussionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeSort, selectedType, searchQuery]);
 
   useEffect(() => {
     fetchDiscussions();
-  }, [activeSort, selectedType]);
+  }, [fetchDiscussions]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,11 +134,12 @@ export default function PublicDiscussionsPage() {
   return (
     <div className={styles.discussionsPage}>
       {/* Header */}
+      <CommunityHubNav />
       <div className={styles.header}>
         <div>
           <div className={styles.titleRow}>
             <MessageSquare size={20} className={styles.icon} />
-            <h1 className={styles.title}>DISCUSSIONS</h1>
+            <h1 className={styles.title}>Discussions</h1>
           </div>
           <p className={styles.subtitle}>
             Share theories, questions, opinions, and episode reactions with the entire OTAKUVA community.
@@ -254,17 +267,20 @@ export default function PublicDiscussionsPage() {
           ))}
         </div>
       ) : (
-        <div style={{
-          padding: '48px',
-          textAlign: 'center',
-          background: 'var(--surface-main)',
-          borderRadius: '8px',
-          border: '1px solid var(--border-subtle)',
-          color: 'var(--text-muted)',
-          fontSize: '13px',
-        }}>
-          No discussions found matching your filter. Start the first topic!
-        </div>
+        <EmptyState
+          icon={MessageSquare}
+          title={searchQuery.trim() || selectedType !== 'ALL' ? 'No discussions match' : 'No discussions yet'}
+          description={
+            searchQuery.trim() || selectedType !== 'ALL'
+              ? 'Try a different search or category — or start this conversation yourself.'
+              : 'Be the first to share a theory, a question or an episode reaction.'
+          }
+          actionLabel="Start a discussion"
+          onAction={() => {
+            if (!user) openAuthModal('login');
+            else setShowModal(true);
+          }}
+        />
       )}
 
       {/* Composer Modal */}

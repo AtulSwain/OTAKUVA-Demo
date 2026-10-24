@@ -39,8 +39,6 @@ export default function NewsReaderPage() {
   const [copied, setCopied] = useState(false);
 
   // Comments state for user discussion
-  const [comments, setComments] = useState<any[]>([]);
-  const [newCommentText, setNewCommentText] = useState('');
 
   useEffect(() => {
     async function loadArticle() {
@@ -109,21 +107,6 @@ export default function NewsReaderPage() {
         }),
       }).catch(() => {});
     }
-  };
-
-  const handlePostComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCommentText.trim()) return;
-
-    const newComment = {
-      id: `c_${Date.now()}`,
-      author: 'Community Member',
-      time: 'Just now',
-      text: newCommentText.trim(),
-    };
-
-    setComments([newComment, ...comments]);
-    setNewCommentText('');
   };
 
   if (isLoading) {
@@ -268,49 +251,37 @@ export default function NewsReaderPage() {
       {/* 3. Main Reading Content & Structured Knowledge Rails */}
       <div className={styles.contentLayout}>
         <main className={styles.articleMain}>
-          {/* Key Information Highlights */}
-          <div className={styles.keyHighlightsBox}>
-            <div className={styles.highlightsHeader}>
-              <Sparkles size={14} />
-              <span>KEY DEVELOPMENTS</span>
+          {/* Linked entities only. This box and the body below used to add
+              canned copy ("Primary Focus", "Coverage Scope", two paragraphs
+              about "meticulous visual and musical composition") presented
+              as the source's reporting — invented text attributed to a real
+              publication. Only what the source/our entity links say is shown. */}
+          {((article.relatedStudios && article.relatedStudios.length > 0) ||
+            (article.relatedAnime && article.relatedAnime.length > 0)) && (
+            <div className={styles.keyHighlightsBox}>
+              <div className={styles.highlightsHeader}>
+                <Sparkles size={14} />
+                <span>MENTIONED IN THIS STORY</span>
+              </div>
+              <ul className={styles.highlightsList}>
+                {article.relatedStudios && article.relatedStudios.length > 0 && (
+                  <li>
+                    <strong>Animation Studio:</strong>{' '}
+                    {article.relatedStudios.map((s: any) => s.name).join(', ')}.
+                  </li>
+                )}
+                {article.relatedAnime && article.relatedAnime.length > 0 && (
+                  <li>
+                    <strong>Associated Franchise:</strong>{' '}
+                    {article.relatedAnime.map((a: any) => a.canonicalTitle).join(', ')}.
+                  </li>
+                )}
+              </ul>
             </div>
-            <ul className={styles.highlightsList}>
-              <li>
-                <strong>Primary Focus:</strong> Official confirmation and production updates regarding {displayTitle}.
-              </li>
-              {article.relatedStudios && article.relatedStudios.length > 0 && (
-                <li>
-                  <strong>Animation Studio:</strong>{' '}
-                  {article.relatedStudios.map((s: any) => s.name).join(', ')}.
-                </li>
-              )}
-              {article.relatedAnime && article.relatedAnime.length > 0 && (
-                <li>
-                  <strong>Associated Franchise:</strong>{' '}
-                  {article.relatedAnime.map((a: any) => a.canonicalTitle).join(', ')}.
-                </li>
-              )}
-              <li>
-                <strong>Coverage Scope:</strong> Industry release windows, key visuals, voice cast announcements, and production credits.
-              </li>
-            </ul>
-          </div>
+          )}
 
-          {/* Editorial Summary / Content */}
-          <div className={styles.proseContent}>
-            <p className={styles.leadParagraph}>
-              {displaySummary ||
-                'The latest production milestone represents a major strategic focus for Japanese animation studios, continuing the expansion of canonical narrative arcs with key creative directors.'}
-            </p>
-
-            <p>
-              Industry reporting from {article.sourceName} underscores the meticulous visual and musical composition invested in this project. With key animation supervisors and directors coordinating to preserve the distinctive atmosphere of the work, anticipation remains high across global fan communities.
-            </p>
-
-            <p>
-              Production drafts and key visuals released alongside this announcement illustrate the character designs and expansive environmental backgrounds being rendered for broadcast and theatrical releases.
-            </p>
-          </div>
+          {/* The source's summary is already shown under the headline; no body
+              text is written in its place (the full story is linked below). */}
 
           {/* Canonical "Read Original Article" Action Card */}
           <div className={styles.readOriginalBanner}>
@@ -353,54 +324,18 @@ export default function NewsReaderPage() {
             </div>
           )}
 
-          {/* Integrated Community Discussions */}
+          {/* Talk about it: news comments aren't stored, so this starts a real (saved) discussion. */}
           <section className={styles.discussionSection}>
             <div className={styles.discussionHeader}>
               <div className={styles.discussionTitleWrap}>
                 <MessageSquare size={16} />
-                <h3>Community Discussion</h3>
+                <h3>Discuss this story</h3>
               </div>
-              <span className={styles.commentCountBadge}>{comments.length} Comments</span>
             </div>
-
-            {/* Comment Post Form */}
-            <form onSubmit={handlePostComment} className={styles.commentForm}>
-              <textarea
-                placeholder="Share your thoughts on this announcement..."
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                rows={3}
-                className={styles.commentInput}
-              />
-              <div className={styles.commentFormFooter}>
-                <span className={styles.spoilerHint}>Be respectful &amp; spoiler-safe</span>
-                <button type="submit" className={styles.postCommentBtn} disabled={!newCommentText.trim()}>
-                  <Send size={12} />
-                  <span>Post Comment</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Comment Threads */}
-            <div className={styles.commentsList}>
-              {comments.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '0.9rem' }}>
-                  No comments yet. Start the discussion on this industry news!
-                </div>
-              ) : (
-                comments.map((c) => (
-                  <div key={c.id} className={styles.commentCard}>
-                    <div className={styles.commentHeader}>
-                      <div className={styles.commentAuthorWrap}>
-                        <span className={styles.commentAuthorName}>@{c.author}</span>
-                      </div>
-                      <span className={styles.commentTime}>{c.time}</span>
-                    </div>
-                    <p className={styles.commentText}>{c.text}</p>
-                  </div>
-                ))
-              )}
-            </div>
+            <p className={styles.discussPrompt}>Start a thread about this news in Discussions — everyone can read and reply.</p>
+            <Link href={`/discussions?new=1&title=${encodeURIComponent(article.title || '')}`} className={styles.discussBtn}>
+              <Send size={13} aria-hidden="true" /> Start a discussion
+            </Link>
           </section>
         </main>
 

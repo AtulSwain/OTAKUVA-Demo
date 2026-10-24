@@ -63,8 +63,8 @@
   flex-direction: column;
   gap: 6px;
   text-decoration: none;
-  background-color: var(--surface-base, #18181B);
-  border: 1px solid var(--border-default, #2A2A2E);
+  background-color: var(--surface-base, #101216);
+  border: 1px solid var(--border-subtle, #1A1D21);
   border-radius: var(--radius-sm, 6px);
   padding: 6px;
   transition: all var(--transition-fast);
@@ -79,8 +79,8 @@
 }
 
 .characterCard:hover {
-  background-color: var(--surface-elevated, #202024);
-  border-color: var(--border-hover, #3E3E44);
+  background-color: var(--surface-elevated, #15171B);
+  border-color: var(--border-default, #24272D);
   transform: translateY(-2px);
 }
 
@@ -132,8 +132,8 @@
 }
 
 .roleMain {
-  background: rgba(201, 106, 114, 0.85);
-  color: #FFFFFF;
+  background: var(--accent-active, #5B63FF);
+  color: var(--accent-on);
 }
 
 .roleSupporting {
@@ -243,4 +243,22 @@
 
 .emptyText {
   font-size: 11.5px;
+}
+
+/* Same section-title style as the rest of the anime page (2026-10-17). */
+.headerTitle { margin: 0; font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; text-transform: none; color: var(--text-primary); }
+
+/* ===== Cast cards (2026-10-17): taller portraits, readable names. ===== */
+.railScroll { gap: 12px; }
+.characterCard { flex: 0 0 128px; max-width: 128px; padding: 0; border: 0; background: transparent; gap: 8px; }
+.characterCard:hover { background: transparent; }
+.portraitWrapper { aspect-ratio: 3 / 4; border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.roleBadge { bottom: 8px; left: 8px; font-size: 10px; padding: 2px 8px; border-radius: var(--radius-pill); }
+.charInfo { gap: 4px; padding: 0 2px; }
+.charName { font-size: 14px; }
+.vaName { font-size: 12px; }
+.vaLang { font-size: 11px; }
+@media (min-width: 640px) {
+  .characterCard { flex-basis: 148px; max-width: 148px; padding: 0; }
+  .charName { font-size: 14px; }
 }

@@ -1,0 +1,12 @@
+.collapsed, .trigger { display: inline-flex; align-items: center; gap: 8px; }
+.trigger { padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.score { color: var(--color-accent-gold); font-family: var(--font-ui); font-size: 22px; font-weight: 800; line-height: 1; }
+.label { color: var(--color-text-muted); font-family: var(--font-ui); font-size: var(--text-label); font-weight: 700; letter-spacing: var(--text-label-letter-spacing); text-transform: uppercase; }
+.breakdownPanel { max-height: 0; margin-top: 16px; padding: 18px 20px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 10px; background: rgba(21,24,29,.72); backdrop-filter: blur(6px); transition: max-height 0.3s ease; }
+.wrapperExpanded .breakdownPanel { max-height: 220px; }
+.breakdownTitle { display: block; margin-bottom: 16px; color: var(--color-text-muted); font-family: var(--font-ui); font-size: var(--text-label); line-height: var(--text-label-line-height); letter-spacing: var(--text-label-letter-spacing); text-transform: uppercase; }
+.breakdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.breakdownTile { display: flex; flex-direction: column; gap: 4px; }
+.breakdownTile strong { color: var(--color-text); font-family: var(--font-ui); font-size: 20px; font-weight: 700; line-height: 1; }
+.breakdownTile span { color: var(--color-text-muted); font-family: var(--font-ui); font-size: var(--text-label); line-height: var(--text-label-line-height); text-transform: uppercase; }
+@media (max-width: 520px) { .breakdown { grid-template-columns: repeat(2, 1fr); } }

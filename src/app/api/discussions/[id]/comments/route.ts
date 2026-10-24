@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import { RateLimiter } from '../../../../../lib/security/rateLimiter';
 import { createDiscussionComment, listComments, CommentError } from '../../../../../lib/engine/community/commentService';
 
@@ -42,10 +42,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
  * The author is always the session user; attachments must be theirs.
  */
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const authUser = await getAuthUserFromRequest(request);
-  if (!authUser) {
-    return NextResponse.json({ error: 'Authentication required to reply' }, { status: 401 });
-  }
+  const authUser = await requireVerifiedUser(request);
+  if (authUser instanceof NextResponse) return authUser;
 
   const rate = RateLimiter.checkRateLimit('COMMENTS', authUser.id);
   if (!rate.allowed) {

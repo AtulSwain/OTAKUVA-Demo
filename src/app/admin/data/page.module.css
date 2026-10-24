@@ -95,3 +95,101 @@
   color: #070707;
   border-color: #F4F4F2;
 }
+
+.adapterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.adapterCard {
+  background-color: var(--surface-elevated, #1B1B1B);
+  border: 1px solid var(--border-default, #262626);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adapterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.adapterName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #F4F4F2);
+  text-transform: capitalize;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.statusHealthy {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+}
+
+.statusDegraded {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+}
+
+.statusDown {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+}
+
+.statusUnknown {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94A3B8;
+}
+
+.adapterStats {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  line-height: 1.6;
+}
+
+.failoverEventList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.failoverEvent {
+  font-size: 12px;
+  color: var(--text-secondary, #BDBDBD);
+  padding: 8px 10px;
+  border-radius: 6px;
+  background-color: var(--surface-elevated, #1B1B1B);
+  border: 1px solid var(--border-default, #262626);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.failoverEventTime {
+  color: var(--text-muted, #777);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.emptyState {
+  font-size: 13px;
+  color: var(--text-muted, #777);
+  padding: 12px 0;
+}

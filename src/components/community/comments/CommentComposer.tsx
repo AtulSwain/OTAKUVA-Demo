@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Laugh, Send, X, EyeOff } from 'lucide-react';
+import { ImagePlus, Laugh, X, EyeOff } from 'lucide-react';
 import type { CommentDto } from '../../../lib/engine/community/commentService';
 import { useAuth } from '../../../context/AuthContext';
-import { UserAvatar } from '../../ui/UserAvatar';
 import { GifPicker, type PickedGif } from './GifPicker';
+import { Composer } from '../../ui/Composer';
 import styles from './Comments.module.css';
 
 const MAX_ATTACHMENTS = 4;
@@ -58,32 +58,15 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
   const [gifOpen, setGifOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const objectUrls = useRef<string[]>([]);
 
   // Object URLs are previews only; release them when the composer goes away.
   useEffect(() => () => objectUrls.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
-  useEffect(() => {
-    const el = textRef.current;
-    if ((autoFocus || replyTo) && el) {
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
-  }, [autoFocus, replyTo]);
-
-  // Grow with the text, up to about six lines.
-  useEffect(() => {
-    const el = textRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-  }, [text]);
-
   if (!user) {
     return (
-      <div className={`${styles.composer} ${variant === 'sheet' ? styles.composerSheet : ''}`}>
+      <div className={`${styles.composerWrap} ${variant === 'sheet' ? styles.composerSheet : ''}`}>
         <button type="button" className={styles.signInPrompt} onClick={() => openAuthModal('login')}>
           Sign in to join the conversation
         </button>
@@ -93,7 +76,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
 
   if (blockedReason) {
     return (
-      <div className={`${styles.composer} ${variant === 'sheet' ? styles.composerSheet : ''}`}>
+      <div className={`${styles.composerWrap} ${variant === 'sheet' ? styles.composerSheet : ''}`}>
         <p className={styles.blockedNote}>{blockedReason}</p>
         {replyTo && onCancelReply && (
           <button type="button" className={styles.linkBtn} onClick={onCancelReply}>Close</button>
@@ -186,41 +169,57 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
   };
 
   return (
-    <form
-      className={`${styles.composer} ${variant === 'sheet' ? styles.composerSheet : ''}`}
-      onSubmit={submit}
-      aria-label={replyTo ? `Reply to ${replyTo.username}` : 'Write a comment'}
-    >
-      {replyTo && (
-        <div className={styles.replyingTo}>
-          <span>
-            Replying to <strong>@{replyTo.username}</strong>
-          </span>
-          {onCancelReply && (
-            <button type="button" className={styles.iconBtn} onClick={onCancelReply} aria-label="Cancel reply">
-              <X size={15} aria-hidden="true" />
+    <div className={`${styles.composerWrap} ${variant === 'sheet' ? styles.composerSheet : ''}`}>
+      <Composer
+        value={text}
+        onChange={setText}
+        onSubmit={() => submit()}
+        onCancel={
+          replyTo && onCancelReply
+            ? onCancelReply
+            : () => {
+                setText('');
+                attachments.forEach(removeAttachment);
+                setIsSpoiler(false);
+              }
+        }
+        submitting={posting}
+        submitLabel={replyTo ? 'Reply' : 'Post'}
+        maxLength={5000}
+        placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'}
+        replyingTo={replyTo?.username ?? null}
+        autoFocus={autoFocus || Boolean(replyTo)}
+        canSubmit={hasContent && !uploadsInFlight}
+        forceOpen={attachments.length > 0 || gifOpen}
+        compact={Boolean(replyTo)}
+        tools={
+          <>
+            <input ref={fileRef} type="file" accept={ACCEPT} multiple hidden onChange={(e) => onFiles(e.target.files)} />
+            <button type="button" className={styles.tool} onClick={() => fileRef.current?.click()} disabled={room <= 0} aria-label="Attach an image">
+              <ImagePlus size={15} aria-hidden="true" />
+              <span className={styles.toolLabel}>Image</span>
             </button>
-          )}
-        </div>
-      )}
-
-      <div className={styles.composerRow}>
-        <UserAvatar username={user.username} avatarUrl={user.avatarUrl} size={28} className={styles.composerAvatar} />
-        <textarea
-          ref={textRef}
-          className={styles.composerInput}
-          rows={1}
-          maxLength={5000}
-          placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
-            if (e.key === 'Escape' && replyTo && onCancelReply) onCancelReply();
-          }}
-          aria-label={replyTo ? 'Reply text' : 'Comment text'}
-        />
-      </div>
+            <button type="button" className={styles.tool} onClick={() => setGifOpen((v) => !v)} disabled={room <= 0} aria-expanded={gifOpen} aria-label="Attach a GIF">
+              <span className={styles.gifGlyph} aria-hidden="true">GIF</span>
+            </button>
+            {/* A meme is an image; this opens the same picker with a clearer label. */}
+            <button type="button" className={styles.tool} onClick={() => fileRef.current?.click()} disabled={room <= 0} aria-label="Attach a meme">
+              <Laugh size={15} aria-hidden="true" />
+              <span className={styles.toolLabel}>Meme</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.tool} ${isSpoiler ? styles.toolActive : ''}`}
+              onClick={() => setIsSpoiler((v) => !v)}
+              aria-pressed={isSpoiler}
+              aria-label="Mark as spoiler"
+            >
+              <EyeOff size={15} aria-hidden="true" />
+              <span className={styles.toolLabel}>Spoiler</span>
+            </button>
+          </>
+        }
+      />
 
       {attachments.length > 0 && (
         <ul className={styles.attachments} aria-label="Attachments">
@@ -242,37 +241,6 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
       {gifOpen && <GifPicker onPick={pickGif} onClose={() => setGifOpen(false)} />}
 
       {error && <p className={styles.composerError} role="alert">{error}</p>}
-
-      <div className={styles.composerTools}>
-        <input ref={fileRef} type="file" accept={ACCEPT} multiple hidden onChange={(e) => onFiles(e.target.files)} />
-        <button type="button" className={styles.tool} onClick={() => fileRef.current?.click()} disabled={room <= 0} aria-label="Attach an image">
-          <ImagePlus size={15} aria-hidden="true" />
-          <span className={styles.toolLabel}>Image</span>
-        </button>
-        <button type="button" className={styles.tool} onClick={() => setGifOpen((v) => !v)} disabled={room <= 0} aria-expanded={gifOpen} aria-label="Attach a GIF">
-          <span className={styles.gifGlyph} aria-hidden="true">GIF</span>
-        </button>
-        {/* A meme is an image; this opens the same picker with a clearer label. */}
-        <button type="button" className={styles.tool} onClick={() => fileRef.current?.click()} disabled={room <= 0} aria-label="Attach a meme">
-          <Laugh size={15} aria-hidden="true" />
-          <span className={styles.toolLabel}>Meme</span>
-        </button>
-        <button
-          type="button"
-          className={`${styles.tool} ${isSpoiler ? styles.toolActive : ''}`}
-          onClick={() => setIsSpoiler((v) => !v)}
-          aria-pressed={isSpoiler}
-          aria-label="Mark as spoiler"
-        >
-          <EyeOff size={15} aria-hidden="true" />
-          <span className={styles.toolLabel}>Spoiler</span>
-        </button>
-
-        <button type="submit" className={styles.postBtn} disabled={!hasContent || posting || uploadsInFlight}>
-          <Send size={13} aria-hidden="true" />
-          <span>{posting ? 'Posting…' : replyTo ? 'Reply' : 'Post'}</span>
-        </button>
-      </div>
-    </form>
+    </div>
   );
 };

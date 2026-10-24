@@ -217,7 +217,7 @@ export class StudioProjectService {
       orderBy = { anime: { popularity: sortOrder } };
     } else {
       // Default: score
-      orderBy = { anime: { score: sortOrder } };
+      orderBy = { anime: { score: { sort: sortOrder, nulls: 'last' } } };
     }
 
     const [relations, total] = await Promise.all([

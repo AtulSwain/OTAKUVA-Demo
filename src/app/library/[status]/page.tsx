@@ -47,7 +47,7 @@ export default function LibraryStatusPage() {
   return (
     <div className={styles.libraryPage}>
       <div className={styles.header}>
-        <h2 className={styles.title}>My Library</h2>
+        <h1 className={styles.title}>My Library</h1>
         <p className={styles.subtitle}>
           Your personal anime archive. Organize what you are currently watching, completed, or planning for later.
         </p>
@@ -94,7 +94,7 @@ export default function LibraryStatusPage() {
           title={`No anime in "${status.replace('_', ' ')}"`}
           description="You haven't logged any anime under this status yet. Browse the catalog to add titles."
           actionLabel="Discover Anime"
-          actionHref="/discover"
+          actionHref="/anime"
         />
       )}
     </div>

@@ -25,13 +25,16 @@ const relativeTime = (iso?: string) => {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return null;
   const minutes = Math.round((Date.now() - then) / 60_000);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  // Fixed locale — the server and the browser can default to different
+  // locales, which renders two different strings for the same value and
+  // fails hydration on a server-rendered page.
+  const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
   if (Math.abs(minutes) < 60) return rtf.format(-minutes, 'minute');
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return rtf.format(-hours, 'hour');
   const days = Math.round(hours / 24);
   if (Math.abs(days) < 30) return rtf.format(-days, 'day');
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 /**

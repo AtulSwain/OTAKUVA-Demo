@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import {
   rateEpisode,
   deleteEpisodeRating,
@@ -35,10 +35,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to rate an episode' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const animeId = params.id;
     const body = await request.json();
@@ -59,7 +57,7 @@ export async function POST(
     return NextResponse.json({ success: true, episodeRating: result });
   } catch (error: any) {
     console.error('Error rating episode:', error);
-    return NextResponse.json({ error: error.message || 'Failed to rate episode' }, { status: error.message === 'Episode not found' ? 404 : 500 });
+    return NextResponse.json({ error: error.message || 'Failed to rate episode' }, { status: typeof error?.status === 'number' ? error.status : error.message === 'Episode not found' ? 404 : 500 });
   }
 }
 

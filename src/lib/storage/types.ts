@@ -11,7 +11,10 @@ export interface UploadOptions {
     | 'general'
     | 'studio-logo'
     | 'studio-banner'
-    | 'comment-media';
+    | 'comment-media'
+    | 'chat-media'
+    | 'article-cover'
+    | 'list-banner';
   entityId?: string;
   maxSizeBytes?: number;
   customKey?: string;

@@ -569,3 +569,27 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+
+/* Save button and error stay in view while the sliders scroll. */
+.stickyBar {
+  position: sticky;
+  bottom: -24px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 -24px -24px;
+  padding: 14px 24px calc(24px + env(safe-area-inset-bottom));
+  background: var(--surface-main, #0d0d0d);
+  border-top: 1px solid var(--border-subtle, #2a2a2a);
+}
+.stickyBar .footer { border-top: 0; padding-top: 0; }
+.stickyBar .errorAlert { margin: 0; }
+@media (max-width: 640px) {
+  .stickyBar { bottom: -18px; margin: 0 -18px -18px; padding: 12px 18px calc(18px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 640px) {
+  .stickyBar .saveBtn, .stickyBar .cancelBtn, .stickyBar .deleteBtn { min-height: 44px; padding-left: 16px; padding-right: 16px; }
+}

@@ -64,3 +64,13 @@
   background-color: var(--metallic-dark);
   border-color: var(--border-strong);
 }
+
+/* ===== Reference-led polish (2026-10-17): roomier card, readable copy,
+   white pill action like the homepage's "Start Tracking". ===== */
+.container { padding: 56px 24px; border-radius: var(--radius-xl); }
+.iconWrapper { width: 56px; height: 56px; border-radius: var(--radius-lg); margin-bottom: 16px; }
+.title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.description { font-size: 14px; color: var(--text-secondary); max-width: 420px; }
+.actionWrapper { margin-top: 20px; }
+.actionBtn { min-height: 44px; padding: 0 22px; border: 0; border-radius: var(--radius-pill); background: #fff; color: #000; font-size: 14px; font-weight: 700; }
+.actionBtn:hover { background: rgba(255, 255, 255, 0.88); border-color: transparent; }

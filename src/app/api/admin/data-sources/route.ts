@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { providerMetrics } from '../../../../lib/jikanService';
+import { providerMetrics, JIKAN_BASE_URL } from '../../../../lib/jikanService';
 import { requireRole } from '../../../../lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     success: true,
     data: {
       provider: 'jikan_v4',
-      baseUrl: process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4',
+      baseUrl: JIKAN_BASE_URL,
       metrics: providerMetrics,
       rateLimitPolicy: {
         minIntervalMs: 800,

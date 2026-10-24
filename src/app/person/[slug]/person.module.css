@@ -1,0 +1,96 @@
+/* Creator profile (2026-10-18). Same tokens as Browse / Top Picks. */
+.page { width: 100%; max-width: 1360px; margin: 0 auto; padding: 32px 0 96px; }
+
+.hero { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
+.photo { width: 200px; aspect-ratio: 3 / 4; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-base); display: flex; align-items: center; justify-content: center; color: var(--text-muted); box-shadow: 0 24px 50px -20px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.photo img { width: 100%; height: 100%; object-fit: cover; }
+.heroText { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.roleChips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.roleChips li { padding: 5px 12px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.1); font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.name { margin: 0; font-size: clamp(32px, 5vw, 52px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; }
+.native { margin: 0; font-size: 17px; color: var(--text-secondary); }
+
+.facts { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 8px 0 0; }
+.facts div { display: flex; flex-direction: column; gap: 3px; }
+.facts dt { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.facts dd { margin: 0; font-size: 15px; color: var(--text-primary); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+.stats li { display: flex; flex-direction: column; gap: 2px; min-width: 120px; padding: 12px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-base); }
+.stats strong { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.stats span { font-size: 12px; color: var(--text-secondary); }
+
+.section { margin-top: 48px; }
+.section h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; font-size: clamp(22px, 3vw, 28px); font-weight: 700; letter-spacing: -0.03em; }
+.count { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.bio { max-width: 75ch; color: var(--text-secondary); font-size: 16px; line-height: 1.65; }
+.bio p { margin: 0 0 12px; white-space: pre-line; }
+.source { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); }
+
+/* Known for */
+.knownGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+.knownCard { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--text-primary); text-decoration: none; }
+.knownPoster { display: block; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: var(--surface-base); }
+.knownPoster img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--transition-base, 0.3s) ease; }
+.knownCard:hover .knownPoster img { transform: scale(1.04); }
+.knownCard strong { font-size: 14px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.knownCard > span:last-child { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Projects */
+.creditTools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.roleFilter { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; min-width: 0; flex: 1 1 auto; }
+.roleFilter::-webkit-scrollbar { display: none; }
+.roleFilter button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.1); color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.roleFilter button span { color: var(--text-muted); font-weight: 500; }
+.roleFilter button:hover { background: rgba(255, 255, 255, 0.18); }
+.roleFilter .filterActive, .roleFilter .filterActive:hover { background: #fff; color: #000; }
+.roleFilter .filterActive span { color: rgba(0, 0, 0, 0.55); }
+.sort { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+.sort select { min-height: 38px; padding: 0 12px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-base); color: var(--text-primary); font: inherit; font-size: 14px; }
+
+.creditGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.creditCard { display: flex; gap: 14px; height: 100%; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-base); color: var(--text-primary); text-decoration: none; transition: border-color var(--transition-fast), transform var(--transition-fast); }
+.creditCard:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.creditPoster { flex: 0 0 auto; width: 56px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.creditPoster img { width: 100%; height: 100%; object-fit: cover; }
+.creditText { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-top: 2px; }
+.creditText strong { font-size: 15px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.creditMeta { font-size: 12px; color: var(--text-muted); }
+.creditRoles { font-size: 13px; color: var(--text-secondary); }
+.more { display: block; margin: 20px auto 0; min-height: 44px; padding: 0 24px; border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.12); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.more:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Voice roles + studios */
+.voiceGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.voiceCard { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-base); color: var(--text-primary); text-decoration: none; transition: border-color var(--transition-fast); }
+.voiceCard:hover { border-color: var(--border-hover); }
+.voiceImg { flex: 0 0 auto; width: 48px; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.voiceImg img { width: 100%; height: 100%; object-fit: cover; }
+.voiceText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.voiceText strong { font-size: 14px; font-weight: 700; }
+.voiceText span { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voiceText .voiceMeta { color: var(--text-muted); }
+
+.empty { margin: 48px 0; color: var(--text-secondary); }
+
+@media (max-width: 1100px) { .knownGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .page { padding-top: 16px; }
+  .hero { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 20px; }
+  .photo { width: 160px; }
+  .heroText { align-items: center; }
+  .roleChips, .facts, .stats { justify-content: center; }
+  .facts div { align-items: center; }
+  .stats li { min-width: 0; flex: 1 1 100px; }
+  .stats strong { font-size: 19px; white-space: nowrap; }
+  .knownGrid { display: flex; overflow-x: auto; scrollbar-width: none; gap: 12px; scroll-snap-type: x proximity; }
+  .knownGrid::-webkit-scrollbar { display: none; }
+  .knownCard { flex: 0 0 120px; scroll-snap-align: start; }
+  .creditGrid { grid-template-columns: 1fr; }
+  .creditTools { flex-direction: column; align-items: stretch; }
+  .voiceGrid { grid-template-columns: 1fr; }
+}
+@media (hover: none) {
+  .creditCard:hover { transform: none; }
+  .knownCard:hover .knownPoster img { transform: none; }
+}

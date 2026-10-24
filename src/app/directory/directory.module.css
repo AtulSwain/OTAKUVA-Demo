@@ -40,7 +40,9 @@
 
 @media (min-width: 768px) {
   .heroTitle {
-    font-size: var(--font-display);
+    font-size: clamp(32px, 5vw, 52px); /* --font-display is a font family, not a size */
+  letter-spacing: -0.035em;
+  font-weight: 800;
   }
 }
 
@@ -211,3 +213,87 @@
   font-size: var(--font-meta);
   color: var(--text-secondary);
 }
+
+/* ===== /artists directory (2026-10-17) =====
+   The artists page shares this module but none of its search, A–Z, results
+   or card classes existed here, so the page rendered as unstyled text. */
+.searchAlphabetRow { display: flex; flex-direction: column; gap: 14px; margin-top: 20px; }
+.searchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+  max-width: 560px;
+}
+.searchBox:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+.searchIcon { color: var(--text-muted); flex-shrink: 0; }
+.searchBox .searchInput { flex: 1; min-width: 0; font-size: 14px; outline: none; }
+
+.alphabetScrubber { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.alphabetScrubber::-webkit-scrollbar { display: none; }
+.alphaLetter {
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.alphaLetter:hover { background: var(--surface-hover); color: var(--text-primary); }
+.alphaLetterActive, .alphaLetterActive:hover { background: #fff; color: #000; }
+
+.resultsMeta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 14px; color: var(--text-muted); font-size: 14px; }
+.resultsMeta strong { color: var(--text-primary); }
+.clearSearchBtn { color: var(--accent-primary-hover); font-size: 14px; font-weight: 600; }
+.clearSearchBtn:hover { color: var(--text-primary); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.entryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-base);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+.entryCard:hover { background: var(--surface-elevated); border-color: var(--border-hover); transform: translateY(-2px); }
+.cardTop { display: flex; align-items: center; justify-content: space-between; }
+.typeBadge {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--pill-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.typeBadgeStudio { background: var(--accent-primary-subtle); color: var(--accent-primary-hover); }
+.arrowIcon { color: var(--text-muted); transition: transform var(--transition-fast), color var(--transition-fast); }
+.entryCard:hover .arrowIcon { color: var(--text-primary); transform: translateX(2px); }
+.cardName { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); }
+.cardSubtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Category pills: same white active pill as the rest of the site (2026-10-17). */
+.categoryPill { min-height: 38px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+.categoryPill:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
+.categoryPillActive, .categoryPillActive:hover { background: #fff; color: #000; }

@@ -11,9 +11,11 @@ interface ActivityItem {
 
 interface ActivityHeatmapProps {
   activities?: ActivityItem[];
+  /** Pre-aggregated per-day counts (YYYY-MM-DD, UTC), e.g. from /api/users/:username/activity. */
+  days?: Array<{ date: string; count: number }>;
 }
 
-export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [] }) => {
+export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [], days = [] }) => {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
@@ -24,6 +26,9 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [
     activities.forEach((act) => {
       const dateKey = new Date(act.createdAt).toISOString().split('T')[0];
       activityMap.set(dateKey, (activityMap.get(dateKey) || 0) + 1);
+    });
+    days.forEach((d) => {
+      activityMap.set(d.date, (activityMap.get(d.date) || 0) + d.count);
     });
 
     const today = new Date();
@@ -44,9 +49,9 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [
       const dateKey = d.toISOString().split('T')[0];
       const isFuture = d > today;
 
-      // Realistic mock seeding if no live db activities for historical days
-      const pseudoCount = (i % 5 === 0 || i % 11 === 0 || i % 23 === 0) ? Math.floor((i % 4) + 1) : 0;
-      const count = isFuture ? 0 : (activityMap.get(dateKey) ?? pseudoCount);
+      // Only recorded activity. This used to invent a pattern of "mock" days
+      // for every empty date, so every profile showed the same fake history.
+      const count = isFuture ? 0 : (activityMap.get(dateKey) ?? 0);
 
       let level = 'level0';
       if (count === 1) level = 'level1';
@@ -99,13 +104,23 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [
 
     const total = dayList.reduce((acc, curr) => acc + (curr.isFuture ? 0 : curr.count), 0);
 
+    // Consecutive active days ending today (or yesterday, if nothing is logged
+    // yet today). This used to be floored at 4 for everyone.
+    let realStreak = 0;
+    const cursor = new Date(today);
+    if (!activityMap.get(cursor.toISOString().split('T')[0])) cursor.setDate(cursor.getDate() - 1);
+    while ((activityMap.get(cursor.toISOString().split('T')[0]) ?? 0) > 0) {
+      realStreak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
     return {
       weeks: weekGroups,
       monthLabels: monthOffsets,
       totalContributions: total,
-      currentStreak: Math.max(streak, 4),
+      currentStreak: realStreak,
     };
-  }, [activities]);
+  }, [activities, days]);
 
   const handleCellHover = (e: React.MouseEvent<HTMLDivElement>, text: string) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -127,7 +142,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activities = [
         <div className={styles.titleInfo}>
           <h3 className={styles.title}>Anime Activity &amp; Watch History</h3>
           <span className={styles.subtitle}>
-            <strong>{totalContributions}</strong> logged activities in the last year • <strong>{currentStreak} days</strong> current streak
+            <strong>{totalContributions}</strong> logged {totalContributions === 1 ? 'activity' : 'activities'} in the last year • <strong>{currentStreak} {currentStreak === 1 ? 'day' : 'days'}</strong> current streak
           </span>
         </div>
 

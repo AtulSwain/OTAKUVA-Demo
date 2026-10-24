@@ -1,0 +1,13 @@
+.card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; color: inherit; text-decoration: none; }
+.artwork { position: relative; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 8px; background: var(--color-surface-2); }
+.title, .meta { display: block; overflow: hidden; font-family: var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+.title { margin-top: 8px; color: var(--color-text); font-size: var(--text-body); }
+.meta { margin-top: 4px; color: var(--color-text-muted); font-size: var(--text-label); }
+
+.artwork { border-radius: 18px; box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.06); transition: transform var(--transition-normal), box-shadow var(--transition-normal); }
+.card { overflow: visible; }
+.card:hover .artwork { transform: scale(1.04); box-shadow: 0 22px 44px -14px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.title { margin-top: 12px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.meta { font-size: 13px; color: var(--text-secondary); }
+@media (prefers-reduced-motion: reduce) { .artwork { transition: none; } .card:hover .artwork { transform: none; } }
+

@@ -1,0 +1,203 @@
+/* Shared list page — a centred poster card in the spirit of a story card:
+   logo, title, a fanned stack of the list's own posters, one big stat, a
+   byline, on near-black with the signature gradient glowing from below. */
+.page {
+  min-height: 100vh;
+  overflow-x: clip;
+  background: #050507;
+  color: var(--text-primary);
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  /* Clip sideways (no horizontal scroll) but let the glow fade down into
+     the titles section instead of ending in a hard edge. */
+  overflow-x: clip;
+  overflow-y: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: calc(var(--header-offset, 64px) + 36px) 20px 56px;
+}
+
+.glow {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -14%;
+  height: 68%;
+  z-index: -1;
+  background:
+    radial-gradient(55% 60% at 50% 100%, rgba(180, 180, 188, 0.75), transparent 72%),
+    radial-gradient(40% 45% at 28% 100%, rgba(244, 244, 245, 0.7), transparent 70%),
+    radial-gradient(40% 45% at 72% 100%, rgba(124, 124, 134, 0.6), transparent 70%);
+  filter: blur(24px);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Soft halo behind the poster stack. */
+.stack::before {
+  content: '';
+  position: absolute;
+  inset: 8% -18%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(180, 180, 188, 0.35), transparent);
+  filter: blur(30px);
+}
+
+.brand { display: inline-flex; margin-bottom: 28px; }
+.brandIcon { width: 72px; height: auto; }
+
+.title {
+  max-width: 14ch;
+  margin: 0 0 36px;
+  font-size: clamp(34px, 8vw, 64px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+/* Fanned stack: the first poster in front, two behind it tilted out. */
+.stack {
+  position: relative;
+  width: min(62vw, 300px);
+  aspect-ratio: 2 / 3;
+  margin-bottom: 36px;
+}
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 22px;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.posterEmpty { background: var(--surface-elevated); }
+.poster0 { z-index: 3; }
+.poster1 { z-index: 2; transform: translateX(-22%) rotate(-8deg) scale(0.86); filter: brightness(0.55); }
+.poster2 { z-index: 1; transform: translateX(22%) rotate(8deg) scale(0.86); filter: brightness(0.55); }
+.stackSingle .poster0 { transform: none; }
+
+.stat { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 18px; }
+.statValue {
+  font-size: clamp(56px, 14vw, 88px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.statLabel { font-size: clamp(18px, 4.4vw, 26px); font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; }
+
+.description { max-width: 46ch; margin: 0 0 8px; color: var(--text-secondary); font-size: 16px; line-height: 1.5; }
+
+.divider { width: min(90%, 560px); height: 1px; margin: 18px 0; background: rgba(255, 255, 255, 0.14); }
+
+.byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 28px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.85);
+}
+.byline strong { color: #fff; text-transform: none; letter-spacing: 0; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.primaryBtn, .ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.primaryBtn { background: #fff; color: #000; }
+.primaryBtn:hover { background: rgba(255, 255, 255, 0.88); }
+.ghostBtn { background: rgba(255, 255, 255, 0.12); color: #fff; backdrop-filter: blur(12px); }
+.ghostBtn:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Titles */
+.titles { position: relative; z-index: 1; max-width: var(--max-content-width); margin: 0 auto; padding: 48px clamp(16px, 4vw, 56px) 96px; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, calc(50% - 8px)), 1fr));
+  gap: 24px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item { display: flex; flex-direction: column; gap: 8px; color: var(--text-primary); }
+.itemArt { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border-radius: var(--radius-lg); background: var(--surface-elevated); }
+.itemArt img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--transition-normal); }
+.item:hover .itemArt img { transform: scale(1.04); }
+.itemRank {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+.itemScore {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(20, 20, 22, 0.75);
+  color: var(--accent-score);
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+}
+.itemTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 15px; font-weight: 700; line-height: 1.3; }
+.itemMeta { color: var(--text-muted); font-size: 13px; }
+.empty { color: var(--text-secondary); text-align: center; }
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 64px;
+  padding: 36px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--surface-base);
+  text-align: center;
+}
+.cta h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.03em; }
+.cta p { max-width: 46ch; margin: 0 0 8px; color: var(--text-secondary); }
+
+@media (max-width: 640px) {
+  .card { padding-top: calc(var(--header-offset, 64px) + 24px); }
+  .title { margin-bottom: 28px; }
+  .byline { flex-direction: column; gap: 8px; font-size: 12px; text-align: center; }
+}
+
+/* Collection banner behind the header (2026-10-22) */
+.bannerBg { position: absolute; left: 0; right: 0; top: 0; height: min(62vh, 520px); z-index: -2; overflow: hidden; pointer-events: none; }
+.bannerBg img { width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
+.bannerBg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 5, 7, 0.35) 0%, rgba(5, 5, 7, 0.75) 60%, #050507 100%); }

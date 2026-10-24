@@ -18,9 +18,13 @@ interface EditorsPickProps {
     editorialQuote?: string;
     editorialTags?: string[];
   } | null;
+  /** Line above the title; defaults to the score-based "Spotlight" wording. */
+  kicker?: string;
+  /** Optional second action, e.g. the whole list this pick comes from. */
+  more?: { href: string; label: string };
 }
 
-export const EditorsPickFeature: React.FC<EditorsPickProps> = ({ anime }) => {
+export const EditorsPickFeature: React.FC<EditorsPickProps> = ({ anime, kicker, more }) => {
   if (!anime) return null;
 
   const displayAnime = anime;
@@ -28,7 +32,7 @@ export const EditorsPickFeature: React.FC<EditorsPickProps> = ({ anime }) => {
   const tags = displayAnime.editorialTags || displayAnime.genres || [];
 
   return (
-    <section className={styles.section} aria-label="Editor's Pick Feature">
+    <section className={styles.section} aria-label="Spotlight">
       <div className={styles.featureCard}>
         <div className={styles.artWrapper}>
           <AnimeImage
@@ -42,7 +46,7 @@ export const EditorsPickFeature: React.FC<EditorsPickProps> = ({ anime }) => {
         </div>
 
         <div className={styles.copyArea}>
-          <p className={styles.kicker}>Editor&apos;s Pick</p>
+          <p className={styles.kicker}>{kicker ?? 'Spotlight · one of the highest-rated anime'}</p>
           <h3 className={styles.title}>{displayAnime.title}</h3>
           <p className={styles.synopsis}>
             {displayAnime.editorialQuote || displayAnime.synopsis}
@@ -61,6 +65,11 @@ export const EditorsPickFeature: React.FC<EditorsPickProps> = ({ anime }) => {
               <span>Explore Anime</span>
               <ArrowRight size={14} />
             </Link>
+            {more && (
+              <Link href={more.href} className={styles.btnSecondary}>
+                {more.label}
+              </Link>
+            )}
           </div>
         </div>
       </div>

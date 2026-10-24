@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import { createCommunityPost, canUserViewCommunityContent } from '../../../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
@@ -92,10 +92,8 @@ export async function POST(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const { slug } = params;
     const community = await prisma.community.findFirst({

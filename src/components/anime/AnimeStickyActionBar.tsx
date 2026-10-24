@@ -15,6 +15,8 @@ interface AnimeStickyActionBarProps {
   onOpenTrailer?: () => void;
   /** Average of OTAKUVA members' ratings, as shown in the hero. */
   otakuvaScore?: number | null;
+  /** False for a title that hasn't aired yet — hides the Rate action. */
+  hasPremiered?: boolean;
 }
 
 export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
@@ -23,6 +25,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
   onOpenRatingModal,
   onOpenTrailer,
   otakuvaScore = null,
+  hasPremiered = true,
 }) => {
   const { getStatus, getItem, updateStatus, toggleFavorite } = useLibrary();
   const [isVisible, setIsVisible] = useState(false);
@@ -107,16 +110,18 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
           <Heart size={15} fill={isFavorite ? 'currentColor' : 'none'} />
         </button>
 
-        {/* Rate Button */}
-        <button
-          type="button"
-          className={`${styles.actionBtn} ${styles.secondaryBtn} ${styles.iconOnlyBtn}`}
-          onClick={onOpenRatingModal}
-          aria-label="Rate anime"
-          title={effectiveRating !== null ? `Your rating: ★ ${effectiveRating.toFixed(1)}/10` : 'Rate anime'}
-        >
-          <Star size={15} fill={effectiveRating !== null ? '#F59E0B' : 'none'} color={effectiveRating !== null ? '#F59E0B' : 'currentColor'} />
-        </button>
+        {/* Rate Button — only once the title has actually aired */}
+        {hasPremiered && (
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.secondaryBtn} ${styles.iconOnlyBtn}`}
+            onClick={onOpenRatingModal}
+            aria-label="Rate anime"
+            title={effectiveRating !== null ? `Your rating: ★ ${effectiveRating.toFixed(1)}/10` : 'Rate anime'}
+          >
+            <Star size={15} fill={effectiveRating !== null ? '#F59E0B' : 'none'} color={effectiveRating !== null ? '#F59E0B' : 'currentColor'} />
+          </button>
+        )}
 
         {/* Play Trailer Button */}
         {anime.trailerUrl && onOpenTrailer && (

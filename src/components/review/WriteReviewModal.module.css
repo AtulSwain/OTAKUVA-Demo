@@ -72,9 +72,9 @@
   letter-spacing: 0.05em;
   padding: 2px 8px;
   border-radius: 4px;
-  background: rgba(201, 106, 114, 0.18);
-  color: var(--accent-hover);
-  border: 1px solid rgba(201, 106, 114, 0.3);
+  background: var(--accent-subtle, rgba(161, 161, 170, 0.12));
+  color: var(--accent-hover, #757CFF);
+  border: 1px solid var(--border-accent, rgba(161, 161, 170, 0.35));
 }
 
 .headerSubtitle {
@@ -276,7 +276,7 @@
 
 .spoilerCardActive {
   border-color: var(--accent);
-  background-color: rgba(201, 106, 114, 0.08);
+  background-color: var(--accent-subtle, rgba(161, 161, 170, 0.12));
 }
 
 .spoilerCardHeader {
@@ -398,3 +398,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Community tag picker */
+.tagPicker { display: flex; flex-wrap: wrap; gap: 6px; }
+.tagOption {
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.tagOption:hover:not(:disabled) { color: var(--text-primary); border-color: var(--border-strong); }
+.tagOption:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.tagOption:disabled { opacity: 0.35; cursor: not-allowed; }
+.tagOptionOn,
+.tagOptionOn:hover:not(:disabled) { background: #fff; border-color: #fff; color: #141416; }
+
+/* Replaces the old score slider: reviews show the author's rating instead. */
+.ratingNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.ratingNote svg { flex: none; margin-top: 3px; }
+.ratingNote strong { color: var(--text-primary); }

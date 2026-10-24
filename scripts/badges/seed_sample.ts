@@ -39,10 +39,10 @@ async function seed() {
     const email = `${u.username.replace(/[^a-z0-9]/gi, '_')}@${PLACEHOLDER.emailDomain}`;
     const user = await prisma.user.upsert({
       where: { username: u.username },
-      create: { username: u.username, email, emailVerifiedAt: new Date(), bio: 'PLACEHOLDER account (badge demo data).' },
+      create: { username: u.username, email, phoneVerifiedAt: new Date(), bio: 'PLACEHOLDER account (badge demo data).' },
       update: {},
     });
-    if (!user.email.endsWith(`@${PLACEHOLDER.emailDomain}`)) {
+    if (!user.email?.endsWith(`@${PLACEHOLDER.emailDomain}`)) {
       throw new Error(`Refusing to touch real account "${u.username}" (email is not a placeholder address).`);
     }
     ids[u.username] = user.id;

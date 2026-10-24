@@ -19,6 +19,7 @@ import { UserWatchStatus } from '../../types/anime';
 import { useLibrary } from '../../context/LibraryContext';
 import { getAnimeDisplayTitle, normalizeAnimeTitleFields } from '../../lib/animeTitleResolver';
 import styles from './[status]/library.module.css';
+import { LibrarySwitch } from '../../components/lists/LibrarySwitch';
 
 type TabOption = 'all' | UserWatchStatus;
 
@@ -96,11 +97,13 @@ function LibraryContent() {
   return (
     <div className={styles.libraryPage}>
       <div className={styles.header}>
-        <h2 className={styles.title}>My Library</h2>
+        <h1 className={styles.title}>My Library</h1>
         <p className={styles.subtitle}>
           Your personal anime archive. Track episodes, manage status, and organize your collection.
         </p>
       </div>
+
+      <LibrarySwitch />
 
       {/* Library Filter Tabs */}
       <div className={styles.tabsRow} role="tablist" aria-label="Filter library by status">
@@ -152,7 +155,7 @@ function LibraryContent() {
               : `You haven't logged any anime under "${selectedTab.replace('_', ' ')}". Browse the catalog to add titles.`
           }
           actionLabel="Discover Anime"
-          actionHref="/explore"
+          actionHref="/anime"
         />
       )}
     </div>
@@ -165,7 +168,7 @@ export default function LibraryPage() {
       fallback={
         <div className={styles.libraryPage}>
           <div className={styles.header}>
-            <h2 className={styles.title}>My Library</h2>
+            <h1 className={styles.title}>My Library</h1>
           </div>
           <AnimeGrid columns="auto">
             {Array.from({ length: 6 }).map((_, i) => (

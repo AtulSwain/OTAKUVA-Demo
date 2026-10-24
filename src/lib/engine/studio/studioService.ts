@@ -353,7 +353,7 @@ export class StudioService {
           },
           animeStudios: {
             take: 4,
-            orderBy: { anime: { score: 'desc' } },
+            orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } }, // Postgres: NULLs first under DESC otherwise
             include: {
               anime: {
                 select: {
@@ -449,7 +449,7 @@ export class StudioService {
           select: { animeStudios: true },
         },
         animeStudios: {
-          orderBy: { anime: { score: 'desc' } },
+          orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } }, // Postgres: NULLs first under DESC otherwise
           include: {
             anime: {
               include: {
@@ -563,7 +563,7 @@ export class StudioService {
     } else if (sortBy === 'title') {
       orderBy = { anime: { canonicalTitle: sortOrder } };
     } else {
-      orderBy = { anime: { score: sortOrder } };
+      orderBy = { anime: { score: { sort: sortOrder, nulls: 'last' } } };
     }
 
     const [items, total] = await Promise.all([

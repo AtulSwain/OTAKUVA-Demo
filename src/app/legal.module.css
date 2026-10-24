@@ -1,0 +1,118 @@
+.legalPage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-6) 0 var(--space-16);
+}
+
+.reviewBanner {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  background-color: var(--accent-score-subtle);
+  border: 1px solid var(--accent-score);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.reviewBannerIcon {
+  color: var(--accent-score);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.reviewBannerTitle {
+  font-size: var(--font-body-small);
+  font-weight: var(--weight-bold);
+  color: var(--accent-score);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.reviewBannerText {
+  font-size: var(--font-body-small);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: clamp(32px, 5vw, 52px); /* --font-display is a font family, not a size */
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+
+.lastUpdated {
+  font-size: var(--font-meta);
+  color: var(--text-muted);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-heading);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.sectionTag {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-score);
+  background-color: var(--accent-score-subtle);
+  border: 1px solid var(--accent-score);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.sectionBody {
+  font-size: var(--font-body-small);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.sectionBody a {
+  color: var(--accent-active);
+}
+
+.footNote {
+  font-size: var(--font-meta);
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}

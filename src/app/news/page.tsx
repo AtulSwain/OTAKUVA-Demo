@@ -3,22 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {
-  Newspaper,
-  ExternalLink,
-  MessageSquare,
-  Search,
-  Sparkles,
-  TrendingUp,
-  Clock,
-  Flame,
-  User,
-  Compass,
-  RefreshCw,
-  Building2,
-  Film,
-} from 'lucide-react';
+import { Newspaper, Search, Sparkles, TrendingUp, Clock, Flame, RefreshCw, Building2, Film } from 'lucide-react';
 import { sanitizePublicEntityName } from '../../lib/normalizers';
+import { useAuth } from '../../context/AuthContext';
+import { hasMinRole } from '../../lib/roles';
 import styles from './news.module.css';
 
 const CATEGORIES = [
@@ -44,12 +32,16 @@ export default function NewsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const { user } = useAuth();
+  // Syncing is a newsroom action (POST /api/news requires NEWS_EDITOR+), so
+  // the button is only shown to people who can actually use it.
+  const canSyncNews = Boolean(user && hasMinRole(user.role, 'NEWS_EDITOR'));
   const [feedMeta, setFeedMeta] = useState<any>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Load News based on Active Tab & Filters
-  const loadNews = async () => {
+  const loadNews = React.useCallback(async () => {
     setIsLoading(true);
     try {
       if (searchQuery.trim()) {
@@ -97,11 +89,11 @@ export default function NewsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchQuery, selectedCategory, activeTab, trendingWindow]);
 
   useEffect(() => {
     loadNews();
-  }, [activeTab, selectedCategory, trendingWindow]);
+  }, [loadNews]);
 
   // Autocomplete fetch on query change
   useEffect(() => {
@@ -154,78 +146,68 @@ export default function NewsPage() {
     }
   };
 
+  // Lead with the newest story that has a picture (when browsing everything); the rest go in the grid.
+  const showLead = !searchQuery && selectedCategory === 'ALL' && !isLoading;
+  const leadIndex = showLead ? articles.slice(0, 6).findIndex((a) => a.imageUrl) : -1;
+  const lead = leadIndex >= 0 ? articles[leadIndex] : null;
+  const rest = lead ? articles.filter((_, i) => i !== leadIndex) : articles;
+  const view = (article: any) => ({
+    title: sanitizePublicEntityName(article.displayTitle || article.title),
+    summary: article.displaySummary || article.summary,
+    category: article.displayCategory || article.category,
+    time: formatTimeAgo(article.publishedAt),
+    href: `/news/${article.slug || article.id}`,
+  });
+
   return (
-    <div className={styles.newsContainer}>
-      {/* Editorial Header */}
-      <div className={styles.header}>
-        <div className={styles.headerTitleWrap}>
-          <div className={styles.pillarBadge}>
-            <Newspaper size={13} />
-            <span>ANIME INDUSTRY DISPATCH</span>
-          </div>
-          <h1 className={styles.pageTitle}>Anime News &amp; Production Intelligence</h1>
-          <p className={styles.pageSubtitle}>
-            Verified announcements, studio productions, casting revelations, and industry retrospectives.
-          </p>
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.kicker}>Newsroom</p>
+          <h1 className={styles.title}>Anime news</h1>
+          <p className={styles.subtitle}>Announcements, productions, casting and industry stories from established anime news sources.</p>
+        </div>
+        {canSyncNews && (
+          <button type="button" className={styles.syncBtn} onClick={handleManualSync} disabled={isSyncing} title="Refresh verified feed from providers">
+            <RefreshCw size={13} className={isSyncing ? styles.spin : ''} />
+            <span>{isSyncing ? 'Syncing…' : 'Sync feed'}</span>
+          </button>
+        )}
+      </header>
+
+      <div className={styles.toolbar}>
+        <div className={styles.tabs} role="tablist" aria-label="News feed">
+          {(
+            [
+              ['FOR_YOU', 'For you', Sparkles],
+              ['TRENDING', 'Trending', TrendingUp],
+              ['LATEST', 'Latest', Clock],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === id && !searchQuery}
+              className={`${styles.tab} ${activeTab === id && !searchQuery ? styles.tabActive : ''}`}
+              onClick={() => {
+                setSearchQuery('');
+                setActiveTab(id);
+              }}
+            >
+              <Icon size={14} aria-hidden="true" />
+              {label}
+            </button>
+          ))}
         </div>
 
-        <button
-          type="button"
-          className={styles.syncBtn}
-          onClick={handleManualSync}
-          disabled={isSyncing}
-          title="Refresh verified feed from providers"
-        >
-          <RefreshCw size={12} className={isSyncing ? styles.spin : ''} />
-          <span>{isSyncing ? 'Syncing...' : 'Sync Provider Feed'}</span>
-        </button>
-      </div>
-
-      {/* Discovery & Feed Tabs */}
-      <div className={styles.tabNavRow}>
-        <div className={styles.tabsGroup}>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'FOR_YOU' && !searchQuery ? styles.tabBtnActive : ''}`}
-            onClick={() => {
-              setSearchQuery('');
-              setActiveTab('FOR_YOU');
-            }}
-          >
-            <Sparkles size={14} />
-            <span>For You</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'TRENDING' && !searchQuery ? styles.tabBtnActive : ''}`}
-            onClick={() => {
-              setSearchQuery('');
-              setActiveTab('TRENDING');
-            }}
-          >
-            <TrendingUp size={14} />
-            <span>Trending</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'LATEST' && !searchQuery ? styles.tabBtnActive : ''}`}
-            onClick={() => {
-              setSearchQuery('');
-              setActiveTab('LATEST');
-            }}
-          >
-            <Clock size={14} />
-            <span>Latest Dispatch</span>
-          </button>
-        </div>
-
-        {/* Live Search Form with Autocomplete Dropdown */}
-        <div className={styles.searchContainer} ref={searchContainerRef}>
-          <form className={styles.searchForm} onSubmit={handleSearchSubmit}>
-            <Search size={14} className={styles.searchIcon} />
+        <div className={styles.searchWrap} ref={searchContainerRef}>
+          <form className={styles.searchForm} onSubmit={handleSearchSubmit} role="search">
+            <Search size={15} className={styles.searchIcon} aria-hidden="true" />
             <input
               type="text"
-              placeholder="Search news, anime, studios, cast..."
+              placeholder="Search news, anime, studios, cast…"
+              aria-label="Search news"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {
@@ -234,29 +216,22 @@ export default function NewsPage() {
               className={styles.searchInput}
             />
           </form>
-
           {showSuggestions && suggestions.length > 0 && (
-            <div className={styles.suggestionsDropdown}>
-              {suggestions.map((s) => (
+            <div className={styles.suggestions}>
+              {suggestions.map((sug) => (
                 <Link
-                  key={`${s.type}_${s.id}`}
-                  href={
-                    s.type === 'ANIME'
-                      ? `/anime/${s.slug || s.id}`
-                      : s.type === 'STUDIO'
-                      ? `/studio/${s.slug}`
-                      : `/news/${s.slug || s.id}`
-                  }
-                  className={styles.suggestionItem}
+                  key={`${sug.type}_${sug.id}`}
+                  href={sug.type === 'ANIME' ? `/anime/${sug.slug || sug.id}` : sug.type === 'STUDIO' ? `/studio/${sug.slug}` : `/news/${sug.slug || sug.id}`}
+                  className={styles.suggestion}
                   onClick={() => setShowSuggestions(false)}
                 >
-                  <div className={styles.suggestionIcon}>
-                    {s.type === 'ANIME' ? <Film size={14} /> : s.type === 'STUDIO' ? <Building2 size={14} /> : <Newspaper size={14} />}
-                  </div>
-                  <div className={styles.suggestionContent}>
-                    <span className={styles.suggestionTitle}>{s.title}</span>
-                    <span className={styles.suggestionSubtitle}>{s.subtitle}</span>
-                  </div>
+                  <span className={styles.suggestionIcon}>
+                    {sug.type === 'ANIME' ? <Film size={14} /> : sug.type === 'STUDIO' ? <Building2 size={14} /> : <Newspaper size={14} />}
+                  </span>
+                  <span className={styles.suggestionText}>
+                    <strong>{sug.title}</strong>
+                    <span>{sug.subtitle}</span>
+                  </span>
                 </Link>
               ))}
             </div>
@@ -264,156 +239,123 @@ export default function NewsPage() {
         </div>
       </div>
 
-      {/* Trending Window Filter (when in Trending Tab) */}
       {activeTab === 'TRENDING' && !searchQuery && (
         <div className={styles.windowRow}>
-          <span className={styles.windowLabel}>Trending Window:</span>
+          <span>Window</span>
           {(['1h', '6h', '24h', '7d'] as const).map((w) => (
-            <button
-              key={w}
-              type="button"
-              className={`${styles.windowBtn} ${trendingWindow === w ? styles.windowBtnActive : ''}`}
-              onClick={() => setTrendingWindow(w)}
-            >
-              {w === '1h' ? 'Past Hour' : w === '6h' ? '6 Hours' : w === '24h' ? 'Today' : 'This Week'}
+            <button key={w} type="button" className={`${styles.chip} ${trendingWindow === w ? styles.chipActive : ''}`} onClick={() => setTrendingWindow(w)}>
+              {w === '1h' ? 'Past hour' : w === '6h' ? '6 hours' : w === '24h' ? 'Today' : 'This week'}
             </button>
           ))}
         </div>
       )}
 
-      {/* Categories Filter Bar */}
-      <div className={styles.categoryBar}>
-        <div className={styles.categoryPills}>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              className={`${styles.categoryPill} ${selectedCategory === cat.id ? styles.categoryPillActive : ''}`}
-              onClick={() => setSelectedCategory(cat.id)}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+      <div className={styles.categories} role="group" aria-label="Category">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            aria-pressed={selectedCategory === cat.id}
+            className={`${styles.chip} ${selectedCategory === cat.id ? styles.chipActive : ''}`}
+            onClick={() => setSelectedCategory(cat.id)}
+          >
+            {cat.label}
+          </button>
+        ))}
       </div>
 
-      {/* Feed Status Banner */}
       {activeTab === 'FOR_YOU' && !searchQuery && feedMeta && (
-        <div className={styles.feedMetaBanner}>
-          <Sparkles size={13} className={styles.sparkleIcon} />
-          <span>
-            {feedMeta.isPersonalized
-              ? 'Personalized for you based on your anime watch tracking and studio preferences.'
-              : 'Showing global anime industry headlines. Watch and rate anime to personalize your dispatch.'}
-          </span>
-        </div>
+        <p className={styles.feedNote}>
+          <Sparkles size={13} aria-hidden="true" />
+          {feedMeta.isPersonalized
+            ? 'Personalised from the anime you track and the studios you follow.'
+            : 'Showing the latest headlines. Track and rate anime to personalise this feed.'}
+        </p>
       )}
 
-      {/* Articles Grid */}
       {isLoading ? (
-        <div className={styles.newsGrid}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className={styles.skeletonCard}>
-              <div className={styles.skeletonImage} />
-              <div className={styles.skeletonTextRow} />
-              <div className={styles.skeletonTextRowShort} />
+        <div className={styles.grid}>
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={styles.skeleton}>
+              <span className={styles.skeletonImg} />
+              <span className={styles.skeletonLine} />
+              <span className={styles.skeletonLineShort} />
             </div>
           ))}
         </div>
       ) : articles.length === 0 ? (
-        <div className={styles.emptyState}>
-          <Newspaper size={36} className={styles.emptyIcon} />
-          <h3>No Industry Articles Found</h3>
-          <p>No published articles matched your selected category or query filter.</p>
+        <div className={styles.empty}>
+          <Newspaper size={32} aria-hidden="true" />
+          <h3>No stories found</h3>
+          <p>Nothing matches this category or search yet.</p>
           <button
             type="button"
-            className={styles.resetFilterBtn}
+            className={styles.resetBtn}
             onClick={() => {
               setSelectedCategory('ALL');
               setSearchQuery('');
             }}
           >
-            Reset Filters
+            Reset filters
           </button>
         </div>
       ) : (
-        <div className={styles.newsGrid}>
-          {articles.map((article, idx) => {
-            const displayTitle = sanitizePublicEntityName(article.displayTitle || article.title);
-            const displaySummary = article.displaySummary || article.summary;
-            const displayCategory = article.displayCategory || article.category;
-            const timeAgo = formatTimeAgo(article.publishedAt);
-            const isHero = idx === 0 && !searchQuery && selectedCategory === 'ALL';
-
+        <>
+          {lead && (() => {
+            const v = view(lead);
             return (
-              <article
-                key={article.id}
-                className={`${styles.newsCard} ${isHero ? styles.heroCard : ''}`}
-              >
-                <Link href={`/news/${article.slug || article.id}`} className={styles.cardCoverLink}>
-                  <div className={styles.cardMediaWrap}>
-                    {article.imageUrl ? (
-                      <Image
-                        src={article.imageUrl}
-                        alt={displayTitle}
-                        fill
-                        className={styles.cardImage}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className={styles.placeholderMedia}>
-                        <Newspaper size={28} />
-                      </div>
-                    )}
-                    <div className={styles.cardBadges}>
-                      <span className={styles.categoryBadge}>{displayCategory}</span>
+              <Link href={v.href} className={styles.lead}>
+                <span className={styles.leadImg}>
+                  <Image src={lead.imageUrl} alt="" fill className={styles.cover} unoptimized sizes="(max-width: 900px) 100vw, 60vw" />
+                </span>
+                <span className={styles.leadBody}>
+                  <span className={styles.cat}>{v.category}</span>
+                  <strong className={styles.leadTitle}>{v.title}</strong>
+                  {v.summary && <span className={styles.leadSummary}>{v.summary}</span>}
+                  <span className={styles.meta}>
+                    {lead.sourceName} · {v.time}
+                  </span>
+                  {lead.relatedAnime?.[0] && <span className={styles.related}>About {lead.relatedAnime[0].canonicalTitle}</span>}
+                </span>
+              </Link>
+            );
+          })()}
+
+          <div className={styles.grid}>
+            {rest.map((article) => {
+              const v = view(article);
+              return (
+                <Link key={article.id} href={v.href} className={`${styles.card} ${article.imageUrl ? '' : styles.cardText}`}>
+                  {article.imageUrl && (
+                    <span className={styles.cardImg}>
+                      <Image src={article.imageUrl} alt="" fill className={styles.cover} unoptimized sizes="(max-width: 600px) 100vw, 25vw" />
+                    </span>
+                  )}
+                  <span className={styles.cardBody}>
+                    <span className={styles.cat}>
+                      {v.category}
                       {article.trendingExplanation && (
-                        <span className={styles.trendingBadge}>
-                          <Flame size={10} />
-                          {article.trendingExplanation}
+                        <span className={styles.trending}>
+                          <Flame size={10} aria-hidden="true" /> {article.trendingExplanation}
                         </span>
                       )}
-                    </div>
-                  </div>
-
-                  <div className={styles.cardBody}>
-                    <div className={styles.cardByline}>
-                      <span className={styles.sourceTag}>
-                        <Building2 size={11} />
-                        {article.sourceName}
+                    </span>
+                    <strong className={styles.cardTitle}>{v.title}</strong>
+                    {v.summary && <span className={styles.cardSummary}>{v.summary}</span>}
+                    <span className={styles.meta}>
+                      {article.sourceName} · {v.time}
+                    </span>
+                    {feedMeta?.isPersonalized && article.personalizationReason && activeTab === 'FOR_YOU' && (
+                      <span className={styles.reason}>
+                        <Sparkles size={10} aria-hidden="true" /> {article.personalizationReason}
                       </span>
-                      <span className={styles.metaDot}>•</span>
-                      <span className={styles.timeTag}>{timeAgo}</span>
-                    </div>
-
-                    <h2 className={styles.cardHeadline}>{displayTitle}</h2>
-
-                    {displaySummary && (
-                      <p className={styles.cardSummary}>{displaySummary}</p>
                     )}
-
-                    {article.personalizationReason && activeTab === 'FOR_YOU' && (
-                      <div className={styles.personalizationTag}>
-                        <Sparkles size={11} />
-                        <span>{article.personalizationReason}</span>
-                      </div>
-                    )}
-
-                    {/* Related Entities Footnote */}
-                    {article.relatedAnime && article.relatedAnime.length > 0 && (
-                      <div className={styles.relatedAnimeRow}>
-                        <span className={styles.relatedLabel}>Related:</span>
-                        <span className={styles.relatedTitle}>
-                          {article.relatedAnime[0].canonicalTitle}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  </span>
                 </Link>
-              </article>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
@@ -425,7 +367,8 @@ function formatTimeAgo(dateInput: string | Date): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffHours < 1) return 'Just now';
+  if (diffMs < 60000) return 'Just now';
+  if (diffHours < 1) return `${Math.floor(diffMs / 60000)}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;

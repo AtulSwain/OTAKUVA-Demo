@@ -1,101 +1,74 @@
+/* Footer (rebuilt 2026-10-17): grouped to match the merged site sections,
+   legal links in one quiet row, and clear of the phone bottom nav. */
 .footer {
-  width: 100%;
-  border-top: 1px solid var(--border-default);
-  background-color: var(--bg-secondary);
-  padding: var(--space-8) 0 var(--space-6) 0;
-  margin-top: auto;
+  margin-top: 64px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
 }
 
 .footerInner {
   max-width: var(--max-content-width);
   margin: 0 auto;
-  padding: 0 var(--space-6);
+  padding: 48px clamp(16px, 4vw, 56px) 32px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 40px;
 }
 
 .topRow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(0, 3fr);
+  gap: 40px;
 }
 
-@media (min-width: 768px) {
-  .topRow {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
+.brandCol { display: flex; flex-direction: column; gap: 10px; max-width: 340px; }
+.brandTitle { font-size: 22px; font-weight: 800; letter-spacing: 0.04em; color: var(--text-primary); }
+.brandDesc { margin: 0; color: var(--text-secondary); font-size: 15px; line-height: 1.5; }
+.brandNote { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.brandNote a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
 
-.brandCol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 320px;
-}
-
-.brandTitle {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: var(--text-primary);
-  text-transform: uppercase;
-}
-
-.brandDesc {
-  font-size: var(--font-meta);
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-.linksNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-8);
-}
-
-.linkGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
+.linksNav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+.linkGroup { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .groupHeading {
-  font-size: var(--font-caption);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  margin-bottom: 2px;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-
-.footerLink {
-  font-size: var(--font-body-small);
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.footerLink:hover {
-  color: var(--text-primary);
-}
+.footerLink { color: var(--text-secondary); font-size: 14px; transition: color var(--transition-fast); }
+.footerLink:hover { color: var(--text-primary); }
 
 .bottomRow {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-default);
-  font-size: var(--font-meta);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
+  font-size: 13px;
+}
+.legalNav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.legalLink { color: var(--text-muted); transition: color var(--transition-fast); }
+.legalLink:hover { color: var(--text-primary); }
+
+@media (max-width: 960px) {
+  .topRow { grid-template-columns: 1fr; gap: 32px; }
+  .linksNav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 20px; }
 }
 
-@media (min-width: 640px) {
-  .bottomRow {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+/* Phones: keep the last line clear of the fixed bottom nav (it used to sit
+   underneath it). */
+@media (max-width: 799px) {
+  .footer { margin-top: 48px; }
+  .footerInner {
+    padding: 36px 16px calc(var(--mobile-nav-height, 54px) + env(safe-area-inset-bottom, 0px) + 24px);
+    gap: 32px;
   }
+  .bottomRow { flex-direction: column; align-items: flex-start; }
 }
+.brandTitle { display: inline-flex; align-items: center; gap: 10px; }
+.brandMark { display: block; width: 40px; height: auto; }

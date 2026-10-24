@@ -18,6 +18,7 @@ import { officialSourceAdapter } from './adapters/officialSourceAdapter';
 import { myAnimeListNewsAdapter } from './adapters/myAnimeListNewsAdapter';
 import { animeCornerNewsAdapter } from './adapters/animeCornerNewsAdapter';
 import { animeHeraldNewsAdapter } from './adapters/animeHeraldNewsAdapter';
+import { animeUkNewsAdapter, animeFeministNewsAdapter, honeysAnimeNewsAdapter } from './adapters/moreRssAdapters';
 import { newsIngestionService } from './newsIngestionService';
 import { NewsProviderAdapter } from './newsProvider.interface';
 import { PUBLIC_RELEVANCE_WHERE } from './newsRelevanceService';
@@ -37,6 +38,9 @@ export class NewsEngine {
     this.registerAdapter(myAnimeListNewsAdapter);
     this.registerAdapter(animeCornerNewsAdapter);
     this.registerAdapter(animeHeraldNewsAdapter);
+    this.registerAdapter(animeUkNewsAdapter);
+    this.registerAdapter(animeFeministNewsAdapter);
+    this.registerAdapter(honeysAnimeNewsAdapter);
   }
 
   registerAdapter(adapter: NewsProviderAdapter) {

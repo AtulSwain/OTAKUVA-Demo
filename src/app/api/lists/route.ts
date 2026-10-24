@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../lib/auth';
+import { addAnimeToList, createList, getMyLists, ListError } from '../../../lib/lists/listService';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,11 +9,22 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const limit = Math.min(50, parseInt(searchParams.get('limit') || '20', 10));
+    const requestedLimit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(50, Math.max(1, requestedLimit)) : 20;
 
     // Only the owner sees their own PRIVATE / FOLLOWERS_ONLY lists; anyone
     // else asking for a user's lists gets the public ones.
     const authUser = await getAuthUserFromRequest(request);
+
+    // ?mine=1 — the signed-in user's own lists (Library > My lists, and the
+    // "add to list" picker, which passes containsAnimeId to show ticks).
+    if (searchParams.get('mine') === '1') {
+      if (!authUser) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      const containsAnimeId = searchParams.get('containsAnimeId') || undefined;
+      const lists = await getMyLists(authUser.id, containsAnimeId);
+      return NextResponse.json({ lists, total: lists.length });
+    }
+
     const where: any = {};
     if (userId) {
       where.userId = userId;
@@ -80,66 +92,28 @@ export async function POST(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: 'Authentication required to create a list' }, { status: 401 });
     }
-    const userId = authUser.id;
-    const body = await request.json();
-    const { name, description, visibility, initialAnimeIds } = body;
-
-    if (typeof name !== 'string' || !name.trim()) {
-      return NextResponse.json({ error: 'List name is required' }, { status: 400 });
-    }
-    if (name.trim().length > 100 || (typeof description === 'string' && description.length > 1000)) {
-      return NextResponse.json({ error: 'List name or description is too long' }, { status: 400 });
-    }
+    const body = await request.json().catch(() => ({}));
+    const { name, description, visibility, animeId, initialAnimeIds, animeIds, bannerAssetId, bannerAnimeId } = body ?? {};
     if (Array.isArray(initialAnimeIds) && initialAnimeIds.length > 100) {
       return NextResponse.json({ error: 'A new list can start with at most 100 anime' }, { status: 400 });
     }
 
-    const validVis = ['PUBLIC', 'PRIVATE', 'FOLLOWERS_ONLY'].includes(visibility) ? visibility : 'PUBLIC';
-
-    const newList = await prisma.$transaction(async (tx) => {
-      const list = await tx.userList.create({
-        data: {
-          userId,
-          name: name.trim(),
-          description: description?.trim() || null,
-          visibility: validVis,
-        },
-        include: {
-          user: { select: { id: true, username: true, avatarUrl: true } },
-        },
-      });
-
-      if (Array.isArray(initialAnimeIds) && initialAnimeIds.length > 0) {
-        for (let i = 0; i < initialAnimeIds.length; i++) {
-          const aId = initialAnimeIds[i];
-          const anime = await tx.anime.findFirst({
-            where: { OR: [{ id: aId }, { slug: aId }] },
-          });
-          if (anime) {
-            await tx.userListItem.create({
-              data: {
-                listId: list.id,
-                animeId: anime.id,
-                position: i + 1,
-              },
-            });
-          }
-        }
+    // New lists are PRIVATE unless the creator chooses otherwise (they used
+    // to default to PUBLIC); always owned by the session user.
+    // animeIds / banner*: the collection builder (/collections/new).
+    const newList = await createList(authUser.id, { name, description, visibility, animeId, animeIds, bannerAssetId, bannerAnimeId });
+    if (Array.isArray(initialAnimeIds)) {
+      for (const id of initialAnimeIds) {
+        await addAnimeToList(authUser.id, newList.id, id).catch(() => {});
       }
+    }
 
-      await tx.activity.create({
-        data: {
-          userId,
-          type: 'LIST_CREATED',
-          metadata: JSON.stringify({ listId: list.id, listName: list.name }),
-        },
-      });
-
-      return list;
-    });
-
-    return NextResponse.json({ list: newList });
+    // userId kept in the response for contract compatibility.
+    return NextResponse.json({ list: { ...newList, userId: authUser.id } });
   } catch (error: any) {
+    if (error instanceof ListError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     console.error('Error creating custom list:', error);
     return NextResponse.json({ error: 'Failed to create list' }, { status: 500 });
   }

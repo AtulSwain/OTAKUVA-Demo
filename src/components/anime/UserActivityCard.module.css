@@ -1,18 +1,18 @@
 .card {
-  background-color: var(--surface-base, #101010);
-  border: 1px solid var(--border-default, #292929);
-  border-radius: 13px;
-  padding: 18px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
 
 .heading {
   margin: 0 0 14px 0;
-  font-size: 18px;
+  font-size: var(--font-heading, 18px);
   font-weight: 800;
-  letter-spacing: -0.5px;
-  color: var(--text-primary, #F4F4F2);
+  letter-spacing: -0.02em;
+  color: var(--text-pure, #FFFFFF);
 }
 
 .row {
@@ -46,3 +46,6 @@
   color: var(--text-muted, #71717A);
   margin-top: 6px;
 }
+
+/* Same section-title style as the rest of the anime page (2026-10-17). */
+.heading { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }

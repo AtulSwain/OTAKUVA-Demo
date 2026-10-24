@@ -1,0 +1,55 @@
+.banner {
+  /* Floating card: the heroes sit under the header, so an in-flow strip
+     there would be covered. Clears the mobile bottom nav. */
+  position: fixed;
+  z-index: 850;
+  left: 16px;
+  bottom: 24px;
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px 12px 16px;
+  border-radius: 16px;
+  background: var(--surface-overlay);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .banner { bottom: 84px; }
+}
+
+.icon { color: var(--accent-score); flex: none; }
+
+.text { margin: 0; flex: 1; min-width: 200px; font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+.text strong { color: var(--text-primary); font-weight: 600; }
+
+.action {
+  flex: none;
+  border: 0;
+  border-radius: 9999px;
+  padding: 7px 14px;
+  background: #fff;
+  color: #141416;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.action:disabled { opacity: 0.7; cursor: default; }
+
+.close {
+  flex: none;
+  display: inline-flex;
+  border: 0;
+  padding: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.close:hover { color: var(--text-primary); }

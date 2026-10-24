@@ -1,0 +1,107 @@
+.rail {
+  width: 72px;
+  flex: none;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-primary);
+}
+
+.rail::-webkit-scrollbar { display: none; }
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  position: relative;
+  width: 72px;
+  display: flex;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.pill {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-elevated);
+  transition: border-radius 180ms var(--ease-out-cubic, ease-out), background 150ms ease, color 150ms ease;
+}
+
+.item:hover .pill,
+.active .pill { border-radius: 16px; }
+
+.item:focus-visible { outline: none; }
+.item:focus-visible .pill { box-shadow: 0 0 0 2px var(--accent-primary); }
+
+.home { background: var(--surface-overlay); }
+.item:hover .home { background: var(--accent-primary); color: var(--accent-on); }
+
+.action { color: var(--accent-emerald); background: var(--surface-elevated); }
+.item:hover .action { background: var(--accent-emerald); color: #fff; }
+
+/* Discord's left "you are here" pill. */
+.indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 4px;
+  height: 0;
+  border-radius: 0 4px 4px 0;
+  background: var(--text-primary);
+  transform: translateY(-50%);
+  transition: height 180ms ease;
+}
+
+.item:hover .indicator { height: 20px; }
+.active .indicator { height: 40px; }
+
+.divider {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-elevated);
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .indicator { transition: none; }
+}
+
+/* ── OTAKUVA identity pass (2026-10-20): its own look, not Discord's; smaller type ── */
+
+/* Rounded-square tiles that keep their shape (no circle → squircle morph). */
+.pill, .item:hover .pill, .active .pill { border-radius: 14px; }
+.pill { width: 46px; height: 46px; transition: transform 160ms ease, box-shadow 160ms ease, background 150ms ease; }
+.item:hover .pill { transform: translateY(-1px); }
+/* "You are here": a ring around the tile instead of a pill on the left edge. */
+.indicator { display: none; }
+.active .pill { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px rgba(255, 255, 255, 0.85); }
+.item:hover:not(.active) .pill { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 3px rgba(255, 255, 255, 0.25); }
+/* Neutral create / explore tiles (no Discord green). */
+.action, .item:hover .action { color: var(--text-secondary); background: transparent; }
+.create { border: 1.5px dashed var(--border-strong); }
+.item:hover .create { color: var(--text-primary); border-color: var(--text-secondary); }
+.explore { background: var(--surface-elevated); }
+.item:hover .explore { color: var(--text-primary); background: var(--surface-overlay); }
+.home { background: var(--surface-elevated); }
+.item:hover .home { background: var(--surface-overlay); color: var(--text-primary); }
+.divider { width: 24px; height: 1px; }

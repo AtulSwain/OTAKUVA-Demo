@@ -1,0 +1,69 @@
+/* The one comment box: plain at rest, opens up when you click into it. */
+.composer { display: flex; gap: 12px; align-items: flex-start; width: 100%; }
+.body { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.replying { margin: 2px 0 4px; font-size: 12px; color: var(--text-muted); }
+.replying strong { color: var(--text-secondary); }
+
+.input {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  overflow-y: auto;
+  transition: min-height 0.25s ease;
+}
+.input::placeholder { color: var(--text-muted); }
+.input:focus { outline: none; }
+.open .input { min-height: 64px; }
+
+/* Underline: hairline at rest, accent gradient that grows from the centre when active. */
+.line { position: relative; display: block; height: 1px; background: var(--border-default); }
+.line::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent-gradient); transform: scaleX(0); transition: transform 0.3s ease; }
+.open .line::after { transform: scaleX(1); }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition: max-height 0.25s ease, opacity 0.2s ease, transform 0.25s ease, margin 0.25s ease;
+}
+.open .toolbar { max-height: 64px; opacity: 1; transform: none; margin-top: 10px; overflow: visible; }
+.tools { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.count { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.countLow { color: #fb7185; }
+.cancel { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cancel:hover { background: rgba(255, 255, 255, 0.07); color: var(--text-primary); }
+.submit { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--accent-gradient); color: var(--accent-on); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: opacity 0.15s ease, transform 0.15s ease, filter 0.15s ease; }
+.submit:hover:not(:disabled) { filter: brightness(1.1); }
+.submit:active:not(:disabled) { transform: scale(0.97); }
+.submit:disabled { opacity: 0.35; cursor: default; background: rgba(255, 255, 255, 0.2); }
+
+.compact .input { font-size: 14px; min-height: 32px; }
+.compact.open .input { min-height: 48px; }
+
+/* Signed out: same quiet line, opens sign-in. */
+.signIn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 0 10px; border: 0; border-bottom: 1px solid var(--border-default); background: transparent; color: var(--text-muted); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.signIn:hover { color: var(--text-primary); border-bottom-color: var(--border-hover); }
+.signInAvatar { flex: none; width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+
+@media (max-width: 560px) {
+  .count { display: none; }
+  .toolbar { flex-wrap: wrap; }
+  .open .toolbar { max-height: 120px; }
+  .cancel, .submit { margin-left: auto; }
+  .cancel + .submit { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .input, .line::after, .toolbar { transition: none; }
+}

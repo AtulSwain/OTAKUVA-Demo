@@ -121,13 +121,13 @@ export async function seedDatabase() {
       },
       update: {
         title: `${anime.title} (Season 1)`,
-        episodeCount: anime.episodes || 12,
+        episodeCount: anime.episodes ?? 0, // declared count only; no invented default
       },
       create: {
         animeId: savedAnime.id,
         seasonNumber: 1,
         title: `${anime.title} (Season 1)`,
-        episodeCount: anime.episodes || 12,
+        episodeCount: anime.episodes ?? 0, // declared count only; no invented default
       },
     });
 
@@ -201,7 +201,8 @@ export async function seedDatabase() {
     }
 
     // Studios
-    for (const stName of anime.studios) {
+    for (const studioEntry of anime.studios) {
+      const stName = typeof studioEntry === 'string' ? studioEntry : studioEntry.name;
       const stSlug = stName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const studio = await prisma.studio.upsert({
         where: { slug: stSlug },

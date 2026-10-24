@@ -4,12 +4,27 @@ import type { TestUser } from './http';
 let seq = 0;
 const next = () => `${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-export async function createUser(role = 'USER'): Promise<TestUser & { role: string }> {
+// Phone-verified by default — most tests are exercising something other
+// than the phone-verification gate and would otherwise all start failing at
+// a 403 PHONE_NOT_VERIFIED before reaching whatever they're actually
+// testing. Use createUser(role, { verified: false }) for tests specifically
+// about that gate (see tests/phone-auth.test.ts).
+export async function createUser(
+  role = 'USER',
+  options: { verified?: boolean } = {}
+): Promise<TestUser & { role: string }> {
   const n = next();
-  return prisma.user.create({
-    data: { username: `user_${n}`, email: `user_${n}@test.invalid`, role },
+  const verified = options.verified ?? true;
+  const user = await prisma.user.create({
+    data: {
+      username: `user_${n}`,
+      email: `user_${n}@test.invalid`,
+      role,
+      phoneVerifiedAt: verified ? new Date() : null,
+    },
     select: { id: true, username: true, email: true, role: true },
   });
+  return { ...user, email: user.email! };
 }
 
 export async function createAnime(overrides: Record<string, unknown> = {}) {

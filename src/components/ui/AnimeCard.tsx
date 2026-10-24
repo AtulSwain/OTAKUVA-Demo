@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { Star, Plus, Check, Trash2 } from 'lucide-react';
+import { Plus, Check, Trash2, ListPlus } from 'lucide-react';
+import { CommunityScoreBadge } from '../rating/CommunityScoreBadge';
+import { AddToListModal } from '../lists/AddToListModal';
 import { Anime, UserWatchStatus } from '../../types/anime';
 import { AnimePoster } from './AnimePoster';
 import { useLibrary } from '../../context/LibraryContext';
@@ -41,6 +43,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
 }) => {
   const { getStatus, updateStatus, removeFromLibrary } = useLibrary();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [listPickerOpen, setListPickerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const rawTitle = getAnimeDisplayTitle(anime);
@@ -90,7 +93,6 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   };
 
   const animeYear = anime.year || (anime as any).startYear;
-  const animeScore = typeof anime.score === 'number' && anime.score > 0 ? anime.score.toFixed(1) : null;
   const animeType = anime.type || 'TV';
 
   if (variant === 'horizontal') {
@@ -113,15 +115,8 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             {animeYear && <span>{animeYear}</span>}
             {animeYear && <span>·</span>}
             <span>{animeType}</span>
-            {animeScore && (
-              <>
-                <span>·</span>
-                <span className={styles.scoreBadge}>
-                  <Star size={11} className={styles.starIcon} />
-                  <span>{animeScore}</span>
-                </span>
-              </>
-            )}
+            {/* Members' OTAKUVA score + retention (not the provider score). */}
+            <CommunityScoreBadge animeId={anime.id} />
           </div>
         </div>
       </Link>
@@ -142,6 +137,8 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             priority={priority}
             className={styles.posterImg}
           />
+          {/* Members' OTAKUVA score + retention on the poster (not the provider score). */}
+          <CommunityScoreBadge animeId={anime.id} variant="overlay" />
 
           {/* Contextual Quick Add / Status Toggle */}
           <button
@@ -190,15 +187,6 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             {animeYear && <span>{animeYear}</span>}
             {animeYear && <span>·</span>}
             <span>{animeType}</span>
-            {animeScore && (
-              <>
-                <span>·</span>
-                <span className={styles.scoreBadge}>
-                  <Star size={11} className={styles.starIcon} />
-                  <span>{animeScore}</span>
-                </span>
-              </>
-            )}
           </div>
         </div>
       </Link>
@@ -220,6 +208,19 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
           <div className={styles.statusDivider} />
           <button
             type="button"
+            className={styles.statusOption}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsMenuOpen(false);
+              setListPickerOpen(true);
+            }}
+          >
+            <span>Add to a list…</span>
+            <ListPlus size={12} />
+          </button>
+          <button
+            type="button"
             className={`${styles.statusOption} ${styles.removeOption}`}
             onClick={handleRemove}
           >
@@ -228,6 +229,12 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
           </button>
         </div>
       )}
+      <AddToListModal
+        isOpen={listPickerOpen}
+        onClose={() => setListPickerOpen(false)}
+        animeId={anime.id || anime.slug || ''}
+        animeTitle={displayTitle}
+      />
     </div>
   );
 };

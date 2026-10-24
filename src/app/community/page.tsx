@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Users,
   Search,
@@ -16,6 +17,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { CommunityImage } from '../../components/ui/CommunityImage';
 import styles from './community.module.css';
+import { resolveMediaUrl } from '../../lib/mediaResolver';
+import { CommunityHubNav } from '../../components/community/CommunityHubNav';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 interface CommunityItem {
   id: string;
@@ -32,17 +36,48 @@ interface CommunityItem {
   discussionCount: number;
   membershipStatus?: string | null;
   owner?: { username: string; avatarUrl?: string };
+  anime?: { slug: string; canonicalTitle: string } | null;
+  genres?: { id: string; name: string; slug: string }[];
+}
+
+interface GenreOption {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 export default function CommunityPage() {
   const { user, openAuthModal } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'discover' | 'joined' | 'popular' | 'new'>('discover');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  // ?genre=<slug> — anime pages link here to "every community for this genre".
+  const [genre, setGenre] = useState('');
+  const [urlRead, setUrlRead] = useState(false);
+  const [genres, setGenres] = useState<GenreOption[]>([]);
   const [communities, setCommunities] = useState<CommunityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchCommunities = async () => {
+  useEffect(() => {
+    setGenre(new URLSearchParams(window.location.search).get('genre') || '');
+    setUrlRead(true);
+    fetch('/api/genres')
+      .then((r) => (r.ok ? r.json() : { genres: [] }))
+      .then((d) => setGenres(d.genres || []))
+      .catch(() => {});
+  }, []);
+
+  // Keep the address bar in step so a filtered view can be shared or reloaded.
+  useEffect(() => {
+    if (!urlRead) return;
+    const url = new URL(window.location.href);
+    if (genre) url.searchParams.set('genre', genre);
+    else url.searchParams.delete('genre');
+    window.history.replaceState(null, '', url.pathname + url.search);
+  }, [genre, urlRead]);
+
+  const fetchCommunities = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -50,6 +85,7 @@ export default function CommunityPage() {
       if (activeTab === 'popular') params.set('filter', 'popular');
       if (activeTab === 'new') params.set('filter', 'new');
       if (selectedCategory !== 'ALL') params.set('category', selectedCategory);
+      if (genre) params.set('genre', genre);
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
       const res = await fetch(`/api/communities?${params.toString()}`);
@@ -62,11 +98,11 @@ export default function CommunityPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, selectedCategory, genre, searchQuery]);
 
   useEffect(() => {
-    fetchCommunities();
-  }, [activeTab, selectedCategory, user]);
+    if (urlRead) fetchCommunities();
+  }, [fetchCommunities, urlRead, user]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,11 +144,12 @@ export default function CommunityPage() {
   return (
     <div className={styles.communityPage}>
       {/* Header */}
+      <CommunityHubNav />
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.titleRow}>
             <Users size={20} className={styles.icon} />
-            <h1 className={styles.title}>COMMUNITY</h1>
+            <h1 className={styles.title}>Community</h1>
           </div>
           <p className={styles.subtitle}>
             Join organized spaces built around the anime you watch, genres you love, and topics you care about.
@@ -189,6 +226,19 @@ export default function CommunityPage() {
             {cat}
           </button>
         ))}
+        <select
+          className={`${styles.genreSelect} ${genre ? styles.genreSelectActive : ''}`}
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          aria-label="Filter by genre"
+        >
+          <option value="">All genres</option>
+          {genres.map((g) => (
+            <option key={g.id} value={g.slug}>
+              {g.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Public Discussion Banner */}
@@ -223,7 +273,7 @@ export default function CommunityPage() {
                 {/* Banner with Fallback */}
                 <div className={styles.bannerWrap}>
                   <CommunityImage
-                    src={c.bannerUrl}
+                    src={resolveMediaUrl(c.bannerUrl) || undefined}
                     type="banner"
                     communityName={c.name}
                   />
@@ -233,7 +283,7 @@ export default function CommunityPage() {
                   {/* Icon with Fallback */}
                   <div className={styles.iconWrapper}>
                     <CommunityImage
-                      src={c.iconUrl}
+                      src={resolveMediaUrl(c.iconUrl) || undefined}
                       type="icon"
                       communityName={c.name}
                     />
@@ -242,6 +292,16 @@ export default function CommunityPage() {
                   <div className={styles.cardHeaderInfo}>
                     <div className={styles.headerMetaRow}>
                       <span className={styles.categoryBadge}>{c.category}</span>
+                      {c.anime && (
+                        <Link href={`/anime/${c.anime.slug}`} className={styles.topicTag}>
+                          {c.anime.canonicalTitle}
+                        </Link>
+                      )}
+                      {(c.genres || []).slice(0, 3).map((g) => (
+                        <button key={g.id} type="button" className={styles.topicTag} onClick={() => setGenre(g.slug)}>
+                          {g.name}
+                        </button>
+                      ))}
                     </div>
                     <Link href={`/community/${c.slug}`} className={styles.nameLink}>
                       <h3 className={styles.communityName}>{c.name}</h3>
@@ -294,28 +354,35 @@ export default function CommunityPage() {
           })}
         </div>
       ) : (
-        <div className={styles.emptyCard}>
-          {activeTab === 'joined' ? (
-            <div>
-              <p className={styles.emptyTitle}>
-                You haven&apos;t joined any communities yet.
-              </p>
-              <p className={styles.emptySubtitle}>
-                Discover spaces based on your favorite anime, genres, and discussion topics.
-              </p>
-              <button
-                type="button"
-                className={styles.tabBtnActive}
-                style={{ padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}
-                onClick={() => setActiveTab('discover')}
-              >
-                Discover Communities
-              </button>
-            </div>
-          ) : (
-            <p>No communities found matching your filter.</p>
-          )}
-        </div>
+        activeTab === 'joined' ? (
+          <EmptyState
+            icon={Users}
+            title={user ? "You haven't joined any communities yet" : 'Sign in to see your communities'}
+            description="Find spaces for the anime, genres and topics you care about."
+            actionLabel={user ? 'Discover communities' : 'Sign in'}
+            onAction={() => (user ? setActiveTab('discover') : openAuthModal('login'))}
+          />
+        ) : searchQuery.trim() || selectedCategory !== 'ALL' || genre ? (
+          <EmptyState
+            icon={Users}
+            title="No communities match"
+            description="Try a different search or category — or start the community you were looking for."
+            actionLabel="Clear filters"
+            onAction={() => {
+              setSearchQuery('');
+              setSelectedCategory('ALL');
+              setGenre('');
+            }}
+          />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="No communities yet"
+            description="Start one for your favourite anime, genre or topic."
+            actionLabel="Create a community"
+            onAction={() => (user ? router.push('/community/create') : openAuthModal('register'))}
+          />
+        )
       )}
     </div>
   );

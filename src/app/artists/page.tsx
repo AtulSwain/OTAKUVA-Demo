@@ -1,253 +1,191 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Palette, Search, ArrowRight } from 'lucide-react';
-import { ScrollReveal } from '../../components/ui/ScrollReveal';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { Building2, Search, User, X } from 'lucide-react';
 import { ErrorState } from '../../components/ui/ErrorState';
-import styles from '../directory/directory.module.css';
+import styles from './artists.module.css';
 
-interface DirectoryEntry {
+/**
+ * Creators — everyone credited on anime in the catalog (directors, original
+ * creators, writers, composers, designers, animators, voice actors), most
+ * credited first. Studios have their own page (/studios).
+ */
+const ROLES = [
+  { id: 'ALL', label: 'All creators' },
+  { id: 'DIRECTOR', label: 'Directors' },
+  { id: 'ORIGINAL_CREATOR', label: 'Original creators' },
+  { id: 'WRITER', label: 'Writers' },
+  { id: 'MUSIC', label: 'Music' },
+  { id: 'CHARACTER_DESIGN', label: 'Character design' },
+  { id: 'ANIMATION', label: 'Animation' },
+  { id: 'VOICE_ACTOR', label: 'Voice actors' },
+] as const;
+
+const PAGE_SIZE = 48;
+
+interface Creator {
   id: string;
   name: string;
-  category: 'Artist' | 'Studio';
-  href: string;
-  subtitle: string;
+  slug: string;
+  nativeName: string | null;
+  imageUrl: string | null;
+  occupations?: string[];
+  creditCount?: number;
+  voiceRoleCount?: number;
+  topStaffRoles: { role: string; anime: { canonicalTitle: string } | null }[];
+  topVoiceRoles: { character: { name: string } | null }[];
 }
 
-const ALPHABET = ['ALL', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
-const CATEGORIES = ['All', 'Artist', 'Studio'] as const;
+const cleanRole = (r: string) => r.split(/,(?![^(]*\))/)[0].replace(/\s*\([^)]*\)/g, '').trim();
 
-// Builds the subtitle from verified fields only. Anything absent is simply
-// omitted rather than filled in with an assumed role, year, or location.
-function personSubtitle(person: any): string {
-  const parts: string[] = [];
+function CreatorCard({ c }: { c: Creator }) {
+  const [failed, setFailed] = useState(false);
+  const role = c.occupations?.[0] || (c.topStaffRoles[0] ? cleanRole(c.topStaffRoles[0].role) : c.topVoiceRoles.length ? 'Voice actor' : null);
+  const known = c.topStaffRoles.map((s) => s.anime?.canonicalTitle).filter(Boolean).slice(0, 2).join(', ')
+    || c.topVoiceRoles.map((v) => v.character?.name).filter(Boolean).slice(0, 2).join(', ');
+  const counts = [
+    c.creditCount ? `${c.creditCount} ${c.creditCount === 1 ? 'credit' : 'credits'}` : null,
+    c.voiceRoleCount ? `${c.voiceRoleCount} voice ${c.voiceRoleCount === 1 ? 'role' : 'roles'}` : null,
+  ].filter(Boolean).join(' · ');
 
-  const primaryRole = person.topStaffRoles?.[0]?.role;
-  if (primaryRole) parts.push(primaryRole);
-
-  const knownFor = (person.topStaffRoles || [])
-    .map((sr: any) => sr.anime?.canonicalTitle)
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(', ');
-  if (knownFor) parts.push(knownFor);
-
-  return parts.join(' · ');
+  return (
+    <Link href={`/person/${c.slug}`} className={styles.card}>
+      <span className={styles.photo}>
+        {c.imageUrl && !failed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={c.imageUrl} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+        ) : (
+          <User size={28} aria-hidden="true" />
+        )}
+      </span>
+      <span className={styles.cardText}>
+        {role && <span className={styles.role}>{role}</span>}
+        <strong>{c.name}</strong>
+        {c.nativeName && <span className={styles.native} lang="ja">{c.nativeName}</span>}
+        {known && <span className={styles.known}>{known}</span>}
+        {counts && <span className={styles.counts}>{counts}</span>}
+      </span>
+    </Link>
+  );
 }
 
-function studioSubtitle(studio: any): string {
-  const parts: string[] = [];
-  if (studio.foundedYear) parts.push(`Est. ${studio.foundedYear}`);
-  if (studio.country) parts.push(studio.country);
-  if (studio.totalAnimeCount) parts.push(`${studio.totalAnimeCount} works`);
-  return parts.join(' · ');
-}
-
-export default function ArtistsPage() {
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [selectedLetter, setSelectedLetter] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const [entries, setEntries] = useState<DirectoryEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function CreatorsPage() {
+  const [role, setRole] = useState<string>('ALL');
+  const [sort, setSort] = useState<'popular' | 'name'>('popular');
+  const [query, setQuery] = useState('');
+  const [items, setItems] = useState<Creator[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
+  const [reload, setReload] = useState(0);
+  const requestId = useRef(0);
+
+  const load = useCallback(async (nextPage: number, append: boolean) => {
+    const id = ++requestId.current;
+    setLoading(true);
+    setError(false);
+    try {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(nextPage), role });
+      if (sort === 'popular') params.set('sort', 'popular');
+      if (query.trim()) params.set('q', query.trim());
+      const res = await fetch(`/api/people?${params}`);
+      if (!res.ok) throw new Error('people request failed');
+      const data = await res.json();
+      if (id !== requestId.current) return;
+      setItems((prev) => (append ? [...prev, ...(data.people || [])] : data.people || []));
+      setTotal(data.totalCount || 0);
+      setHasMore(Boolean(data.hasMore));
+      setPage(nextPage);
+    } catch {
+      if (id === requestId.current) setError(true);
+    } finally {
+      if (id === requestId.current) setLoading(false);
+    }
+  }, [role, sort, query]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadDirectory() {
-      setIsLoading(true);
-      setError(false);
-      try {
-        const q = searchQuery.trim();
-        const suffix = q ? `&q=${encodeURIComponent(q)}` : '';
-
-        const [peopleRes, studiosRes] = await Promise.all([
-          fetch(`/api/people?limit=60${suffix}`),
-          fetch(`/api/studios?limit=60${suffix}`),
-        ]);
-
-        if (!peopleRes.ok || !studiosRes.ok) {
-          throw new Error('Directory request failed');
-        }
-
-        const [peopleData, studiosData] = await Promise.all([
-          peopleRes.json(),
-          studiosRes.json(),
-        ]);
-        if (cancelled) return;
-
-        const people: DirectoryEntry[] = (peopleData.people || []).map((p: any) => ({
-          id: `person-${p.id}`,
-          name: p.name,
-          category: 'Artist' as const,
-          href: `/person/${p.slug}`,
-          subtitle: personSubtitle(p),
-        }));
-
-        const studios: DirectoryEntry[] = (studiosData.studios || []).map((s: any) => ({
-          id: `studio-${s.id}`,
-          name: s.displayTitle || s.name,
-          category: 'Studio' as const,
-          href: `/studio/${s.slug}`,
-          subtitle: studioSubtitle(s),
-        }));
-
-        setEntries(
-          [...people, ...studios].sort((a, b) => a.name.localeCompare(b.name))
-        );
-      } catch (err) {
-        console.error('Failed to load artists directory:', err);
-        if (!cancelled) {
-          setError(true);
-          setEntries([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    const timer = setTimeout(loadDirectory, searchQuery.trim() ? 250 : 0);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [searchQuery, reloadToken]);
-
-  // Category and letter narrow the fetched set client-side; the text query is
-  // served by the API so it searches the whole catalog, not just this page.
-  const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
-      const matchCat = selectedCategory === 'All' || entry.category === selectedCategory;
-
-      let matchLetter = true;
-      if (selectedLetter !== 'ALL') {
-        const firstChar = entry.name.charAt(0).toUpperCase();
-        matchLetter = selectedLetter === '#' ? /^[0-9]/.test(firstChar) : firstChar === selectedLetter;
-      }
-
-      return matchCat && matchLetter;
-    });
-  }, [entries, selectedCategory, selectedLetter]);
-
-  const handleRetry = useCallback(() => setReloadToken((t) => t + 1), []);
+    const t = setTimeout(() => load(1, false), query.trim() ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [load, query, reload]);
 
   return (
     <div className={styles.page}>
-      {/* 1. Hero Header */}
-      <div className={styles.hero}>
-        <div className={styles.badge}>
-          <Palette size={12} />
-          <span>Artists &amp; Creators Directory</span>
+      <header className={styles.head}>
+        <div>
+          <h1>Creators</h1>
+          <p>The directors, writers, composers, designers, animators and voice actors behind the anime in the catalog.</p>
         </div>
-        <h1 className={styles.heroTitle}>Artists &amp; Creative Directory</h1>
-        <p className={styles.heroSubtitle}>
-          Index of directors, voice actors, composers, animators, and production studios recorded in the OTAKUVA catalog.
-        </p>
-      </div>
+        <Link href="/studios" className={styles.studiosLink}>
+          <Building2 size={16} aria-hidden="true" /> Studios
+        </Link>
+      </header>
 
-      {/* 2. Category Filter Bar */}
-      <div className={styles.categoryBar}>
-        {CATEGORIES.map((cat) => (
+      <nav className={styles.roles} aria-label="Filter by role">
+        {ROLES.map((r) => (
           <button
-            key={cat}
+            key={r.id}
             type="button"
-            className={`${styles.categoryPill} ${selectedCategory === cat ? styles.categoryPillActive : ''}`}
-            onClick={() => setSelectedCategory(cat)}
+            className={`${styles.roleChip} ${role === r.id ? styles.roleChipActive : ''}`}
+            aria-pressed={role === r.id}
+            onClick={() => setRole(r.id)}
           >
-            {cat}
+            {r.label}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* 3. Search & Alphabet Scrubber Row */}
-      <div className={styles.searchAlphabetRow}>
-        <div className={styles.searchBox}>
-          <Search size={14} className={styles.searchIcon} />
+      <div className={styles.toolbar}>
+        <label className={styles.search}>
+          <Search size={16} aria-hidden="true" />
           <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Filter artists, directors, studios..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            type="search"
+            placeholder="Search creators by name"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search creators"
           />
-        </div>
-
-        <div className={styles.alphabetScrubber}>
-          {ALPHABET.map((letter) => (
-            <button
-              key={letter}
-              type="button"
-              className={`${styles.alphaLetter} ${selectedLetter === letter ? styles.alphaLetterActive : ''}`}
-              onClick={() => setSelectedLetter(letter)}
-            >
-              {letter}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. Results Section */}
-      {!isLoading && !error && (
-        <div className={styles.resultsMeta}>
-          <span>
-            Showing <strong>{filteredEntries.length}</strong> matching entries
-          </span>
-          {searchQuery && (
-            <button
-              type="button"
-              className={styles.clearSearchBtn}
-              onClick={() => setSearchQuery('')}
-            >
-              Clear search
+          {query && (
+            <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+              <X size={14} />
             </button>
           )}
-        </div>
+        </label>
+        <label className={styles.sort}>
+          <span>Sort</span>
+          <select value={sort} onChange={(e) => setSort(e.target.value as 'popular' | 'name')}>
+            <option value="popular">Most credited</option>
+            <option value="name">A–Z</option>
+          </select>
+        </label>
+      </div>
+
+      {!error && (
+        <p className={styles.meta} aria-live="polite">
+          {loading && items.length === 0 ? 'Loading creators…' : `${total.toLocaleString()} ${total === 1 ? 'creator' : 'creators'}`}
+        </p>
       )}
 
-      {isLoading ? (
-        <div className={styles.resultsMeta}>
-          <span>Loading directory…</span>
-        </div>
-      ) : error ? (
-        <ErrorState
-          title="Couldn't load the directory"
-          message="The artists and studios directory is temporarily unavailable. Your library and tracking data are unaffected."
-          onRetry={handleRetry}
-        />
-      ) : filteredEntries.length > 0 ? (
-        <div className={styles.grid}>
-          {filteredEntries.map((entry, idx) => (
-            <ScrollReveal key={entry.id} delayMs={idx * 15}>
-              <Link href={entry.href} className={styles.entryCard}>
-                <div className={styles.cardTop}>
-                  <span className={`${styles.typeBadge} ${styles[`typeBadge${entry.category}`] || ''}`}>
-                    {entry.category}
-                  </span>
-                  <ArrowRight size={13} className={styles.arrowIcon} />
-                </div>
-                <h3 className={styles.cardName}>{entry.name}</h3>
-                {entry.subtitle && <p className={styles.cardSubtitle}>{entry.subtitle}</p>}
-              </Link>
-            </ScrollReveal>
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          icon={Palette}
-          title="No entries found"
-          description={
-            searchQuery.trim()
-              ? `No artists or studios in the catalog match "${searchQuery.trim()}".`
-              : 'No artists or studios have been recorded in the catalog yet.'
-          }
-          actionLabel={searchQuery.trim() ? 'Clear search' : undefined}
-          onAction={searchQuery.trim() ? () => setSearchQuery('') : undefined}
-        />
-      )}
+      {error ? (
+        <ErrorState title="Couldn't load creators" message="The creators directory is temporarily unavailable." onRetry={() => setReload((n) => n + 1)} />
+      ) : items.length > 0 ? (
+        <>
+          <div className={styles.grid}>
+            {items.map((c) => <CreatorCard key={c.id} c={c} />)}
+          </div>
+          {hasMore && (
+            <button type="button" className={styles.more} onClick={() => load(page + 1, true)} disabled={loading}>
+              {loading ? 'Loading…' : 'Load more'}
+            </button>
+          )}
+        </>
+      ) : !loading ? (
+        <p className={styles.empty}>
+          {query.trim() ? `No creators match “${query.trim()}”.` : 'No creators recorded for this role yet.'}
+        </p>
+      ) : null}
     </div>
   );
 }

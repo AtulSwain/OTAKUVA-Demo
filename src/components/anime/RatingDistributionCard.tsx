@@ -68,17 +68,7 @@ export const RatingDistributionCard: React.FC<RatingDistributionCardProps> = ({
 
       <div className={styles.scoreReviewGrid}>
         {/* Score + tier */}
-        <div
-          className={styles.scoreCard}
-          style={
-            hasScore
-              ? {
-                  background: getScoreSoftColor(score, 0.08),
-                  borderColor: getScoreSoftColor(score, 0.3),
-                }
-              : undefined
-          }
-        >
+        <div className={styles.scoreCard}>
           <span className={styles.bigScore} style={{ color: hasScore ? tierColor : undefined }}>
             {hasScore ? Number(score).toFixed(1) : '—'}
           </span>

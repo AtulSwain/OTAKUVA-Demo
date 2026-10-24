@@ -1,16 +1,16 @@
 .card {
-  background-color: var(--surface-base, #18181B);
-  border: 1px solid var(--border-default, #2A2A2E);
-  border-radius: var(--radius-md, 10px);
-  padding: var(--space-4, 16px);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 16px);
+  gap: var(--space-3, 12px);
 }
 
 @media (min-width: 640px) {
   .card {
-    padding: var(--space-5, 20px);
+    padding: 0;
   }
 }
 
@@ -62,16 +62,19 @@
   justify-content: space-between;
   gap: 10px;
   text-decoration: none;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm, 6px);
-  background-color: var(--surface-elevated, #202024);
-  border: 1px solid transparent;
+  padding: 10px 0;
+  border-radius: 0;
+  background-color: transparent;
+  border-bottom: 1px solid var(--border-subtle, #1A1D21);
   transition: all var(--transition-fast);
 }
 
+.discussionItem:last-child {
+  border-bottom: none;
+}
+
 .discussionItem:hover {
-  border-color: var(--border-hover, #3E3E44);
-  background-color: var(--surface-overlay, #27272B);
+  background-color: transparent;
 }
 
 .itemLeft {
@@ -140,9 +143,9 @@
 .repliesBadge {
   font-size: 10px;
   font-weight: 700;
-  color: var(--accent-primary-hover);
-  background-color: rgba(201, 106, 114, 0.14);
-  border: 1px solid rgba(201, 106, 114, 0.3);
+  color: var(--accent-active, #5B63FF);
+  background-color: var(--accent-active-subtle, rgba(161, 161, 170, 0.12));
+  border: 1px solid var(--border-accent, rgba(161, 161, 170, 0.35));
   padding: 3px 7px;
   border-radius: var(--radius-xs, 4px);
   flex-shrink: 0;

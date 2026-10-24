@@ -1,0 +1,53 @@
+/* Animated backgrounds for the Hype levels (2026-10-20). Quiet at rest,
+   alive when the level is picked; nothing animates for reduced motion. */
+.fx { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.25s ease; }
+.on { opacity: 1; }
+*:hover > .fx:not(.on) { opacity: 0.55; }
+
+/* ── Hyped: warm heat at the bottom + embers drifting up ── */
+.heat { position: absolute; inset: auto 0 0 0; height: 80%; background: linear-gradient(0deg, rgba(255, 90, 54, 0.32), rgba(255, 176, 32, 0.1) 55%, transparent); animation: flicker 1.8s ease-in-out infinite; }
+.ember { position: absolute; bottom: -4px; width: 3px; height: 3px; border-radius: 50%; background: #FFB020; animation: rise 2.4s linear infinite; }
+.ember:nth-child(2) { left: 14%; animation-delay: 0s; }
+.ember:nth-child(3) { left: 32%; animation-delay: 0.6s; width: 2px; height: 2px; background: #FF5A36; }
+.ember:nth-child(4) { left: 51%; animation-delay: 1.2s; }
+.ember:nth-child(5) { left: 68%; animation-delay: 0.3s; width: 2px; height: 2px; background: #FF5A36; }
+.ember:nth-child(6) { left: 82%; animation-delay: 1.6s; }
+.ember:nth-child(7) { left: 92%; animation-delay: 0.9s; width: 2px; height: 2px; }
+@keyframes rise {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-46px) translateX(4px) scale(0.4); opacity: 0; }
+}
+@keyframes flicker { 0%, 100% { opacity: 0.85; } 40% { opacity: 1; } 70% { opacity: 0.7; } }
+
+/* ── Excited: sparkles popping in and out ── */
+.spark { position: absolute; width: 4px; height: 4px; background: #FFB020; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: pop 1.9s ease-in-out infinite; }
+.spark:nth-child(1) { left: 10%; top: 22%; animation-delay: 0s; }
+.spark:nth-child(2) { left: 28%; top: 70%; animation-delay: 0.5s; width: 3px; height: 3px; }
+.spark:nth-child(3) { left: 46%; top: 18%; animation-delay: 1.1s; }
+.spark:nth-child(4) { left: 61%; top: 64%; animation-delay: 0.25s; width: 5px; height: 5px; }
+.spark:nth-child(5) { left: 76%; top: 26%; animation-delay: 0.8s; width: 3px; height: 3px; }
+.spark:nth-child(6) { left: 88%; top: 66%; animation-delay: 1.4s; }
+.spark:nth-child(7) { left: 94%; top: 14%; animation-delay: 0.6s; width: 3px; height: 3px; }
+.EXCITED.on { background: radial-gradient(ellipse at 50% 120%, rgba(255, 176, 32, 0.18), transparent 70%); }
+@keyframes pop {
+  0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+  40% { transform: scale(1.4) rotate(45deg); opacity: 1; }
+  70% { transform: scale(0.8) rotate(90deg); opacity: 0.6; }
+}
+
+/* ── Curious: a slow scanning sweep + a sonar ping ── */
+.sweep { position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: linear-gradient(90deg, transparent, rgba(63, 182, 242, 0.28), transparent); animation: sweep 2.8s ease-in-out infinite; }
+.ping { position: absolute; left: 18px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; border: 1px solid rgba(63, 182, 242, 0.7); animation: ping 2.8s ease-out infinite; }
+@keyframes sweep { 0% { left: -40%; } 60%, 100% { left: 110%; } }
+@keyframes ping { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(5); opacity: 0; } }
+
+/* ── Not for me: a quiet haze drifting by ── */
+.haze { position: absolute; inset: -50% -10%; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 6px, transparent 6px 14px); animation: drift 6s linear infinite; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(28px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .heat, .ember, .spark, .sweep, .ping, .haze { animation: none; }
+  .ember, .spark, .ping { display: none; }
+  .sweep { left: 30%; }
+}

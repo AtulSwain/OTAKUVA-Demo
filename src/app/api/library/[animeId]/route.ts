@@ -95,6 +95,20 @@ export async function PATCH(
 
     const resolvedAnimeId = anime.id;
 
+    // Server-side validation: these come straight from the client.
+    if (episodesWatched !== undefined) {
+      const cap = anime.episodes && anime.episodes > 0 ? anime.episodes : 5000;
+      if (!Number.isInteger(episodesWatched) || episodesWatched < 0 || episodesWatched > cap) {
+        return NextResponse.json(
+          { error: `episodesWatched must be a whole number from 0 to ${cap}.`, code: 'INVALID_EPISODES_WATCHED' },
+          { status: 400 }
+        );
+      }
+    }
+    if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > 5000)) {
+      return NextResponse.json({ error: 'notes must be text of at most 5000 characters.' }, { status: 400 });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.userAnime.findUnique({
         where: { userId_animeId: { userId, animeId: resolvedAnimeId } },
@@ -113,6 +127,13 @@ export async function PATCH(
         updateData.finishDate = new Date();
       }
 
+      // Finishing a series means every episode is watched: fill progress up to the
+      // known total so Episodes and Watch Time on the profile reflect it. Only when
+      // the total is on record, and never lowering progress the user already has.
+      if (normalizedStatus === 'COMPLETED' && episodesWatched === undefined && anime.episodes && anime.episodes > 0) {
+        if (!existing || existing.episodesWatched < anime.episodes) updateData.episodesWatched = anime.episodes;
+      }
+
       let updatedRecord;
       if (existing) {
         updatedRecord = await tx.userAnime.update({
@@ -125,7 +146,7 @@ export async function PATCH(
             userId,
             animeId: resolvedAnimeId,
             status: normalizedStatus || 'PLAN_TO_WATCH',
-            episodesWatched: episodesWatched || 0,
+            episodesWatched: episodesWatched ?? updateData.episodesWatched ?? 0,
             notes: notes || null,
             // Same DateTime requirement as finishDate above.
             startDate: normalizedStatus === 'WATCHING' ? new Date() : null,
@@ -150,7 +171,7 @@ export async function PATCH(
       // Handle Rating update
       if (personalRating !== undefined) {
         if (personalRating !== null && personalRating >= 0.5 && personalRating <= 10) {
-          const cleanScore = Math.round(personalRating * 2) / 2;
+          const cleanScore = Math.round(personalRating * 10) / 10;
           await tx.animeRating.upsert({
             where: { userId_animeId: { userId, animeId: resolvedAnimeId } },
             update: { rating: cleanScore, deletedAt: null },

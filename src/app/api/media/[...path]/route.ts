@@ -66,6 +66,13 @@ export async function GET(
     if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
       return new NextResponse('File not found', { status: 404 });
     }
+    // R2 rejected the API token (revoked/rolled): an upstream config problem,
+    // not a server crash — one line, not a stack trace per image request.
+    const status = err.$metadata?.httpStatusCode;
+    if (status === 401 || status === 403) {
+      console.warn(`[media] R2 rejected the configured credentials (HTTP ${status}) for ${key}. Rotate R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.`);
+      return new NextResponse('Storage credentials rejected', { status: 502 });
+    }
     console.error('Error fetching file from R2:', err);
     return new NextResponse('Error fetching file', { status: 500 });
   }

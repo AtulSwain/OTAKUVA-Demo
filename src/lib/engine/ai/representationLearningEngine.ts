@@ -87,7 +87,7 @@ export class RepresentationLearningEngine {
         },
       }),
       prisma.review.findMany({
-        where: { userId, deletedAt: null },
+        where: { userId, deletedAt: null, status: 'PUBLISHED' },
         include: {
           reviewAnalysis: true,
           anime: {

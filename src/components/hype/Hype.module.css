@@ -1,0 +1,457 @@
+/* Hype Meter + hype board (2026-10-20). Brand colours per level, no glows. */
+
+/* ── Stacked level bar ── */
+.stack { display: flex; width: 100%; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+.stack span { height: 100%; }
+.stack span + span { margin-left: 2px; }
+
+/* ── Meter (anime page) ── */
+.meter { display: flex; flex-direction: column; gap: 18px; margin-top: 22px; }
+.meterHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.meterTitle { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+.meterSub { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+.meterScore { display: flex; flex-direction: column; align-items: flex-end; }
+.meterScore strong { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.meterScore span { font-size: 12px; color: var(--text-muted); }
+.meterPending { font-size: 12px; color: var(--text-muted); }
+
+.choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.choice {
+  --c: #fff; position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px;
+  border: 1px solid var(--border-default); border-radius: 16px; background: transparent; color: var(--text-primary);
+  font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.choice:hover:not(:disabled) { border-color: var(--c); transform: translateY(-1px); }
+.choice:disabled { cursor: default; }
+.choiceOn, .choiceOn:hover:not(:disabled) { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.choiceIcon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
+.choiceText { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.choiceText strong { font-size: 14px; font-weight: 800; }
+.choiceText span { font-size: 11px; color: var(--text-muted); }
+.choiceCount { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.choiceCheck { position: absolute; top: 8px; right: 8px; color: var(--c); }
+
+.meterBarRow { display: flex; flex-direction: column; gap: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; }
+
+/* ── Board + rails (homepage) ── */
+.block { display: flex; flex-direction: column; gap: 14px; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  --c: #fff; flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 16px;
+  border: 1px solid var(--border-default); border-radius: 999px; background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.tab svg { color: var(--c); }
+.tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.tabOn, .tabOn:hover { border-color: var(--c); color: var(--text-primary); background: color-mix(in srgb, var(--c) 14%, transparent); }
+
+.rail { display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 16px; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+.card { display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start; color: inherit; text-decoration: none; }
+.poster { position: relative; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 14px; background: var(--surface-elevated); }
+.poster img { transition: transform 0.3s ease; }
+.card:hover .poster img { transform: scale(1.04); }
+.premiereChip { position: absolute; left: 8px; bottom: 8px; padding: 4px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.72); color: #fff; font-size: 11px; font-weight: 700; backdrop-filter: blur(4px); }
+.mineChip { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 800; }
+.cardBody { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cardTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; font-weight: 700; line-height: 1.3; color: var(--text-primary); }
+.cardMeta { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.cardMeta i { width: 7px; height: 7px; border-radius: 50%; }
+.cardSkeleton { aspect-ratio: 2 / 3.3; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.emptyNote { margin: 0; font-size: 14px; color: var(--text-secondary); }
+.emptyNote strong { color: var(--text-primary); }
+
+@media (max-width: 900px) {
+  .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .rail { grid-auto-columns: 140px; gap: 12px; }
+  .choice { min-height: 58px; padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .choice, .poster img { transition: none; }
+}
+.rank { position: absolute; top: 8px; left: 8px; display: grid; place-items: center; min-width: 30px; height: 26px; padding: 0 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.72); color: #fff; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; backdrop-filter: blur(4px); }
+.emptyNote { padding: 18px 0 6px; }
+
+/* ── Easier to read (2026-10-20) ── */
+.tabCount { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tabOn .tabCount { background: color-mix(in srgb, var(--c) 30%, transparent); color: var(--text-primary); }
+.tabExplain { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 2px 0 4px; font-size: 14px; color: var(--text-secondary); }
+.tabExplain strong { color: var(--text-primary); font-weight: 700; }
+.howTo { flex-basis: 100%; padding-left: 24px; font-size: 12px; color: var(--text-muted); }
+.voteLine { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.voteLine strong { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.shareBar { display: block; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.shareBar span { display: block; height: 100%; border-radius: inherit; }
+.youLine { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; }
+.emptyCard { display: flex; align-items: flex-start; gap: 14px; padding: 18px 0; }
+.emptyCard strong { font-size: 15px; color: var(--text-primary); }
+.emptyCard p { margin: 4px 0 0; max-width: 60ch; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+.emptyCard b { color: var(--text-primary); }
+.emptyIcon { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+
+/* ── Hype leaderboard ("Most Interested" style, 2026-10-20) ── */
+.leaderPanel {
+  display: flex; flex-direction: column; gap: 16px; padding: 22px 22px 24px; border-radius: 22px;
+  background: linear-gradient(120deg, rgba(180, 180, 188, 0.14), rgba(124, 124, 134, 0.06) 55%, rgba(255, 255, 255, 0.02));
+}
+.leaderHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.leaderHeading { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(20px, 2.2vw, 26px); font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); }
+.levelSelect select {
+  min-height: 40px; padding: 0 36px 0 14px; border: 1px solid var(--border-default); border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cfcfd6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color: var(--text-primary); font: inherit; font-size: 14px; font-weight: 600; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.levelSelect select:focus-visible { outline: 2px solid var(--border-hover); outline-offset: 2px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.leaderRail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(380px, 440px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; scrollbar-width: none; }
+.leaderRail::-webkit-scrollbar { display: none; }
+.leaderCard {
+  display: grid; grid-template-columns: auto 84px minmax(0, 1fr); align-items: center; gap: 16px;
+  padding: 14px 18px 14px 14px; border-radius: 18px; background: rgba(20, 20, 22, 0.55);
+  color: inherit; text-decoration: none; scroll-snap-align: start; transition: background 0.15s ease;
+}
+.leaderCard:hover { background: rgba(20, 20, 22, 0.75); }
+.rankNum {
+  min-width: 56px; text-align: center; font-size: 92px; font-weight: 900; line-height: 0.8; letter-spacing: -0.06em; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #ffffff 0%, #c9c9d2 45%, #6e6e78 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.leaderPoster { position: relative; width: 84px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 10px; background: var(--surface-elevated); }
+.leaderInfo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.leaderTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 18px; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; color: var(--text-primary); }
+.leaderMeta { font-size: 13px; color: var(--text-secondary); }
+.leaderVotes { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.leaderYou { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; }
+.leaderSkeleton { height: 152px; border-radius: 18px; background: rgba(20, 20, 22, 0.45); }
+.leaderEmpty { margin: 0; padding: 8px 0 2px; font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.leaderEmpty strong { color: var(--text-primary); }
+
+@media (max-width: 560px) {
+  .leaderPanel { padding: 18px 16px 20px; border-radius: 18px; }
+  .leaderRail { grid-auto-columns: 86%; }
+  .rankNum { min-width: 44px; font-size: 72px; }
+  .leaderCard { grid-template-columns: auto 72px minmax(0, 1fr); gap: 12px; }
+  .leaderPoster { width: 72px; }
+  .leaderTitle { font-size: 16px; }
+}
+
+/* ── Hype leaderboard, OTAKUVA style (2026-10-20, v2): on the page, no panel ── */
+.lbHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.lbKicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary); }
+.lbKicker::before { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--accent-gradient); }
+.lbHeading { margin: 0; font-size: clamp(20px, 2vw, 26px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.15; color: var(--text-primary); }
+.lbLevels { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.lbLevels::-webkit-scrollbar { display: none; }
+.lbLevel {
+  --c: #fff; flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 13px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: color 0.15s ease, background 0.15s ease;
+}
+.lbLevel:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.05); }
+.lbLevel svg { color: var(--c); }
+.lbLevelOn, .lbLevelOn:hover { color: #000; background: #fff; }
+.lbLevelOn svg { color: var(--c); }
+
+.lbCard { display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start; color: inherit; text-decoration: none; }
+.lbPoster { position: relative; display: block; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 14px; background: var(--surface-elevated); }
+.lbPoster img { transition: transform 0.3s ease; }
+.lbCard:hover .lbPoster img { transform: scale(1.04); }
+.lbRank { position: absolute; top: 0; left: 0; padding: 6px 10px 6px 9px; border-radius: 14px 0 12px 0; background: var(--accent-gradient); color: var(--accent-on); font-size: 15px; font-weight: 900; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.lbSoon { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.72); color: #fff; font-size: 11px; font-weight: 700; backdrop-filter: blur(4px); }
+.lbInfo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lbTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; font-weight: 700; line-height: 1.3; color: var(--text-primary); }
+.lbMeta { font-size: 12px; color: var(--text-muted); }
+.gauge10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.gauge10 span { height: 6px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); }
+.lbVotes { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.lbVotes strong { font-size: 13px; font-weight: 900; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.lbShare { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .lbLevelText { display: none; }
+  .lbLevel { padding: 0 11px; }
+  .lbLevelOn .lbLevelText { display: inline; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lbPoster img { transition: none; }
+}
+
+/* Black & grey theme: level colours are greys now, so text on them is dark,
+   and the active white pill shows its icon in black. */
+.mineChip { color: var(--accent-on); }
+
+/* ── Hype details + colour (2026-10-20, v3) ── */
+.lbSummary { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 13px; color: var(--text-secondary); }
+.lbSummary i { width: 8px; height: 8px; border-radius: 50%; }
+.lbLevelOn svg { color: var(--c); }
+.lbGold, .lbSilver, .lbBronze { color: #1a1205; }
+.lbGold { background: var(--medal-gold); }
+.lbSilver { background: var(--medal-silver); }
+.lbBronze { background: var(--medal-bronze); }
+.lbVotes { gap: 6px; font-size: 13px; font-weight: 600; }
+.lbVotes strong { color: inherit; font-size: 16px; }
+.lbDetail { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.lbDetail b { color: var(--text-primary); }
+.lbScore { padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); color: var(--text-primary); font-weight: 700; white-space: nowrap; }
+
+/* ── Level buttons with animated backgrounds (2026-10-20, v4) ──
+   The picked level is a dark pill tinted in its colour (so its animation
+   shows), not a plain white pill. */
+.lbLevel { position: relative; overflow: hidden; isolation: isolate; border: 1px solid transparent; }
+.lbLevelIcon, .lbLevelText { position: relative; z-index: 1; }
+.lbLevelOn, .lbLevelOn:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--c) 14%, #1b1b1e);
+  border-color: color-mix(in srgb, var(--c) 45%, transparent);
+}
+.lbLevelOn svg { color: var(--c); }
+.choice { overflow: hidden; isolation: isolate; }
+.choiceIcon, .choiceText, .choiceCount, .choiceCheck { position: relative; z-index: 1; }
+
+/* ── Anime-page Hype Meter, compact capsules (2026-10-21, owner: "smaller,
+   capsule-like") ── one row of pills: icon dot + label + vote count; the
+   picked one is tinted in its level colour with its HypeFx animation and a
+   tick in the dot. Hints are on hover (title). Colours from hypeLevels.ts. */
+.meter { gap: 12px; margin-top: 16px; }
+.meterTitle { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.meterSub { margin-top: 2px; font-size: 12px; }
+.meterScore { flex-direction: row; align-items: baseline; gap: 8px; }
+.meterScore strong { font-size: 22px; }
+.meterScore span { font-size: 11.5px; }
+
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice {
+  min-height: 0; height: 38px; padding: 0 12px 0 5px; gap: 8px;
+  border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  transition: box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.choice:hover:not(:disabled) { transform: translateY(-1px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent); }
+.choiceOn, .choiceOn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c) 16%, #18181b);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent), 0 6px 18px -10px var(--c);
+}
+.choiceIcon { width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--c) 20%, transparent); }
+.choiceOn .choiceIcon { background: var(--c); color: #111113; }
+.choiceText strong { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.choiceCount {
+  margin-left: 2px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-grid; place-items: center;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 11px; color: var(--text-secondary);
+}
+.choiceOn .choiceCount { background: color-mix(in srgb, var(--c) 30%, transparent); color: #fff; }
+
+.meterBarRow { gap: 6px; }
+.legend { gap: 2px 12px; font-size: 11px; }
+.legend i { width: 7px; height: 7px; border-radius: 50%; }
+
+@media (max-width: 900px) {
+  .choices { display: flex; }
+}
+@media (max-width: 480px) {
+  .choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice { min-height: 0; height: 38px; padding: 0 10px 0 5px; }
+}
+
+/* ── Hype pills, text only (2026-10-21, v2 — owner: just the four words,
+   neatly). Equal-width capsules with centred labels; the picked one fills
+   in its level colour (dark text on it) and keeps its HypeFx animation. */
+.choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 560px; }
+.choice {
+  justify-content: center; height: 40px; padding: 0 14px; gap: 0;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 32%, rgba(255, 255, 255, 0.08));
+}
+.choiceLabel {
+  position: relative; z-index: 1;
+  font-size: 13.5px; font-weight: 700; letter-spacing: -0.005em; line-height: 1; white-space: nowrap;
+  color: color-mix(in srgb, var(--c) 55%, #f4f4f5);
+}
+.choice:hover:not(:disabled) { background: color-mix(in srgb, var(--c) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 70%, transparent); }
+.choiceOn, .choiceOn:hover:not(:disabled) {
+  background: var(--c);
+  box-shadow: 0 8px 22px -12px var(--c), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.choiceOn .choiceLabel { color: #111113; font-weight: 800; }
+@media (max-width: 480px) {
+  .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; }
+  .choice { height: 40px; padding: 0 10px; }
+}
+
+/* Your locked-in hype (2026-10-21): only your pick, as a dark pill tinted in
+   its colour with the level's HypeFx running, its icon, and "Locked in". It
+   pops in when you've just voted. Votes are final (server enforces it). */
+.lockedRow { display: flex; }
+.locked {
+  --c: #fff; position: relative; overflow: hidden; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 6px;
+  border-radius: 999px; color: #fff;
+  background: color-mix(in srgb, var(--c) 14%, #1b1b1e);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent), 0 10px 30px -14px var(--c);
+}
+.lockedIcon, .lockedLabel, .lockedTag { position: relative; z-index: 1; }
+.lockedIcon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--c); color: #111113; animation: lockedBob 2.4s ease-in-out infinite; }
+.lockedLabel { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: color-mix(in srgb, var(--c) 45%, #fff); }
+.lockedTag {
+  display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px; margin-left: 4px;
+  border-radius: 999px; background: rgba(0, 0, 0, 0.35); color: rgba(255, 255, 255, 0.75);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+}
+.lockedFresh { animation: lockedPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.lockedFresh::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 0; pointer-events: none;
+  box-shadow: 0 0 0 0 var(--c); animation: lockedRing 1.1s ease-out 0.15s both;
+}
+@keyframes lockedPop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: none; } }
+@keyframes lockedRing { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 60%, transparent); } to { box-shadow: 0 0 0 14px transparent; } }
+@keyframes lockedBob { 50% { transform: translateY(-2px) rotate(-6deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .lockedIcon, .lockedFresh, .lockedFresh::after { animation: none; }
+}
+
+/* After voting (2026-10-21, v2 — owner: no lock; just say it): a capsule
+   banner with the level's HypeFx running behind "Okay, you are hyped for
+   this anime!". Pops in with a ring when you've just voted. */
+@keyframes votedType { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+/* ── Hype polish (2026-10-22 — owner: "make the hype section a little
+   better, don't remove anything") ──
+   Anime page: score ring in the leading feeling's colour, a hint line for the
+   hovered pill, a per-level breakdown with shares (your pick ringed), and
+   "You and N others feel the same" after voting. Homepage board: scroll
+   arrows, gauges that fill in, your pick as a badge on the poster, a softer
+   empty state. Colours only from hypeLevels.ts. */
+.meterScore { align-items: center; gap: 10px; }
+.meterScoreText { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.meterScoreText strong { font-size: 22px; line-height: 1; }
+.ring { width: 40px; height: 40px; transform: rotate(-90deg); flex: none; }
+.ringTrack { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 4; }
+.ringFill { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray 0.7s cubic-bezier(0.22, 1, 0.36, 1); animation: ringIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes ringIn { from { stroke-dasharray: 0 200; } }
+
+.hintLine { --c: var(--text-muted); display: flex; align-items: center; gap: 6px; min-height: 18px; margin: -4px 0 0; font-size: 12.5px; color: var(--text-muted); }
+.hintLine i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.hintLine b { color: color-mix(in srgb, var(--c) 55%, #fff); font-weight: 700; }
+.choice:active:not(:disabled) { transform: scale(0.97); }
+
+.meterBarRow .stack span { transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.legend { gap: 6px; }
+.legendItem {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.04); color: var(--text-secondary);
+}
+.legendItem i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.legendItem b { color: var(--text-primary); font-weight: 800; font-variant-numeric: tabular-nums; }
+.legendItem small { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.legendMine { background: color-mix(in srgb, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+
+/* Board */
+.lbControls { display: flex; align-items: center; gap: 10px; max-width: 100%; }
+.lbArrows { display: inline-flex; gap: 6px; flex: none; }
+.lbArrow {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); color: var(--text-primary); cursor: pointer; transition: background 0.15s ease, opacity 0.15s ease;
+}
+.lbArrow:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.lbArrow:disabled { opacity: 0.3; cursor: default; }
+.rail { scroll-behavior: smooth; }
+.lbPoster { transition: transform 0.2s ease; }
+.lbCard:hover .lbPoster { transform: translateY(-3px); }
+.lbPoster::after { content: ''; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55)); pointer-events: none; }
+.lbSoon { z-index: 1; }
+.lbMine {
+  position: absolute; top: 8px; right: 8px; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--c); color: #111113; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45);
+}
+.gauge10 span { transition: background-color 0.2s ease; }
+.gaugeLit { animation: segIn 0.35s ease both; animation-delay: calc(var(--i) * 45ms); }
+@keyframes segIn { from { opacity: 0; transform: scaleY(0.3); } to { opacity: 1; transform: none; } }
+.lbEmpty { display: flex; align-items: center; gap: 14px; padding: 10px 0 4px; }
+.lbEmptyIcon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); }
+.lbEmpty .leaderEmpty { padding: 0; }
+
+@media (max-width: 640px) {
+  .lbArrows { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ringFill, .gaugeLit { animation: none; }
+  .lbPoster, .meterBarRow .stack span { transition: none; }
+  .rail { scroll-behavior: auto; }
+}
+
+/* ── Premium Hype Meter panel (2026-10-22 — owner: "more premium, make it
+   different") ── its own panel under the premiere notice: kicker + title,
+   a big score ring tinted by the leading feeling, four tiles (icon, feeling,
+   what it means) whose HypeFx wakes on hover, then the breakdown. */
+/* Hairline in the four level colours along the top edge */
+
+/* Board cards (2026-10-22, owner): the vote details moved off the bottom —
+   the poster's top-right now carries just the level icon + exact count
+   (filled in the level colour when it includes your vote). */
+.lbCount {
+  --c: #fff;
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 8px;
+  border-radius: 999px; background: rgba(12, 12, 14, 0.78); backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent);
+  color: #fff; font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.lbCount svg { color: var(--c); }
+.lbCount strong { font-weight: 900; }
+.lbCountMine { background: var(--c); color: #111113; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); }
+.lbCountMine svg { color: #111113; }
+
+/* Count pill animation (2026-10-22): pops in per card (staggered by rank),
+   the number counts up, a light sweep passes every few seconds, and the icon
+   moves in its level's way — rocket lifts, party popper wiggles, telescope
+   scans, "not for me" stays still. Hover gives a little bounce. */
+.lbCount { overflow: hidden; animation: countIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; animation-delay: var(--d, 0ms); transition: transform 0.2s ease; }
+.lbCount::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 50%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: countSweep 4.5s ease-in-out infinite; animation-delay: calc(var(--d, 0ms) + 0.8s);
+}
+.lbCount svg, .lbCount strong { position: relative; z-index: 1; }
+.lbCard:hover .lbCount { transform: scale(1.08); }
+@keyframes countIn { from { opacity: 0; transform: translateY(-8px) scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes countSweep { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+
+.lbCountIcon { transform-origin: 50% 70%; }
+.lbCountHYPED .lbCountIcon { animation: rocketLift 1.8s ease-in-out infinite; }
+.lbCountEXCITED .lbCountIcon { animation: popperWiggle 1.6s ease-in-out infinite; }
+.lbCountCURIOUS .lbCountIcon { animation: scopeScan 2.6s ease-in-out infinite; }
+.lbCard:hover .lbCountIcon { animation-duration: 0.9s; }
+@keyframes rocketLift { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(1px, -2px) rotate(-6deg); } }
+@keyframes popperWiggle { 0%, 60%, 100% { transform: rotate(0deg) scale(1); } 70% { transform: rotate(-14deg) scale(1.15); } 85% { transform: rotate(10deg) scale(1.05); } }
+@keyframes scopeScan { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lbCount, .lbCount::after, .lbCountIcon { animation: none !important; }
+  .lbCount::after { display: none; }
+}
+
+/* Two levels (2026-10-22, owner): Hyped / Not hyped. Two big tiles; the
+   poster count pill runs the level's HypeFx (Hyped = heat + rising embers)
+   behind its icon and number. */
+
+.lbCount { height: 28px; padding: 0 11px 0 9px; }
+.lbCount .lbCountIcon, .lbCount strong { position: relative; z-index: 1; }
+.lbCountHYPED { background: rgba(28, 12, 8, 0.82); }
+.lbCountMine.lbCountHYPED { background: var(--c); }
+
+/* ── Hype panel, cleaner (2026-10-22, owner: "too filled") ──
+   No vote breakdown; the right side is just the hyped count (21 / 1K / 2.4K)
+   in a small flame pill. Your-vote capsule glows only inside (HypeFx) — no
+   outer shadow, no expanding ring. The two choices are capsules. */
+/* Count stays on the right, even on phones. */
+
+/* "Coming on" date + interested count, top right (2026-10-22, owner). */
+@keyframes flameFlick { 0%, 100% { transform: scale(1) rotate(0deg); } 30% { transform: scale(1.12, 1.05) rotate(-4deg); } 60% { transform: scale(0.95, 1.08) rotate(3deg); } }
+@keyframes tickIn { from { transform: scale(0); } to { transform: scale(1); } }
+/* Tick blends into the capsule (2026-10-22, owner): a soft tint of the
+   level colour with the tick in that colour — no solid green disc. */

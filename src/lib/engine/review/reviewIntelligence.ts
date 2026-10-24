@@ -8,6 +8,7 @@ import { prisma } from '../../prisma';
 import { emitEngineEvent } from '../events/eventEngine';
 import { initializeReviewCounting, withdrawIfUnpublished } from '../../badges/countingService';
 import { logger } from '../../logger';
+import { notifyFollowersOfReview } from '../../social/followService';
 export { recalculateAnimeAggregates, validateRatingScore } from '../../rating/ratingService';
 import { recalculateAnimeAggregates, validateRatingScore } from '../../rating/ratingService';
 
@@ -55,7 +56,7 @@ export interface IngestReviewInput {
   reviewType?: 'ANIME_REVIEW' | 'EPISODE_REVIEW' | 'SEASON_REVIEW';
   title: string;
   body: string;
-  rating?: number | null; // 0.5 to 10.0 in 0.5 increments, or null
+  rating?: number | null; // 0.5 to 10.0 in 0.1 steps, or null
   containsSpoiler?: boolean;
   spoilerLevel?: SpoilerLevelType;
   watchStatusAtReview?: string | null;
@@ -270,7 +271,7 @@ export async function createAndAnalyzeReview(input: IngestReviewInput) {
     resolvedEpisodeId = ep.id;
   }
 
-  // Validate rating if provided (0.5 to 10.0, 0.5 step, or null)
+  // Validate rating if provided (0.5 to 10.0, 0.1 step, or null)
   let cleanRating: number | null = null;
   if (typeof rating === 'number' && !isNaN(rating)) {
     const val = validateRatingScore(rating);
@@ -380,6 +381,9 @@ export async function createAndAnalyzeReview(input: IngestReviewInput) {
   await initializeReviewCounting(review).catch((err) =>
     logger.error('badge counting init failed', { component: 'reviews', reviewId: review.id, err })
   );
+
+  // Followers hear about it once per review (edits don't re-notify).
+  await notifyFollowersOfReview(userId, review.id);
 
   // Non-blocking Community Opinion & Rating aggregates recalculation
   recalculateCommunityOpinion(resolvedAnimeId).catch(() => {});
@@ -546,6 +550,28 @@ export async function deleteReview(userId: string, reviewId: string, isAdmin: bo
   return { success: true };
 }
 
+const HELPFUL_NOTIFY_AT = [1, 5, 10, 25, 50, 100];
+
+/** Keep the author's cached helpful-vote total fresh; notify at a few round numbers only. */
+async function notifyHelpfulMilestone(reviewId: string, authorId: string, actorId: string) {
+  if (authorId === actorId) return;
+  const [review, total] = await Promise.all([
+    prisma.review.findUnique({ where: { id: reviewId }, select: { likesCount: true, anime: { select: { slug: true, canonicalTitle: true } } } }),
+    prisma.reviewLike.count({ where: { reactionType: 'HELPFUL', review: { userId: authorId, deletedAt: null } } }),
+  ]);
+  await prisma.userBadgeStats.upsert({ where: { userId: authorId }, create: { userId: authorId, helpfulVotes: total }, update: { helpfulVotes: total } });
+  if (!review || !HELPFUL_NOTIFY_AT.includes(review.likesCount)) return;
+  await prisma.notification.create({
+    data: {
+      userId: authorId,
+      type: 'REVIEW_HELPFUL',
+      title: review.likesCount === 1 ? 'Someone found your review helpful' : `${review.likesCount} people found your review helpful`,
+      body: review.anime.canonicalTitle,
+      linkUrl: `/anime/${review.anime.slug}`,
+    },
+  });
+}
+
 /**
  * Reacts to a review (HELPFUL, LIKE, DISAGREE)
  */
@@ -611,6 +637,12 @@ export async function reactToReview(
       where: { id: reviewId },
       data: { likesCount: { increment: 1 } },
     });
+
+    if (reactionType === 'HELPFUL') {
+      await notifyHelpfulMilestone(review.id, review.userId, userId).catch((err) =>
+        logger.error('helpful notification failed', { component: 'reviews', reviewId, err })
+      );
+    }
 
     await emitEngineEvent({
       eventType: 'REVIEW_REACTION_ADDED',

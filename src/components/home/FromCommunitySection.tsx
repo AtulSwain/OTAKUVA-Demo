@@ -33,7 +33,7 @@ export const FromCommunitySection: React.FC = () => {
           <MessageSquare size={18} style={{ color: 'var(--accent-primary-hover)' }} />
           <h2 className={styles.title}>From the Community</h2>
         </div>
-        <Link href="/spaces" className={styles.viewAllLink}>
+        <Link href="/community" className={styles.viewAllLink}>
           <span>Explore Spaces</span>
           <ArrowRight size={14} />
         </Link>
@@ -49,7 +49,7 @@ export const FromCommunitySection: React.FC = () => {
           return (
             <Link
               key={item.id}
-              href={`/spaces/${item.community?.slug || 'general'}`}
+              href={`/community/${item.community?.slug || 'general'}`}
               className={styles.card}
             >
               <div className={styles.cardMeta}>

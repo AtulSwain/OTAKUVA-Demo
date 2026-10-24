@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, Plus, Shield, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { MediaPicker } from '../../../components/community/MediaPicker';
+import { CommunityTopicPicker, type TopicAnime } from '../../../components/community/CommunityTopicPicker';
+import { isCreator } from '../../../lib/roles';
+import { InviteCredentials } from '../../../components/creator/InvitePanel';
 import styles from './create.module.css';
 
 export default function CreateCommunityPage() {
@@ -16,6 +19,29 @@ export default function CreateCommunityPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('GENRE');
   const [visibility, setVisibility] = useState('PUBLIC');
+  const [topicAnime, setTopicAnime] = useState<TopicAnime | null>(null);
+  const [genreIds, setGenreIds] = useState<string[]>([]);
+
+  // "Create one" on an anime page links here with ?anime=<slug>: start from
+  // that anime and its genres (all still editable before creating).
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('anime');
+    if (!slug) return;
+    Promise.all([
+      fetch(`/api/anime/${encodeURIComponent(slug)}`).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/genres').then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([animeData, genreData]) => {
+        const a = animeData?.anime;
+        if (!a?.id) return;
+        setCategory('ANIME');
+        setTopicAnime({ id: a.id, slug: a.slug, title: a.title || a.canonicalTitle, posterUrl: a.posterImage || a.posterUrl || null, year: a.year ?? null });
+        const names: string[] = Array.isArray(a.genres) ? a.genres : [];
+        const ids = (genreData?.genres || []).filter((g: { name: string }) => names.includes(g.name)).map((g: { id: string }) => g.id);
+        setGenreIds(ids.slice(0, 5));
+      })
+      .catch(() => {});
+  }, []);
 
   // Media state
   const [iconUrl, setIconUrl] = useState<string | null>(null);
@@ -29,6 +55,9 @@ export default function CreateCommunityPage() {
   ]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Members-only communities come back with their first invitation (key shown once).
+  const [created, setCreated] = useState<{ name: string; slug: string; invitation: { path: string; key: string } } | null>(null);
+  const creator = isCreator(user?.role);
   const [error, setError] = useState<string | null>(null);
 
   const handleAddRule = () => {
@@ -74,6 +103,8 @@ export default function CreateCommunityPage() {
           description: description.trim(),
           category,
           visibility,
+          animeId: topicAnime?.id,
+          genreIds,
           iconUrl: iconUrl || undefined,
           iconSource,
           bannerUrl: bannerUrl || undefined,
@@ -87,6 +118,11 @@ export default function CreateCommunityPage() {
         throw new Error(data.error || 'Failed to create community');
       }
 
+      if (data.invitation?.key) {
+        setCreated({ name: data.community.name, slug: data.community.slug, invitation: data.invitation });
+        window.scrollTo({ top: 0 });
+        return;
+      }
       router.push(`/community/${data.community.slug}`);
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -94,6 +130,29 @@ export default function CreateCommunityPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (created) {
+    return (
+      <div className={styles.createPage}>
+        <div className={styles.formCard} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Your members-only community is ready</h1>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.55 }}>
+            Share the link and the key together with your channel members (for example in a members-only post). Anyone
+            with both can join; nobody can join with just the link.
+          </p>
+          <InviteCredentials path={created.invitation.path} accessKey={created.invitation.key} communityName={created.name} />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link href={`/community/${created.slug}`} className={styles.submitBtn} style={{ textDecoration: 'none' }}>
+              Open the community
+            </Link>
+            <Link href={`/creator/communities/${created.slug}`} className={styles.backLink}>
+              Manage invitations &amp; members
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.createPage}>
@@ -168,9 +227,29 @@ export default function CreateCommunityPage() {
               >
                 <option value="PUBLIC">Public (Anyone can join)</option>
                 <option value="REQUEST_TO_JOIN">Request to Join (Moderator approval)</option>
-                <option value="PRIVATE">Private (Invite only)</option>
+                {creator && <option value="PRIVATE">Members-only (invite link + key)</option>}
               </select>
+              {visibility === 'PRIVATE' ? (
+                <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Hidden from discovery. You get an invitation link and an access key to share with your channel
+                  members — people need both to join. There&apos;s no public Join button.
+                </p>
+              ) : !creator ? (
+                <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                  Members-only communities (invite link + key) are for <Link href="/creator">creator accounts</Link>.
+                </p>
+              ) : null}
             </div>
+          </div>
+
+          {/* What it's about: puts the community on matching anime pages */}
+          <div className={styles.field}>
+            <CommunityTopicPicker
+              anime={topicAnime}
+              onAnimeChange={setTopicAnime}
+              genreIds={genreIds}
+              onGenresChange={setGenreIds}
+            />
           </div>
 
           {/* Dual-Mode Media Pickers for Icon and Banner */}

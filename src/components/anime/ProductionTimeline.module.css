@@ -43,7 +43,10 @@
 }
 
 .timelineWrapper {
-  /* Rendered as an <ol> for semantics; no list markers. */
+  /* Rendered as an <ol> for semantics; no list markers. Nodes are a fixed
+     width (not flex:1) so 2-3 events sit inline next to each other instead
+     of stretching apart to fill the full row; overflow-x lets a longer
+     history scroll instead of squeezing every event down. */
   list-style: none;
   margin: 0;
   display: flex;
@@ -51,25 +54,32 @@
   overflow-x: auto;
   padding: 20px 10px 16px 10px;
   gap: 0;
-  scrollbar-width: thin;
+  /* No visible scrollbar (same as the anime page's other rails): Chrome's
+     standard "thin" scrollbar ignored the dark theme and drew a white bar. */
+  scrollbar-width: none;
 }
-
-.timelineWrapper::before {
-  content: "";
-  position: absolute;
-  left: 20px;
-  right: 20px;
-  top: 45px;
-  height: 2px;
-  background-color: var(--border-default, #2E2E32);
-}
+.timelineWrapper::-webkit-scrollbar { display: none; }
+.timelineWrapper:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.5); outline-offset: 4px; border-radius: 12px; }
 
 .eventNode {
   position: relative;
-  min-width: 180px;
-  flex: 1;
+  width: 200px;
+  flex: 0 0 200px;
   padding-top: 44px;
-  padding-right: 14px;
+}
+
+/* The connecting line is drawn per-node (from the previous dot to this
+   one) rather than as one bar spanning the whole row — that way it only
+   ever runs between two real events, never trailing off into empty space
+   when there are fewer events than the row has width for. */
+.eventNode:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 45px;
+  left: -184px;
+  width: 200px;
+  height: 2px;
+  background-color: var(--border-default, #2E2E32);
 }
 
 .dot {
@@ -148,3 +158,59 @@
   margin-top: 4px;
   line-height: 1.4;
 }
+
+/* Timeline fix: dot sits above the tag (no overlap), the line runs through the dot centres,
+   and text is on the shelf-language scale. */
+.section { gap: 20px; }
+.title { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }
+.subtitle { font-size: 14px; color: var(--text-secondary); }
+.timelineWrapper { padding: 12px 4px 20px; scroll-snap-type: x proximity; }
+.eventNode {
+  width: 240px;
+  flex: 0 0 240px;
+  padding-top: 52px;
+  padding-right: 20px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.eventNode:not(:first-child)::before {
+  top: 21px;
+  left: -224px;
+  width: 240px;
+  height: 2px;
+  z-index: 0;
+  background: var(--border-elevated, #2E2E39);
+}
+.dot {
+  top: 10px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  z-index: 1;
+  border: 3px solid var(--bg-primary, #141416);
+  box-shadow: none;
+}
+.badgeCategory { font-size: 11px; padding: 3px 9px; border-radius: 9999px; margin: 0 0 2px; letter-spacing: 0.08em; }
+.eventTitle { font-size: 16px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.25; }
+.eventYear { font-size: 14px; font-weight: 600; margin-top: 0; }
+.eventDesc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+@media (max-width: 640px) {
+  .eventNode { width: 200px; flex-basis: 200px; }
+  .eventNode:not(:first-child)::before { left: -184px; width: 200px; }
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 4px;
+  color: var(--text-muted, #71717A);
+  font-size: 13px;
+  border-top: 1px solid var(--border-subtle, #1B1B22);
+}
+
+/* Same section-title style as the rest of the anime page (2026-10-17). */
+.title { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }

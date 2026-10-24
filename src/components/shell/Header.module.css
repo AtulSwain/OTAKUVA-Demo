@@ -4,24 +4,24 @@
   left: 0;
   right: 0;
   z-index: 50;
-  height: var(--header-height, 64px);
-  background-color: rgba(11, 11, 12, 0.88);
+  height: var(--header-height, 60px);
+  background-color: rgba(16, 16, 18, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border-default, #2A2A2E);
+  border-bottom: 1px solid var(--border-default, #24272D);
   transition: height var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .headerHome {
-  background-color: rgba(11, 11, 12, 0.28);
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(16, 16, 18, 0.75);
+  border-bottom-color: var(--border-subtle, #1A1D21);
 }
 
 .headerScrolled {
-  height: var(--header-height-scrolled, 56px);
-  background-color: rgba(11, 11, 12, 0.96);
-  border-bottom-color: var(--border-hover, #3E3E44);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  height: var(--header-height-scrolled, 52px);
+  background-color: rgba(16, 16, 18, 0.98);
+  border-bottom-color: var(--border-default, #24272D);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
 }
 
 .headerInner {
@@ -56,9 +56,9 @@
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background-color: var(--surface-base, #171719);
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
+  background-color: var(--surface-base, #101216);
+  border: 1px solid var(--border-default, #24272D);
+  color: var(--text-secondary, #8C9097);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -82,33 +82,35 @@
 }
 
 .brandWordmark {
-  font-size: 17px;
+  font-family: var(--font-sans-family);
+  font-size: var(--font-wordmark, 23px);
   font-weight: 800;
-  letter-spacing: 0.14em;
-  color: var(--text-primary);
+  letter-spacing: 0.08em;
+  color: #FFFFFF;
   text-transform: uppercase;
 }
 
 /* Center: Desktop Navigation Bar */
-.centerNav {
+.navlinks {
   display: none;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
 }
 
-@media (min-width: 1100px) {
-  .centerNav {
+@media (min-width: 900px) {
+  .navlinks {
     display: flex;
   }
 }
 
 .navLink {
   position: relative;
-  font-size: var(--font-body-small, 13px);
-  font-weight: var(--weight-medium, 500);
-  color: var(--text-secondary, #A5A5A8);
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
+  font-family: var(--font-sans-family);
+  font-size: var(--font-nav, 15px);
+  font-weight: 500;
+  color: var(--color-text-muted, #8E949C);
+  padding: 8px;
+  border-radius: 0;
   text-decoration: none;
   transition: color var(--transition-fast), background-color var(--transition-fast);
   white-space: nowrap;
@@ -118,24 +120,32 @@
 }
 
 .navLink:hover {
-  color: var(--text-primary, #F2F2F2);
-  background-color: var(--surface-hover);
+  color: var(--color-text, #F3F0EB);
 }
 
 .navLinkActive {
-  color: var(--text-primary, #F2F2F2);
-  font-weight: var(--weight-semibold, 600);
+  color: var(--color-text, #F3F0EB);
+  font-weight: 600;
 }
 
-.navLinkActive::after {
-  content: '';
+.navLinkWithBadge {
+  padding-right: 14px;
+}
+
+.chatUnreadBadge {
   position: absolute;
-  bottom: 0px;
-  left: 12px;
-  right: 12px;
-  height: 2px;
-  background-color: var(--accent-primary, #6366F1);
-  border-radius: var(--radius-pill);
+  top: 2px;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill, 999px);
+  background-color: var(--color-accent-gold, #D6B36A);
+  color: var(--color-bg, #08090B);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
 }
 
 /* Dropdown Wrapper & Trigger */
@@ -246,7 +256,7 @@
 .rightGroup {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 18px;
   flex-shrink: 0;
 }
 
@@ -254,26 +264,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--surface-base, #171719);
-  border: 1px solid var(--border-default, #2A2A2E);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 8px;
+  color: var(--color-text-soft, #B8BDC3);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .searchTrigger:hover {
-  background-color: var(--surface-elevated);
-  border-color: var(--border-hover);
-  color: var(--text-secondary);
+  color: var(--color-text, #F3F0EB);
+}
+
+.searchTrigger svg {
+  width: 18px;
+  height: 18px;
 }
 
 .searchLabel {
+  display: none;
   font-size: var(--font-body-small);
 }
 
 .searchKbd {
+  display: none;
   font-size: 10px;
   font-weight: 600;
   font-family: inherit;
@@ -316,20 +331,22 @@
 }
 
 .authBtn {
-  font-size: var(--font-body-small);
-  font-weight: var(--weight-medium);
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  background-color: var(--surface-elevated, #1D1D20);
-  border: 1px solid var(--border-default, #2A2A2E);
-  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-soft, #B8BDC3);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .authBtn:hover {
-  background-color: var(--surface-overlay);
-  border-color: var(--border-hover);
+  color: var(--color-text, #F3F0EB);
 }
 
 /* User Account Menu */
@@ -422,7 +439,7 @@
 /* Mobile Slide-Down Overlay */
 .mobileOverlay {
   position: fixed;
-  top: var(--header-height, 64px);
+  top: var(--header-offset, 64px);
   left: 0;
   right: 0;
   bottom: 0;
@@ -520,7 +537,7 @@
   padding: 0 4px;
   border-radius: var(--radius-pill, 999px);
   background-color: var(--accent-primary, #E5484D);
-  color: #fff;
+  color: var(--accent-text);
   font-size: 9.5px;
   font-weight: 700;
   line-height: 15px;
@@ -608,3 +625,249 @@ a.notifItem:hover {
   color: var(--text-secondary);
   text-align: center;
 }
+
+/* ===== Apple TV+ treatment ===== */
+.header, .headerHome, .headerScrolled {
+  background-color: rgba(20, 20, 22, 0.55);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: none;
+}
+.headerScrolled { background-color: rgba(20, 20, 22, 0.82); }
+.headerInner { max-width: none; padding: 0 clamp(20px, 4vw, 56px); gap: 32px; }
+.leftGroup { gap: 40px; }
+.brandWordmark { font-size: 22px; font-weight: 800; letter-spacing: -0.04em; text-transform: none; }
+.navlinks { gap: 4px; margin-right: auto; }
+.navLink { padding: 8px 14px; font-size: 15px; font-weight: 500; color: rgba(245, 245, 247, 0.62); border-radius: var(--radius-pill); }
+.navLink:hover { color: #fff; }
+.navLinkActive { color: #fff; font-weight: 700; }
+.navLinkActive::after, .navLink::after { display: none; }
+.rightGroup { gap: 12px; }
+.searchTrigger { width: clamp(220px, 26vw, 340px); height: 42px; padding: 0 16px; gap: 10px; justify-content: flex-start; border: 0; border-radius: 14px; background: rgba(255, 255, 255, 0.09); color: rgba(245, 245, 247, 0.55); font-size: 14px; }
+.searchTrigger:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.searchLabel { display: inline; flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.searchKbd { display: none; }
+.authBtn { width: auto; height: 42px; padding: 0 22px; border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.14); color: #fff; font-family: var(--font-sans); font-size: 15px; font-weight: 600; cursor: pointer; transition: background var(--transition-fast); }
+.authBtn:hover { background: rgba(255, 255, 255, 0.22); }
+@media (max-width: 899px) { .searchTrigger { width: 42px; padding: 0; justify-content: center; } .searchLabel { display: none; } }
+
+/* Phone/tablet: logo flush left, menu button joins the right-hand controls. */
+@media (max-width: 1099px) {
+  .headerInner { gap: 12px; }
+  .leftGroup { display: contents; }
+  .brandLink { order: 0; margin-right: auto; }
+  .rightGroup { order: 1; }
+  .mobileMenuBtn { order: 2; }
+}
+.brandWordmark { text-transform: uppercase; letter-spacing: -0.02em; }
+
+
+/* ===== Header fit: nothing may be pushed off-screen ===== */
+.headerInner { gap: 16px; }
+.leftGroup { gap: 32px; }
+.navlinks { flex: 1 1 auto; min-width: 0; margin-right: 0; }
+.rightGroup { flex: 0 0 auto; }
+
+/* Smaller search pill: 38px tall, shrinks with the window. */
+.searchTrigger { width: clamp(170px, 17vw, 260px); height: 38px; padding: 0 12px; gap: 8px; border-radius: 12px; font-size: 13.5px; }
+.searchTrigger svg { width: 15px; height: 15px; }
+.searchKbd { display: none; }
+.authBtn { height: 38px; padding: 0 18px; font-size: 14px; }
+
+/* Wide screens have room for the shortcut hint. */
+@media (min-width: 1500px) {
+  .searchTrigger { width: 280px; }
+  .searchKbd { display: inline-block; margin-left: auto; padding: 2px 6px; font-size: 11px; font-weight: 600; color: rgba(245, 245, 247, 0.55); background: rgba(255, 255, 255, 0.08); border: 0; border-radius: 6px; }
+}
+
+/* Laptops: tighter links, and the search collapses to a round icon button so
+   it can never crowd out Sign In. */
+@media (max-width: 1360px) {
+  .navLink { padding: 8px 9px; font-size: 14px; }
+  .leftGroup { gap: 20px; }
+  .searchTrigger { width: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .searchLabel { display: none; }
+}
+@media (max-width: 899px) {
+  .searchTrigger { width: 40px; height: 40px; }
+  .authBtn { height: 40px; }
+}
+
+
+/* ===== Phone/tablet three-dots menu ===== */
+.mobileMenuBtn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 0; color: #fff; }
+.mobileMenuBtn:hover { background: rgba(255, 255, 255, 0.2); }
+
+.mobileOverlay { padding: 20px clamp(16px, 4vw, 32px) calc(96px + env(safe-area-inset-bottom)); gap: 28px; background-color: rgba(20, 20, 22, 0.97); }
+.mobileCatGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 640px) { .mobileCatGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.mobileCat {
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  min-height: 64px; padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff; text-decoration: none;
+  transition: background var(--transition-fast), transform var(--transition-micro);
+}
+.mobileCat:hover, .mobileCat:focus-visible { background: rgba(255, 255, 255, 0.13); }
+.mobileCat:active { transform: scale(0.98); }
+.mobileCat strong { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.mobileCat span { font-size: 12px; color: var(--text-secondary); }
+.mobileChipRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.mobileChip { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: var(--radius-pill); border: 1px solid var(--border-default); color: var(--text-primary); font-size: 14px; text-decoration: none; }
+.mobileChip:hover, .mobileChip:focus-visible { border-color: var(--border-hover); background: rgba(255, 255, 255, 0.06); }
+
+/* Installed app / viewport-fit=cover: the header grows by the notch inset so its content stays below it. */
+.header, .headerHome, .headerScrolled {
+  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(var(--header-height, 60px) + env(safe-area-inset-top, 0px));
+}
+.headerScrolled { height: calc(var(--header-height-scrolled, 52px) + env(safe-area-inset-top, 0px)); }
+
+/* With Studios + Articles the bar holds 10 links; between the 900px nav
+   breakpoint and ~1180px the last two (also in the menu / account button)
+   step aside so nothing collides with search and Sign In. */
+@media (max-width: 1180px) {
+  .navLinkWide { display: none; }
+}
+@media (max-width: 1000px) {
+  .navLinkMid { display: none; }
+}
+
+/* Logo mark beside the wordmark (2026-10-17). */
+.brandLink { gap: 10px; }
+.brandMark { display: block; width: 40px; height: auto; flex-shrink: 0; }
+@media (max-width: 799px) {
+  .brandMark { width: 34px; }
+}
+
+/* ===== Nav icons above labels (2026-10-18) =====
+   Same icon set as the phone bottom bar; the active item gets the same soft
+   pill. Sized to fit the 52px scrolled header. */
+.navLink {
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-width: 58px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+.navIcon { display: block; flex-shrink: 0; opacity: 0.85; transition: transform var(--transition-fast), opacity var(--transition-fast); }
+.navLabel { display: block; }
+.navLink:hover { background: var(--surface-hover); }
+.navLink:hover .navIcon { opacity: 1; transform: translateY(-1px); }
+.navLinkActive, .navLinkActive:hover { color: #fff; background: var(--surface-selected); }
+.navLinkActive .navIcon { opacity: 1; }
+.navLinkWithBadge { padding-right: 10px; }
+.navLinkWithBadge .chatUnreadBadge { top: 2px; right: calc(50% - 20px); }
+
+/* Top Picks category icons in the phone menu (2026-10-18). */
+.mobileCat { gap: 6px; }
+.mobileCat .mobileCatIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 2px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.mobileCatIcon img { width: 22px; height: auto; }
+
+/* Phone menu quick links (2026-10-18): pages the bottom bar doesn't cover,
+   as icon-over-label tiles — same visual language as the bottom bar. */
+.mobileQuickGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+@media (min-width: 640px) { .mobileQuickGrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.mobileQuick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px 2px;
+  border-radius: 16px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-micro);
+}
+.mobileQuick:hover, .mobileQuick:focus-visible { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.mobileQuick:active { transform: scale(0.96); }
+.mobileQuickIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.mobileQuickLabel {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.mobileQuickActive { color: #fff; }
+.mobileQuickActive .mobileQuickIcon { background: #fff; color: #000; }
+
+/* ===== Small phones (2026-10-18) =====
+   At 360px the row (logo + search + Sign In + ⋯) was wider than the screen,
+   so the ⋯ button got squeezed into an oval and pushed off the edge. Round
+   buttons never shrink now; the logo and spacing tighten instead. */
+.mobileMenuBtn, .searchTrigger, .authBtn, .notifTrigger, .userTrigger { flex-shrink: 0; }
+@media (max-width: 1099px) {
+  .brandLink { min-width: 0; }
+  .brandWordmark { white-space: nowrap; }
+}
+@media (max-width: 420px) {
+  .headerInner { gap: 8px; padding: 0 14px; }
+  .rightGroup { gap: 8px; }
+  .brandLink { gap: 8px; }
+  .brandMark { width: 30px; }
+  .brandWordmark { font-size: 19px; }
+  .authBtn { padding: 0 14px; }
+  .userTrigger { padding: 4px; gap: 4px; }
+}
+/* Very narrow screens: the mark alone, so every control keeps its size. */
+@media (max-width: 349px) {
+  .brandWordmark { display: none; }
+}
+/* Phone/tablet: the bell matches the round search and ⋯ buttons. */
+@media (max-width: 1099px) {
+  .notifTrigger { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.09); color: #fff; }
+}
+
+/* Creator dashboard shortcut (signed-in creators, 2026-10-24) — sits where
+   the search button was, as the same round grey control. */
+.creatorBtn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(245, 245, 247, 0.75);
+  text-decoration: none;
+  transition: background var(--transition-fast, 150ms ease), color var(--transition-fast, 150ms ease);
+}
+.creatorBtn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.creatorBtnActive, .creatorBtnActive:hover { background: #fff; color: #141416; }
+.creatorBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-width: 899px) { .creatorBtn { width: 40px; height: 40px; } }

@@ -1,0 +1,29 @@
+.hubNav {
+  display: flex;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 20px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: var(--radius-pill);
+  background: var(--surface-base);
+  border: 1px solid var(--border-subtle);
+}
+.hubNav::-webkit-scrollbar { display: none; }
+.hubLink {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.hubLink:hover { color: var(--text-primary); background: var(--surface-hover); }
+.hubLinkActive, .hubLinkActive:hover { background: #fff; color: #000; }

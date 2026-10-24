@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import {
   getConversationMessages,
   sendMessage,
@@ -54,22 +54,18 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json(
-        { error: 'Authentication required to send messages', code: 'UNAUTHENTICATED' },
-        { status: 401 }
-      );
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const conversationId = params.id;
     const body = await request.json();
-    const { content, messageType, mediaUrl, replyToId } = body;
+    const { content, messageType, mediaUrl, gifId, replyToId } = body;
 
     const message = await sendMessage(authUser.id, conversationId, {
-      content,
+      content: content || '',
       messageType,
       mediaUrl,
+      gifId,
       replyToId,
     });
 

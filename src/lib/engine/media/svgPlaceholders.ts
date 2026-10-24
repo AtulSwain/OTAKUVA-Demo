@@ -34,7 +34,7 @@ export function getEntitySvgPlaceholder(type: EntityType = 'ANIME', label?: stri
       iconPath = '<rect x="6" y="8" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 12h2v2h-2zM18 12h2v2h-2zM10 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor"/>';
       break;
     case 'CREATOR':
-      badgeColor = '#8b5cf6'; // Violet
+      badgeColor = '#A1A1AA'; // Violet
       strokeColor = '#a78bfa';
       // Pen / Quill icon
       iconPath = '<path d="M18 4l8 8-16 16H2v-8L18 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>';

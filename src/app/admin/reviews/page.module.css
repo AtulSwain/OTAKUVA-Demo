@@ -224,7 +224,7 @@
   font-size: 10px;
   font-weight: 700;
   padding: 1px 5px;
-  background-color: rgba(201, 106, 114, 0.15);
+  background-color: var(--accent-subtle, rgba(161, 161, 170, 0.15));
   color: var(--accent-hover);
   border-radius: 3px;
   align-self: flex-start;

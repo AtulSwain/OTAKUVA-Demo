@@ -1,3 +1,34 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/api\\.jikan\\.moe|graphql\\.anilist\\.co/]",
+        "message": "Don't call Jikan/AniList directly — route through src/lib/jikanService.ts or src/lib/providers/** so pacing/retry/cache behavior applies."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/api\\.jikan\\.moe|graphql\\.anilist\\.co/]",
+        "message": "Don't call Jikan/AniList directly — route through src/lib/jikanService.ts or src/lib/providers/** so pacing/retry/cache behavior applies."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/jikanService.ts", "src/lib/providers/**"],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    },
+    {
+      "files": [
+        "src/app/admin/data-sources/page.tsx",
+        "src/app/api/admin/data-sources/route.ts",
+        "src/lib/test_jikan_api_integration_master.ts"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }

@@ -195,8 +195,11 @@ export async function runCanonicalMigration() {
       }
     }
 
+    // A placeholder URL is a missing poster: store it as missing ('' — the UI
+    // shows its own placeholder) rather than substituting a stock photo,
+    // which used to be written here as if it were the anime's artwork.
     if (bestPoster.includes('example.com')) {
-      bestPoster = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800';
+      bestPoster = '';
     }
 
     // Update canonical anime with sanitized metadata

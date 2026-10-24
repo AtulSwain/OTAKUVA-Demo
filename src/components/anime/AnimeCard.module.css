@@ -148,22 +148,22 @@
   -webkit-line-clamp: 1;
 }
 
-/* List Mode */
+/* List Mode — Information-Rich Rows with Hairline Dividers (Section 42) */
 .cardList {
   display: flex;
   align-items: center;
   gap: 16px;
-  background-color: var(--surface-base, #18181B);
-  border: 1px solid var(--border-default, #2A2A2E);
-  border-radius: var(--radius-md, 8px);
-  padding: 10px 14px;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle, #1A1D21);
+  border-radius: 0;
+  padding: 12px 0;
   text-decoration: none;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast);
 }
 
 .cardList:hover {
-  background-color: var(--surface-elevated, #202024);
-  border-color: var(--border-hover, #3E3E44);
+  background-color: var(--surface-hover, rgba(255, 255, 255, 0.03));
 }
 
 .listPoster {
@@ -233,3 +233,23 @@
   color: #F59E0B;
   flex-shrink: 0;
 }
+
+
+/* ===== Apple TV+ card: artwork is the card, text underneath ===== */
+.cardGrid { background: none; border: 0; border-radius: 0; overflow: visible; }
+.cardGrid:hover { transform: none; box-shadow: none; }
+.posterWrapper {
+  border-radius: 18px;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+.cardGrid:hover .posterWrapper { transform: scale(1.04); box-shadow: 0 22px 44px -14px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.scoreBadge, .typeBadge { border: 0; border-radius: var(--radius-pill); padding: 4px 9px; background: rgba(20, 20, 26, 0.72); backdrop-filter: blur(14px); }
+.infoBlock { padding: 12px 2px 0; }
+.title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.englishTitle, .metaRow { font-size: 13px; color: var(--text-secondary, #A1A1AA); }
+@media (prefers-reduced-motion: reduce) { .posterWrapper { transition: none; } .cardGrid:hover .posterWrapper { transform: none; } }
+
+
+/* Status sits after the meta line with its own dot, not a second bullet (2026-10-17). */
+.statusItem { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }

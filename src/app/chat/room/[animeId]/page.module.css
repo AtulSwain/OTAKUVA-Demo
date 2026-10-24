@@ -1,0 +1,25 @@
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  height: calc(100vh - var(--header-offset, 64px));
+  /* dvh tracks the mobile browser's collapsing address bar; vh doesn't. */
+  height: calc(100dvh - var(--header-offset, 64px));
+  display: flex;
+  flex-direction: column;
+}
+
+.backRow {
+  padding: 10px 16px 0;
+}
+
+.backLink {
+  font-size: var(--text-label, 12px);
+  color: var(--color-text-muted, #8E949C);
+  text-decoration: none;
+}
+
+.centerState {
+  margin: auto;
+  text-align: center;
+  color: var(--color-text-muted, #8E949C);
+}

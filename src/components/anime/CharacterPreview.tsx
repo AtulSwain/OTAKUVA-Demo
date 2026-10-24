@@ -8,6 +8,8 @@ import styles from './CharacterPreview.module.css';
 
 export interface VoiceActor {
   id?: string;
+  personId?: string;
+  slug?: string;
   name: string;
   language?: string;
   imageUrl?: string | null;
@@ -51,14 +53,18 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({ char, idx, animeF
     char.character?.imageUrl ||
     animeFallbackPoster ||
     '/images/placeholder-avatar.png';
-  const charSlug = char.slug || charName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  // Never guess a slug from the display name — it won't match the real DB
+  // slug and the link 404s. Fall back to the raw id, which /character/[slug]
+  // resolves just as well as a slug.
+  const charSlug = char.slug || char.id;
   const primaryVA = Array.isArray(char.voiceActors) && char.voiceActors.length > 0 ? char.voiceActors[0] : null;
+  const vaSlug = primaryVA ? primaryVA.slug || primaryVA.personId || primaryVA.id : null;
   const initial = (charName.trim() || 'C').charAt(0).toUpperCase();
 
   return (
     <div key={`${charName}-${char.id || idx}`} className={styles.characterCard}>
       <Link
-        href={`/characters/${charSlug}`}
+        href={`/character/${charSlug}`}
         className={styles.characterLink}
         title={`${charName} (${charRole})`}
       >
@@ -88,7 +94,13 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({ char, idx, animeF
       </Link>
 
       {primaryVA && (
-        <div className={styles.vaRow} title={`Voiced by ${primaryVA.name}`}>
+        <Link
+          href={vaSlug ? `/person/${vaSlug}` : '#'}
+          className={styles.vaRow}
+          style={{ textDecoration: 'none', color: 'inherit' }}
+          title={`Voiced by ${primaryVA.name}`}
+          onClick={(e) => { if (!vaSlug) e.preventDefault(); }}
+        >
           {primaryVA.imageUrl && !vaImgError ? (
             <div className={styles.vaAvatar}>
               <Image
@@ -109,7 +121,7 @@ const CharacterCardItem: React.FC<CharacterCardItemProps> = ({ char, idx, animeF
             <span className={styles.vaName}>{primaryVA.name}</span>
             <span className={styles.vaLang}>{primaryVA.language || 'Japanese'}</span>
           </div>
-        </div>
+        </Link>
       )}
     </div>
   );

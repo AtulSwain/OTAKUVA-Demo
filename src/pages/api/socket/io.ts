@@ -41,6 +41,51 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
         }
       });
 
+      // DM / anime-room conversation subscription (OTAKUVA Chat)
+      const broadcastConversationMemberCount = (conversationId: string) => {
+        const count = io.sockets.adapter.rooms.get(`conversation:${conversationId}`)?.size || 0;
+        io.to(`conversation:${conversationId}`).emit('conversation_member_count', { conversationId, count });
+      };
+
+      socket.on('join_conversation', (conversationId: string) => {
+        if (conversationId) {
+          socket.join(`conversation:${conversationId}`);
+          broadcastConversationMemberCount(conversationId);
+        }
+      });
+
+      socket.on('leave_conversation', (conversationId: string) => {
+        if (conversationId) {
+          socket.leave(`conversation:${conversationId}`);
+          broadcastConversationMemberCount(conversationId);
+        }
+      });
+
+      // Update live member counts for any conversation rooms this socket
+      // was in once it actually disconnects (tab close, network drop) —
+      // socket.io removes it from the room automatically, but nothing else
+      // recomputes the count unless we do it here, before "rooms" clears.
+      socket.on('disconnecting', () => {
+        for (const room of socket.rooms) {
+          if (room.startsWith('conversation:')) {
+            const conversationId = room.slice('conversation:'.length);
+            setImmediate(() => broadcastConversationMemberCount(conversationId));
+          }
+        }
+      });
+
+      socket.on('conversation_typing_start', ({ conversationId, username }: { conversationId: string; username: string }) => {
+        if (conversationId && username) {
+          socket.to(`conversation:${conversationId}`).emit('conversation_user_typing', { conversationId, username });
+        }
+      });
+
+      socket.on('conversation_typing_stop', ({ conversationId, username }: { conversationId: string; username: string }) => {
+        if (conversationId && username) {
+          socket.to(`conversation:${conversationId}`).emit('conversation_user_stop_typing', { conversationId, username });
+        }
+      });
+
       // Community room subscription
       socket.on('join_community', (communityId: string) => {
         if (communityId) {

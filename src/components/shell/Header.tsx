@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Plus,
@@ -12,7 +13,7 @@ import {
   Bookmark,
   Clock,
   ChevronDown,
-  Menu,
+  MoreHorizontal,
   X,
   Flame,
   Calendar,
@@ -28,9 +29,52 @@ import {
   Star,
   MessageSquare,
   Bell,
+  Home as HomeIcon,
+  LayoutGrid,
+  Popcorn,
+  Gem,
+  Award,
+  TrendingUp,
+  Compass,
+  CalendarDays,
+  PenLine,
+  BarChart3,
+  Palette,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { BROWSE_GENRES } from '../../lib/browse';
+import { isCreator } from '../../lib/roles';
 import styles from './Header.module.css';
+
+// Category shortcuts shown in the phone/tablet menu; each opens /browse on that list.
+const MOBILE_CATEGORIES = [
+  { tab: 'top100', label: 'Top 100', hint: 'Best of all time', icon: Trophy },
+  { tab: 'binge', label: 'Binge-Worthy', hint: 'Easy to finish', icon: Popcorn },
+  { tab: 'viewed', label: 'Most Popular', hint: 'Most followed', icon: Flame },
+  { tab: 'gems', label: 'Hidden Gems', hint: 'Easy to miss', icon: Gem },
+  { tab: 'movies', label: 'Best Movies', hint: 'Top films', icon: Clapperboard },
+  { tab: 'awards', label: 'Award Winners', hint: 'Anime of the Year', icon: Award },
+  { tab: 'choice', label: 'OTAKUVA Choice', hint: 'Our picks', icon: null },
+  { tab: 'monthly', label: 'Airing Now', hint: 'This season', icon: TrendingUp },
+] as const;
+
+// Phone menu (⋯): every destination the bottom bar (Home, Explore, Schedule,
+// Library, Profile) doesn't already cover.
+const MOBILE_QUICK_LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: '/top-picks', label: 'Top Picks', icon: Trophy },
+  { href: '/browse', label: 'Browse', icon: LayoutGrid },
+  { href: '/seasonal', label: 'Seasonal', icon: CalendarDays },
+  { href: '/rankings', label: 'Rankings', icon: BarChart3 },
+  { href: '/studios', label: 'Studios', icon: Building2 },
+  { href: '/artists', label: 'Creators', icon: Palette },
+  { href: '/production', label: 'Production', icon: Clapperboard },
+  { href: '/collections', label: 'Collections', icon: Layers },
+  { href: '/news', label: 'News', icon: Newspaper },
+  { href: '/articles', label: 'Articles', icon: PenLine },
+  { href: '/community', label: 'Community', icon: Users },
+  { href: '/discussions', label: 'Discussions', icon: MessageSquare },
+];
 
 interface HeaderProps {
   onOpenSearch: () => void;
@@ -63,6 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
   const { user, openAuthModal, logout } = useAuth();
   
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMac, setIsMac] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -70,6 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const megaMenuRef = useRef<HTMLDivElement>(null);
@@ -99,6 +145,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
     loadNotifications();
   }, [loadNotifications]);
 
+  // Unread OTAKUVA Chat total (DMs + anime rooms), summed client-side from
+  // the same per-conversation unreadCount ChatList uses — refetched whenever
+  // the user navigates so the badge doesn't go stale while reading a thread.
+  useEffect(() => {
+    if (!user) {
+      setChatUnreadCount(0);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/conversations', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const total = (data?.conversations || []).reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+        setChatUnreadCount(total);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user, pathname]);
+
   // Opening the tray marks everything read via the POST the API already exposes.
   const handleToggleNotifications = async () => {
     const opening = !isNotifOpen;
@@ -116,6 +184,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
       }
     }
   };
+
+  // Show the shortcut that actually works on this machine (Cmd+K vs Ctrl+K).
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent));
+  }, []);
 
   // Scroll listener for sticky compacting
   useEffect(() => {
@@ -156,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
     return pathname.startsWith(href);
   };
 
-  const isExploreGroupActive = ['/seasonal', '/airing', '/rankings', '/collections'].some((p) =>
+  const isExploreGroupActive = ['/seasonal', '/schedule', '/rankings', '/collections'].some((p) =>
     pathname?.startsWith(p) ?? false
   );
 
@@ -172,100 +245,149 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
             type="button"
             className={styles.mobileMenuBtn}
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            aria-label="Toggle navigation menu"
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isMobileMenuOpen}
           >
-            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {isMobileMenuOpen ? <X size={20} /> : <MoreHorizontal size={20} />}
           </button>
 
-          <Link href="/" className={styles.brandLink}>
+          <Link href="/" className={styles.brandLink} aria-label="OTAKUVA home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/otakuva-mark.png"
+              srcSet="/brand/otakuva-mark.png 1x, /brand/otakuva-mark@2x.png 2x"
+              alt=""
+              width={44}
+              height={34}
+              className={styles.brandMark}
+            />
             <span className={styles.brandWordmark}>OTAKUVA</span>
           </Link>
         </div>
 
         {/* Center: Desktop Top Navigation */}
-        <nav className={styles.centerNav} aria-label="Main Navigation">
+        <nav className={styles.navlinks} aria-label="Main Navigation">
           <Link
             href="/"
             className={`${styles.navLink} ${pathname === '/' ? styles.navLinkActive : ''}`}
           >
-            Home
+            <HomeIcon className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Home</span>
           </Link>
 
           <Link
-            href="/explore"
-            className={`${styles.navLink} ${isLinkActive('/explore') ? styles.navLinkActive : ''}`}
+            href="/top-picks"
+            className={`${styles.navLink} ${isLinkActive('/top-picks') ? styles.navLinkActive : ''}`}
           >
-            Explore
+            <Trophy className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Top Picks</span>
+          </Link>
+
+          <Link
+            href="/browse"
+            className={`${styles.navLink} ${styles.navLinkMid} ${isLinkActive('/browse') ? styles.navLinkActive : ''}`}
+          >
+            <LayoutGrid className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Browse</span>
           </Link>
 
           <Link
             href="/anime"
-            className={`${styles.navLink} ${isLinkActive('/anime') ? styles.navLinkActive : ''}`}
+            className={`${styles.navLink} ${styles.navLinkMid} ${isLinkActive('/anime') ? styles.navLinkActive : ''}`}
           >
-            Anime
+            <Compass className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Explore</span>
           </Link>
 
           <Link
             href="/studios"
             className={`${styles.navLink} ${isLinkActive('/studios') || isLinkActive('/studio') ? styles.navLinkActive : ''}`}
           >
-            Studios
-          </Link>
-
-          <Link
-            href="/production"
-            className={`${styles.navLink} ${isLinkActive('/production') ? styles.navLinkActive : ''}`}
-          >
-            Production
+            <Building2 className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Studios</span>
           </Link>
 
           <Link
             href="/schedule"
             className={`${styles.navLink} ${isLinkActive('/schedule') ? styles.navLinkActive : ''}`}
           >
-            Schedule
-          </Link>
-
-          <Link
-            href="/artists"
-            className={`${styles.navLink} ${isLinkActive('/artists') || isLinkActive('/directory') || isLinkActive('/person') || isLinkActive('/people') || isLinkActive('/creator') ? styles.navLinkActive : ''}`}
-          >
-            Artists
+            <CalendarDays className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Schedule</span>
           </Link>
 
           <Link
             href="/news"
             className={`${styles.navLink} ${isLinkActive('/news') ? styles.navLinkActive : ''}`}
           >
-            News
+            <Newspaper className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>News</span>
+          </Link>
+
+          <Link
+            href="/articles"
+            className={`${styles.navLink} ${isLinkActive('/articles') ? styles.navLinkActive : ''}`}
+          >
+            <PenLine className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Articles</span>
           </Link>
 
           <Link
             href="/community"
-            className={`${styles.navLink} ${isLinkActive('/community') || isLinkActive('/spaces') ? styles.navLinkActive : ''}`}
+            className={`${styles.navLink} ${styles.navLinkMid} ${styles.navLinkWithBadge} ${isLinkActive('/community') || isLinkActive('/spaces') ? styles.navLinkActive : ''}`}
+            aria-label={chatUnreadCount > 0 ? `Community, ${chatUnreadCount} unread chat messages` : 'Community'}
           >
-            Community
+            <Users className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Community</span>
+            {chatUnreadCount > 0 && (
+              <span className={styles.chatUnreadBadge}>{chatUnreadCount > 9 ? '9+' : chatUnreadCount}</span>
+            )}
+          </Link>
+
+          <Link
+            href="/library"
+            className={`${styles.navLink} ${styles.navLinkWide} ${isLinkActive('/library') ? styles.navLinkActive : ''}`}
+          >
+            <Bookmark className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Library</span>
+          </Link>
+
+          <Link
+            href="/profile/you"
+            className={`${styles.navLink} ${styles.navLinkWide} ${isLinkActive('/profile') ? styles.navLinkActive : ''}`}
+          >
+            <User className={styles.navIcon} size={18} aria-hidden="true" />
+            <span className={styles.navLabel}>Profile</span>
           </Link>
         </nav>
 
-        {/* Right: Search, Library, User Avatar */}
+        {/* Right: Search and profile */}
         <div className={styles.rightGroup}>
-          <button
-            type="button"
-            className={styles.searchTrigger}
-            onClick={onOpenSearch}
-            aria-label="Open Command Search (Cmd+K)"
-          >
-            <Search size={14} />
-            <span className={styles.searchLabel}>Search</span>
-            <kbd className={styles.searchKbd}>⌘K</kbd>
-          </button>
-
-          <Link href="/library" className={styles.libraryNavLink}>
-            <Bookmark size={14} />
-            <span>Library</span>
-          </Link>
+          {/* Signed in (owner, 2026-10-24): no header search — creators get a
+              shortcut to their dashboard in its place, other members get
+              nothing extra. Signed out: search, except on the homepage
+              (its masthead has one). Ctrl/Cmd+K still opens search for all. */}
+          {user && isCreator(user.role) && (
+            <Link
+              href={`/profile/${encodeURIComponent(user.username)}?tab=dashboard`}
+              className={`${styles.creatorBtn} ${(pathname?.startsWith('/creator') || pathname === `/profile/${user.username}`) ? styles.creatorBtnActive : ''}`}
+              aria-label="Creator dashboard"
+              title="Creator dashboard"
+            >
+              <Clapperboard size={17} aria-hidden="true" />
+            </Link>
+          )}
+          {!user && pathname !== '/' && (
+            <button
+              type="button"
+              className={styles.searchTrigger}
+              onClick={onOpenSearch}
+              aria-label={`Search (${isMac ? 'Cmd' : 'Ctrl'}+K)`}
+            >
+              <Search size={14} />
+              <span className={styles.searchLabel}>Search titles, genres, studios</span>
+              <kbd className={styles.searchKbd}>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+            </button>
+          )}
 
           {/* Notification tray — where a community owner sees join requests */}
           {user && (
@@ -391,6 +513,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
                     <span>Settings</span>
                   </Link>
 
+                  {/* Creator Mode: the dashboard for creators, the way in for everyone else. */}
+                  <Link
+                    href={isCreator(user.role) ? `/profile/${encodeURIComponent(user.username)}?tab=dashboard` : '/creator'}
+                    className={styles.dropdownLink}
+                    onClick={() => setIsUserMenuOpen(false)}
+                  >
+                    <Clapperboard size={14} />
+                    <span>{isCreator(user.role) ? 'Creator dashboard' : 'Become a creator'}</span>
+                  </Link>
+
                   <div className={styles.dropdownDivider} />
 
                   <button
@@ -413,6 +545,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
               type="button"
               className={styles.authBtn}
               onClick={() => openAuthModal()}
+              aria-label="Sign In"
             >
               Sign In
             </button>
@@ -421,47 +554,72 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
       </div>
 
       {/* Mobile Slide-Down Navigation Overlay */}
-      {isMobileMenuOpen && (
-        <div className={styles.mobileOverlay} role="dialog" aria-modal="true">
+      {/* Portalled to <body>: the header's backdrop-filter would otherwise
+          become the containing block for this fixed overlay and squash it. */}
+      {isMobileMenuOpen && typeof document !== 'undefined' && createPortal(
+        <div className={styles.mobileOverlay} role="dialog" aria-modal="true" aria-label="Menu">
+          <nav className={styles.mobileQuickGrid} aria-label="More pages">
+            {MOBILE_QUICK_LINKS.map(({ href, label, icon: Icon }) => {
+              const active = isLinkActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`${styles.mobileQuick} ${active ? styles.mobileQuickActive : ''}`}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className={styles.mobileQuickIcon} aria-hidden="true">
+                    <Icon size={20} />
+                  </span>
+                  <span className={styles.mobileQuickLabel}>{label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
           <div className={styles.mobileNavGroup}>
-            <span className={styles.mobileGroupLabel}>Discover</span>
-            <Link href="/" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Home</span>
-            </Link>
-            <Link href="/explore" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Explore</span>
-            </Link>
-            <Link href="/anime" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Anime</span>
-            </Link>
+            <span className={styles.mobileGroupLabel}>Top Picks</span>
+            <div className={styles.mobileCatGrid}>
+              {MOBILE_CATEGORIES.map((cat) => (
+                <Link
+                  key={cat.tab}
+                  href={`/top-picks?tab=${cat.tab}`}
+                  className={styles.mobileCat}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className={styles.mobileCatIcon} aria-hidden="true">
+                    {cat.icon ? (
+                      <cat.icon size={18} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src="/brand/otakuva-mark.png" alt="" width={24} height={19} />
+                    )}
+                  </span>
+                  <strong>{cat.label}</strong>
+                  <span>{cat.hint}</span>
+                </Link>
+              ))}
+            </div>
           </div>
 
           <div className={styles.mobileNavGroup}>
-            <span className={styles.mobileGroupLabel}>Industry</span>
-            <Link href="/studios" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Studios</span>
-            </Link>
-            <Link href="/production" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Production</span>
-            </Link>
-            <Link href="/artists" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Artists</span>
-            </Link>
+            <span className={styles.mobileGroupLabel}>Genres</span>
+            <div className={styles.mobileChipRow}>
+              {BROWSE_GENRES.map((g) => (
+                <Link
+                  key={g}
+                  href={`/anime?genre=${encodeURIComponent(g)}`}
+                  className={styles.mobileChip}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {g}
+                </Link>
+              ))}
+            </div>
           </div>
-
-          <div className={styles.mobileNavGroup}>
-            <span className={styles.mobileGroupLabel}>Content &amp; Community</span>
-            <Link href="/news" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>News</span>
-            </Link>
-            <Link href="/community" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Community</span>
-            </Link>
-            <Link href="/library" className={styles.mobileNavLink} onClick={() => setIsMobileMenuOpen(false)}>
-              <span>Library</span>
-            </Link>
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

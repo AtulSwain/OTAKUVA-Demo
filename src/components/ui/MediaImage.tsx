@@ -50,7 +50,6 @@ export const MediaImage: React.FC<MediaImageProps> = ({
     setIsLoading(false);
   };
 
-  const isSvg = activeSrc.startsWith('data:image/svg+xml');
 
   if (fill) {
     return (
@@ -62,7 +61,7 @@ export const MediaImage: React.FC<MediaImageProps> = ({
           priority={priority}
           sizes={sizes || '(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw'}
           className={className}
-          unoptimized={isSvg}
+          unoptimized
           onLoad={() => setIsLoading(false)}
           onError={handleError}
           style={{
@@ -84,7 +83,7 @@ export const MediaImage: React.FC<MediaImageProps> = ({
       priority={priority}
       sizes={sizes}
       className={className}
-      unoptimized={isSvg}
+      unoptimized
       onLoad={() => setIsLoading(false)}
       onError={handleError}
       style={{

@@ -25,8 +25,6 @@ const getCategoryIcon = (category?: string) => {
 };
 
 export const ProductionTimeline: React.FC<ProductionTimelineProps> = ({ events }) => {
-  if (events.length === 0) return null;
-
   return (
     <div className={styles.section} aria-label="Timeline">
       <div className={styles.sectionHead}>
@@ -39,19 +37,27 @@ export const ProductionTimeline: React.FC<ProductionTimelineProps> = ({ events }
         </div>
       </div>
 
-      <ol className={styles.timelineWrapper}>
-        {events.map((evt, idx) => (
-          <li key={`${evt.sortKey}-${idx}`} className={styles.eventNode}>
-            <div className={`${styles.dot} ${styles[`dot_${evt.category || 'default'}`]}`}>
-              {getCategoryIcon(evt.category)}
-            </div>
-            <span className={styles.badgeCategory}>{evt.category || 'Milestone'}</span>
-            <strong className={styles.eventTitle}>{evt.title}</strong>
-            <span className={styles.eventYear}>{evt.year}</span>
-            {evt.description && <span className={styles.eventDesc}>{evt.description}</span>}
-          </li>
-        ))}
-      </ol>
+      {events.length === 0 ? (
+        <div className={styles.emptyState}>
+          <Calendar size={18} aria-hidden="true" />
+          <span>No recorded timeline events for this title yet.</span>
+        </div>
+      ) : (
+        // Focusable so keyboard users can scroll a long history with the arrow keys.
+        <ol className={styles.timelineWrapper} tabIndex={0} aria-label="Timeline events">
+          {events.map((evt, idx) => (
+            <li key={`${evt.sortKey}-${idx}`} className={styles.eventNode}>
+              <div className={`${styles.dot} ${styles[`dot_${evt.category || 'default'}`]}`}>
+                {getCategoryIcon(evt.category)}
+              </div>
+              <span className={styles.badgeCategory}>{evt.label || evt.category || 'Milestone'}</span>
+              <strong className={styles.eventTitle}>{evt.title}</strong>
+              <span className={styles.eventYear}>{evt.year}</span>
+              {evt.description && <span className={styles.eventDesc}>{evt.description}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 };

@@ -1,0 +1,62 @@
+/* Browse — category directory (2026-10-18). Same tokens as Top Picks. */
+.page { width: 100%; margin: 0 auto; padding: 24px 0 96px; }
+.head h1 { margin: 0; font-size: clamp(36px, 5vw, 56px); font-weight: 800; letter-spacing: -0.04em; }
+.head p { margin: 8px 0 0; max-width: 70ch; color: var(--text-secondary); font-size: 17px; line-height: 1.5; }
+.head a { color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
+
+.jump { display: flex; gap: 8px; margin-top: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.jump::-webkit-scrollbar { display: none; }
+.jump a { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.1); color: var(--text-primary); font-size: 14px; font-weight: 600; text-decoration: none; transition: background var(--transition-fast); }
+.jump a:hover { background: rgba(255, 255, 255, 0.18); }
+
+.section { margin-top: 48px; scroll-margin-top: calc(var(--header-offset, 72px) + 16px); }
+.section h2 { margin: 0 0 18px; font-size: clamp(22px, 3vw, 28px); font-weight: 700; letter-spacing: -0.03em; }
+
+/* Genres: artwork tiles */
+.genreGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.genreTile { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius-lg); color: #fff; text-decoration: none; isolation: isolate; }
+.genreImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; transition: transform var(--transition-base, 0.3s) ease; }
+.genreShade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.25) 55%, rgba(0, 0, 0, 0.1) 100%); }
+.genreText { position: absolute; left: 16px; right: 16px; bottom: 14px; display: flex; flex-direction: column; gap: 2px; }
+.genreText strong { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+.genreText span { font-size: 13px; color: rgba(255, 255, 255, 0.78); }
+.genreTile:hover .genreImg { transform: scale(1.05); }
+
+/* Formats + seasons: icon tiles */
+.tileGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.tile { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 14px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-base); color: var(--text-primary); text-decoration: none; transition: border-color var(--transition-fast), transform var(--transition-fast); }
+.tile:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.tileIcon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px; background: var(--pill-bg); }
+.tileText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.tileText strong { font-size: 16px; font-weight: 700; }
+.tileText span { font-size: 13px; color: var(--text-secondary); }
+
+/* Decades */
+.decadeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.decade { display: flex; flex-direction: column; gap: 4px; padding: 18px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-base); color: var(--text-primary); text-decoration: none; transition: border-color var(--transition-fast), transform var(--transition-fast); }
+.decade:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.decade strong { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; }
+.decade span { font-size: 13px; color: var(--text-secondary); }
+
+/* Themes */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: var(--radius-pill); border: 1px solid var(--border-default); color: var(--text-primary); font-size: 14px; font-weight: 500; text-decoration: none; transition: border-color var(--transition-fast); }
+.chip span { color: var(--text-muted); font-size: 13px; }
+.chip:hover { border-color: var(--border-hover); }
+
+@media (max-width: 640px) {
+  .section { margin-top: 36px; }
+  .genreGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .genreText { left: 12px; right: 12px; bottom: 10px; }
+  .genreText strong { font-size: 16px; }
+  .tileGrid { grid-template-columns: 1fr; }
+  .decadeGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (hover: none) {
+  .tile:hover, .decade:hover { transform: none; }
+  .genreTile:hover .genreImg { transform: none; }
+}
+
+/* Search bar (same as Explore) */
+.search { display: flex; margin-top: 24px; max-width: 880px; }

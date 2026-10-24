@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
 import '../styles/globals.css';
 import { AppShell } from '../components/shell/AppShell';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-geist-sans',
-  display: 'swap',
-});
+import { inter } from './fonts';
 
 export const metadata: Metadata = {
   title: 'OTAKUVA — Track what you watch.',
@@ -19,12 +13,18 @@ export const metadata: Metadata = {
     description: 'A premium digital archive for anime and the people who watch it.',
     type: 'website',
   },
+  applicationName: 'OTAKUVA',
+  // Installed to the home screen (and the basis for a store wrapper later).
+  appleWebApp: { capable: true, title: 'OTAKUVA', statusBarStyle: 'black-translucent' },
+  formatDetection: { telephone: false, email: false, address: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#08090A',
+  themeColor: '#141416',
   width: 'device-width',
   initialScale: 1,
+  // Draw under the notch / home bar; safe-area padding keeps content clear of them.
+  viewportFit: 'cover',
   // On-screen keyboards resize the page instead of covering docked UI
   // such as the mobile reply composer.
   interactiveWidget: 'resizes-content',
@@ -37,7 +37,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>
+      <body className={inter.className}>
         <AppShell>{children}</AppShell>
       </body>
     </html>

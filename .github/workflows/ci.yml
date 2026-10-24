@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Required status check — see this repo's branch protection settings
+  # once it has a GitHub remote (Settings → Branches → protect `main` →
+  # require this check to pass before merging). A workflow file alone
+  # can't turn "the check runs" into "the check is required"; that's a
+  # separate, one-time repo setting.
+  test:
+    name: typecheck, lint, test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: otakuva
+          # Throwaway CI container — its own password, unrelated to any real database.
+          POSTGRES_PASSWORD: ci_throwaway_container
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql://otakuva:ci_throwaway_container@127.0.0.1:5432/postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Flags known high/critical-severity vulnerabilities in dependencies
+      # so they surface on every PR/push instead of being found manually
+      # during an audit. Runs as its own job (not a step in `test`) so a
+      # newly-disclosed advisory in an existing dependency can fail this
+      # job on its own, without needing a code change to trigger it, and
+      # without blocking the test job's result.
+      #
+      # continue-on-error: as of 2026-09-16 this already reports 5
+      # high/1 critical findings — chiefly `next` itself, fixable only via
+      # a breaking upgrade to next@16.3.5 (see `npm audit` output), plus
+      # postcss/js-yaml. Flip this to blocking once that upgrade is done;
+      # until then the point is visibility (check this job's output/
+      # summary on every run) rather than gating merges on an upgrade
+      # nobody has scoped yet.
+      - name: npm audit (high/critical)
+        run: npm audit --audit-level=high
+        continue-on-error: true

@@ -1,5 +1,5 @@
 .wrap { display: flex; flex-direction: column; gap: 16px; }
-.card { padding: 20px; border-radius: 16px; background: var(--surface-base); border: 1px solid var(--border-default); display: flex; flex-direction: column; gap: 14px; }
+.card { padding: 20px; border-radius: 22px; background: var(--surface-base); border: 0; display: flex; flex-direction: column; gap: 14px; }
 .title { margin: 0; font-size: 14px; font-weight: 600; }
 .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

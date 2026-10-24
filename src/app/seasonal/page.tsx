@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Calendar } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { AnimeCard } from '../../components/ui/AnimeCard';
@@ -9,14 +10,39 @@ import { QuickViewModal } from '../../components/ui/QuickViewModal';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import styles from './seasonal.module.css';
+import { PageHead } from '../../components/ui/PageHead';
 
 const SEASONS = ['Winter', 'Spring', 'Summer', 'Fall'] as const;
-const YEARS = ['2026', '2025', '2024', '2023', '2022', '2021', '2020'];
+type Season = (typeof SEASONS)[number];
+
+// Opens on the season that's airing now (was hardcoded to Winter 2024, so
+// the page always opened on an empty, outdated season). Next year is listed
+// too, for announced titles.
+const NOW = new Date();
+const CURRENT_YEAR = NOW.getFullYear();
+const CURRENT_SEASON: Season = SEASONS[Math.floor(NOW.getMonth() / 3)];
+const YEARS = Array.from({ length: 12 }, (_, i) => String(CURRENT_YEAR + 1 - i));
+
+/** ?season=fall&year=2025 (any case) — also what /anime/seasonal links redirect with. */
+function seasonFromParam(v: string | null): Season | null {
+  const match = SEASONS.find((s) => s.toLowerCase() === (v || '').toLowerCase());
+  return match || null;
+}
 const TYPES = ['All', 'TV', 'Movie', 'ONA', 'OVA'] as const;
 
 export default function SeasonalPage() {
-  const [selectedSeason, setSelectedSeason] = useState<typeof SEASONS[number]>('Winter');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  return (
+    <Suspense fallback={null}>
+      <SeasonalContent />
+    </Suspense>
+  );
+}
+
+function SeasonalContent() {
+  const searchParams = useSearchParams();
+  const yearParam = searchParams?.get('year') || '';
+  const [selectedSeason, setSelectedSeason] = useState<Season>(seasonFromParam(searchParams?.get('season') ?? null) || CURRENT_SEASON);
+  const [selectedYear, setSelectedYear] = useState(/^\d{4}$/.test(yearParam) ? yearParam : String(CURRENT_YEAR));
   const [selectedType, setSelectedType] = useState<typeof TYPES[number]>('All');
   const [animes, setAnimes] = useState<Anime[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,13 +93,9 @@ export default function SeasonalPage() {
     <div className={styles.seasonalPage}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.titleRow}>
-          <Calendar size={22} className={styles.headerIcon} />
-          <h1 className={styles.title}>Seasonal Anime Intelligence</h1>
-        </div>
-        <p className={styles.subtitle}>
-          Explore quarterly seasonal schedules, premiere windows, and popular broadcasts across the anime industry.
-        </p>
+        <PageHead kicker="By season" title="Seasonal anime">
+          Every season&apos;s line-up — premieres, returning shows and what&apos;s popular.
+        </PageHead>
       </div>
 
       {/* Seasonal Controls Bar */}
@@ -102,7 +124,7 @@ export default function SeasonalPage() {
             onChange={(e) => setSelectedYear(e.target.value)}
             aria-label="Select broadcast year"
           >
-            {YEARS.map((y) => (
+            {(YEARS.includes(selectedYear) ? YEARS : [...YEARS, selectedYear]).map((y) => (
               <option key={y} value={y}>
                 {y} Season
               </option>

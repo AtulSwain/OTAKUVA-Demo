@@ -83,7 +83,7 @@ export default function NotFound() {
         </Link>
 
         <Link
-          href="/explore"
+          href="/anime"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

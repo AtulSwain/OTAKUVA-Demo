@@ -4,34 +4,23 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
-  Users,
-  MessageSquare,
-  Plus,
-  Check,
-  Shield,
-  Clock,
-  Hash,
-  Share2,
-  Lock,
-  ArrowLeft,
-  Pin,
-  ChevronRight,
-  Flame,
-  Star,
-  Send,
-  Loader2,
-  Settings,
-  Edit,
-} from 'lucide-react';
+import { MessageSquare, Check, ArrowLeft, Pin, Menu } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { SocketProvider } from '../../../context/SocketContext';
-import { SpoilerBlock } from '../../../components/community/SpoilerBlock';
-import { CommunityImage } from '../../../components/ui/CommunityImage';
+import { CommunityBadgeMembers } from '../../../components/community/CommunityBadgeMembers';
 import { MediaPicker } from '../../../components/community/MediaPicker';
-import { CommunityChatView } from '../../../components/community/CommunityChatView';
+import { CommunityTopicPicker, type TopicAnime } from '../../../components/community/CommunityTopicPicker';
+import { CommunityChatView, type ChannelItem } from '../../../components/community/CommunityChatView';
+import { CommunityServerRail } from '../../../components/community/CommunityServerRail';
+import {
+  CommunityChannelSidebar,
+  type WorkspaceView,
+} from '../../../components/community/CommunityChannelSidebar';
+import { CommunityMemberList } from '../../../components/community/CommunityMemberList';
+import { CommunityEntrySplash } from '../../../components/community/CommunityEntrySplash';
 import styles from './communitySlug.module.css';
+import { resolveAvatarUrl } from '../../../lib/mediaResolver';
 
 interface CommunityDetail {
   id: string;
@@ -77,19 +66,16 @@ export default function CommunitySlugPage() {
   const { showToast } = useToast();
 
   const [community, setCommunity] = useState<CommunityDetail | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'discussions' | 'members' | 'about' | 'manage'>('discussions');
-  const [selectedChannel, setSelectedChannel] = useState<string>('all');
+  const [view, setView] = useState<WorkspaceView>('chat');
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [discussions, setDiscussions] = useState<DiscussionItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // New Discussion Composer
-  const [showComposer, setShowComposer] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newBody, setNewBody] = useState('');
-  const [newType, setNewType] = useState('GENERAL');
-  const [newSpoiler, setNewSpoiler] = useState('NO_SPOILER');
-  const [newChannelId, setNewChannelId] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Workspace chrome
+  const [showSplash, setShowSplash] = useState(true);
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isMemberListOpen, setIsMemberListOpen] = useState(false);
+
   const [isJoinPending, setIsJoinPending] = useState(false);
   const [joinRequests, setJoinRequests] = useState<any[]>([]);
   const [reviewingUserId, setReviewingUserId] = useState<string | null>(null);
@@ -103,10 +89,12 @@ export default function CommunitySlugPage() {
   const [editIconSource, setEditIconSource] = useState<'UPLOAD' | 'URL'>('URL');
   const [editBannerUrl, setEditBannerUrl] = useState<string | null>(null);
   const [editBannerSource, setEditBannerSource] = useState<'UPLOAD' | 'URL'>('URL');
+  const [editAnime, setEditAnime] = useState<TopicAnime | null>(null);
+  const [editGenreIds, setEditGenreIds] = useState<string[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const fetchCommunity = async () => {
+  const fetchCommunity = React.useCallback(async () => {
     try {
       const res = await fetch(`/api/communities/${slug}`);
       if (res.ok) {
@@ -122,23 +110,29 @@ export default function CommunitySlugPage() {
         setEditIconSource(data.community.iconSource || 'URL');
         setEditBannerUrl(data.community.bannerUrl);
         setEditBannerSource(data.community.bannerSource || 'URL');
+        const a = data.community.anime;
+        setEditAnime(a ? { id: a.id, slug: a.slug, title: a.canonicalTitle, posterUrl: a.posterUrl ?? null } : null);
+        setEditGenreIds(Array.isArray(data.community.genres) ? data.community.genres.map((g: any) => g.genre?.id ?? g.id).filter(Boolean) : []);
 
-        if (data.community.channels?.length > 0) {
-          setNewChannelId(data.community.channels[0].id);
-        }
+        // Keep the current channel if it still exists, else land on #general.
+        const chs: ChannelItem[] = data.community.channels || [];
+        setSelectedChannelId((prev) =>
+          prev && chs.some((c) => c.id === prev)
+            ? prev
+            : (chs.find((c) => c.slug === 'general') || chs[0])?.id ?? null
+        );
       }
     } catch (err) {
       console.error('Error loading community:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [slug]);
 
-  const fetchDiscussions = async () => {
+  const fetchDiscussions = React.useCallback(async () => {
     if (!community) return;
     try {
-      const channelParam = selectedChannel !== 'all' ? `&channelId=${selectedChannel}` : '';
-      const res = await fetch(`/api/discussions?communityId=${community.id}${channelParam}`);
+      const res = await fetch(`/api/discussions?communityId=${community.id}`);
       if (res.ok) {
         const data = await res.json();
         setDiscussions(data.discussions || []);
@@ -146,30 +140,32 @@ export default function CommunitySlugPage() {
     } catch (err) {
       console.error('Error fetching discussions:', err);
     }
-  };
+  }, [community]);
 
   useEffect(() => {
     if (slug) fetchCommunity();
-  }, [slug, user]);
+  }, [slug, user, fetchCommunity]);
+
+  // Entering another community (rail click) replays the entry splash.
+  useEffect(() => {
+    setShowSplash(true);
+    setView('chat');
+    setSelectedChannelId(null);
+    setIsNavOpen(false);
+  }, [slug]);
+
+  // Member list starts open where there is room for it, like Discord.
+  useEffect(() => {
+    setIsMemberListOpen(window.matchMedia('(min-width: 1180px)').matches);
+  }, []);
 
   useEffect(() => {
-    if (community) fetchDiscussions();
-  }, [community, selectedChannel]);
-
-  // Load pending requests when a manager opens the manage tab.
-  useEffect(() => {
-    if (
-      community &&
-      activeTab === 'manage' &&
-      (community.userRole === 'ADMIN' || community.userRole === 'OWNER' || community.ownerId === user?.id)
-    ) {
-      fetchJoinRequests();
-    }
-  }, [community, activeTab, user?.id]);
+    if (community && view === 'home') fetchDiscussions();
+  }, [community, view, fetchDiscussions]);
 
   // Join requests are admin-only; the endpoint returns 403 for everyone else,
   // so this is only called once the server has confirmed a managing role.
-  const fetchJoinRequests = async () => {
+  const fetchJoinRequests = React.useCallback(async () => {
     if (!community) return;
     try {
       const res = await fetch(`/api/communities/${community.slug}/requests`);
@@ -179,7 +175,18 @@ export default function CommunitySlugPage() {
     } catch (err) {
       console.error('Error loading join requests:', err);
     }
-  };
+  }, [community]);
+
+  // Load pending requests when a manager opens the manage tab.
+  useEffect(() => {
+    if (
+      community &&
+      view === 'manage' &&
+      (community.userRole === 'ADMIN' || community.userRole === 'OWNER' || community.ownerId === user?.id)
+    ) {
+      fetchJoinRequests();
+    }
+  }, [community, view, user?.id, fetchJoinRequests]);
 
   const handleReviewRequest = async (targetUserId: string, action: 'APPROVE' | 'REJECT') => {
     if (!community) return;
@@ -260,41 +267,10 @@ export default function CommunitySlugPage() {
     }
   };
 
-  const handleCreateDiscussion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      openAuthModal('login');
-      return;
-    }
-
-    if (!community) return;
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch('/api/discussions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          communityId: community.id,
-          channelId: newChannelId || undefined,
-          title: newTitle.trim(),
-          body: newBody.trim(),
-          type: newType,
-          spoilerLevel: newSpoiler,
-        }),
-      });
-
-      if (res.ok) {
-        setNewTitle('');
-        setNewBody('');
-        setShowComposer(false);
-        fetchDiscussions();
-      }
-    } catch (err) {
-      console.error('Error creating discussion:', err);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const selectChannel = (channel: ChannelItem) => {
+    setSelectedChannelId(channel.id);
+    setView('chat');
+    setIsNavOpen(false);
   };
 
   const handleSaveCommunitySettings = async (e: React.FormEvent) => {
@@ -317,6 +293,8 @@ export default function CommunitySlugPage() {
           iconSource: editIconSource,
           bannerUrl: editBannerUrl,
           bannerSource: editBannerSource,
+          animeId: editAnime ? editAnime.id : null,
+          genreIds: editGenreIds,
         }),
       });
 
@@ -335,171 +313,112 @@ export default function CommunitySlugPage() {
   };
 
   if (loading) {
-    return <div className={styles.loadingState}>Loading community...</div>;
+    return (
+      <div className={styles.workspaceState}>
+        <p className={styles.loadingState}>Loading community…</p>
+      </div>
+    );
   }
 
   if (!community) {
     return (
-      <div className={styles.emptyCard}>
-        <h2 className={styles.emptyTitle}>Community Not Found</h2>
-        <Link href="/community" className={styles.backLink} style={{ marginTop: '12px' }}>
-          <ArrowLeft size={14} aria-hidden="true" /> Back to all communities
-        </Link>
+      <div className={styles.workspaceState}>
+        <div className={styles.emptyCard}>
+          <h2 className={styles.emptyTitle}>Community Not Found</h2>
+          <Link href="/community" className={styles.backLink} style={{ marginTop: '12px' }}>
+            <ArrowLeft size={14} aria-hidden="true" /> Back to all communities
+          </Link>
+        </div>
       </div>
     );
   }
 
   const isMember = community.membershipStatus === 'ACTIVE';
-  const isPendingMember = community.membershipStatus === 'PENDING';
-  const isBanned = community.membershipStatus === 'BANNED';
-  const isOwner = user && community.ownerId === user.id;
-  const isMod = community.userRole === 'MODERATOR' || community.userRole === 'OWNER' || isOwner;
+  const isOwner = Boolean(user && community.ownerId === user.id);
+  const isMod =
+    community.userRole === 'MODERATOR' || community.userRole === 'ADMIN' || community.userRole === 'OWNER' || isOwner;
   // Admins and owners review requests; MODERATOR maps to canManageMembers
   // being false server-side, so the list would 403 for them.
   const canManageRequests = Boolean(community.userRole === 'ADMIN' || community.userRole === 'OWNER' || isOwner);
   const needsApproval =
     community.visibility === 'REQUEST_TO_JOIN' || (community as any).joinPolicy === 'APPROVAL_REQUIRED';
+  const selectedChannel = community.channels.find((c) => c.id === selectedChannelId) || null;
+  // Refetch member-derived panels whenever membership changes.
+  const membersKey = `${community.membershipStatus}-${community.memberCount}`;
+
+  const VIEW_TITLE: Record<Exclude<WorkspaceView, 'chat'>, string> = {
+    home: 'Overview',
+    members: 'Members & badges',
+    about: 'About & rules',
+    manage: 'Manage',
+  };
 
   return (
-    <div className={styles.container}>
-      {/* Back Link */}
-      <Link href="/community" className={styles.backLink}>
-        <ArrowLeft size={14} />
-        <span>All Communities</span>
-      </Link>
-
-      {/* Header Banner */}
-      <div className={styles.bannerContainer}>
-        <CommunityImage
-          src={community.bannerUrl}
-          type="banner"
-          communityName={community.name}
-          priority
+    <div className={styles.workspace}>
+      {/* Left: server rail + channel sidebar (a drawer on narrow screens). */}
+      <div className={`${styles.nav} ${isNavOpen ? styles.navOpen : ''}`}>
+        <CommunityServerRail activeSlug={community.slug} userId={user?.id} refreshKey={community.membershipStatus} />
+        <CommunityChannelSidebar
+          community={{
+            slug: community.slug,
+            name: community.name,
+            iconUrl: community.iconUrl,
+            visibility: community.visibility,
+            membershipStatus: community.membershipStatus,
+            isOwner,
+          }}
+          channels={community.channels}
+          selectedChannelId={selectedChannelId}
+          view={view}
+          canManage={Boolean(isMod || user?.role === 'ADMIN')}
+          currentUser={user ? { id: user.id, username: user.username, avatarUrl: user.avatarUrl } : null}
+          onSelectChannel={selectChannel}
+          onSelectView={(v) => {
+            setView(v);
+            setIsNavOpen(false);
+          }}
+          onChannelCreated={(ch) => {
+            setCommunity((prev) => (prev ? { ...prev, channels: [...prev.channels, ch] } : prev));
+            selectChannel(ch);
+            fetchCommunity();
+          }}
+          onLeave={handleJoinToggle}
+          onSignIn={() => openAuthModal('login')}
         />
-        <div className={styles.bannerOverlay} />
       </div>
-
-      {/* Community Info Header */}
-      <div className={styles.headerCard}>
-        <div className={styles.headerMain}>
-          <div className={styles.iconWrap}>
-            <CommunityImage
-              src={community.iconUrl}
-              type="icon"
-              communityName={community.name}
-            />
-          </div>
-
-          <div className={styles.infoCol}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h1 className={styles.name}>{community.name}</h1>
-              <span className={styles.categoryBadge}>{community.category}</span>
-              {community.visibility !== 'PUBLIC' && (
-                <span className={styles.visibilityBadge}>
-                  <Lock size={10} />
-                  {community.visibility.replace('_', ' ')}
-                </span>
-              )}
-            </div>
-
-            <p className={styles.description}>{community.description}</p>
-
-            <div className={styles.statsRow}>
-              <span><strong>{community.memberCount.toLocaleString()}</strong> members</span>
-              <span>•</span>
-              <span><strong>{community.discussionCount}</strong> discussions</span>
-              <span>•</span>
-              <span>Owner: @{community.owner?.username || 'admin'}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.headerActions}>
-          {/* Membership control is driven entirely by the server-reported
-              membershipStatus, so the state survives refresh and re-login. */}
-          <button
-            type="button"
-            className={`${styles.joinBtn} ${isMember || isPendingMember ? styles.joinedBtn : ''}`}
-            onClick={handleJoinToggle}
-            disabled={isJoinPending || isPendingMember || isBanned}
-            aria-label={
-              isBanned
-                ? 'You are banned from this community'
-                : isPendingMember
-                ? 'Join request pending review'
-                : isMember
-                ? 'Leave community'
-                : 'Join community'
-            }
-          >
-            {isBanned ? (
-              <>
-                <Lock size={14} />
-                <span>Banned</span>
-              </>
-            ) : isPendingMember ? (
-              <>
-                <Clock size={14} />
-                <span>Request Pending</span>
-              </>
-            ) : isMember ? (
-              <>
-                <Check size={14} />
-                <span>Joined</span>
-              </>
-            ) : (
-              <>
-                <Plus size={14} />
-                <span>{needsApproval ? 'Request to Join' : 'Join Community'}</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className={styles.tabBar}>
-        {(['home', 'discussions', 'members', 'about'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === tab ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab.toUpperCase()}
-          </button>
-        ))}
-
-        {isMod && (
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'manage' ? styles.tabBtnActive : ''}`}
-            onClick={() => setActiveTab('manage')}
-          >
-            <Settings size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-            MANAGE
-          </button>
-        )}
-      </div>
-
-      {/* TAB CONTENT: DISCUSSIONS (REAL-TIME CHAT & CHANNELS) */}
-      {activeTab === 'discussions' && community && (
-        // Socket connection is scoped to this tab, not mounted app-wide: only
-        // real-time chat needs it, so every other page (and the rest of this
-        // page's tabs) skips the handshake/poll traffic and client bundle cost.
-        <SocketProvider>
-          <CommunityChatView
-            community={community}
-            currentUser={user}
-            initialChannelId={selectedChannel !== 'all' ? selectedChannel : null}
-            onJoinToggle={handleJoinToggle}
-            onChannelsUpdated={fetchCommunity}
-          />
-        </SocketProvider>
+      {isNavOpen && (
+        <button type="button" className={styles.backdrop} aria-label="Close channels" onClick={() => setIsNavOpen(false)} />
       )}
 
+      <main className={styles.main}>
+        {view === 'chat' ? (
+          // Socket connection is scoped to the chat view, not mounted app-wide:
+          // only real-time chat needs it.
+          <SocketProvider>
+            <CommunityChatView
+              community={community}
+              channel={selectedChannel}
+              currentUser={user ? { id: user.id, username: user.username } : null}
+              onJoinToggle={handleJoinToggle}
+              onOpenNav={() => setIsNavOpen(true)}
+              isMemberListOpen={isMemberListOpen}
+              onToggleMemberList={() => setIsMemberListOpen((v) => !v)}
+            />
+          </SocketProvider>
+        ) : (
+          <section className={styles.panel} aria-labelledby="workspace-view-title">
+            <header className={styles.panelHeader}>
+              <button type="button" className={styles.panelNavBtn} onClick={() => setIsNavOpen(true)} aria-label="Open channels">
+                <Menu size={20} />
+              </button>
+              <h2 id="workspace-view-title" className={styles.panelTitle}>
+                {VIEW_TITLE[view]}
+              </h2>
+            </header>
+            <div className={styles.panelScroll}>
+              <div className={styles.panelInner}>
       {/* TAB CONTENT: HOME */}
-      {activeTab === 'home' && (
+      {view === 'home' && (
         <div className={styles.homeLayout}>
           <div className={styles.mainCol}>
             <div className={styles.announcementCard}>
@@ -515,12 +434,8 @@ export default function CommunitySlugPage() {
             <div className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <h3 className={styles.sectionTitle}>Recent Discussions</h3>
-                <button
-                  type="button"
-                  className={styles.textBtn}
-                  onClick={() => setActiveTab('discussions')}
-                >
-                  View All
+                <button type="button" className={styles.textBtn} onClick={() => setView('chat')}>
+                  Open chat
                 </button>
               </div>
 
@@ -529,7 +444,7 @@ export default function CommunitySlugPage() {
                   {discussions.slice(0, 4).map((d) => (
                     <Link key={d.id} href={`/discussions/${d.id}`} className={styles.discItem}>
                       <div>
-                        <span className={styles.discChannel}>#{d.channel?.name || 'general'}</span>
+                        <span className={styles.discChannel}>/{d.channel?.name || 'general'}</span>
                         <h4 className={styles.discTitle}>{d.title}</h4>
                       </div>
                       <span className={styles.discReplies}>
@@ -540,7 +455,7 @@ export default function CommunitySlugPage() {
                   ))}
                 </div>
               ) : (
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No discussions yet. Start the first one in the Discussions tab.</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No discussions yet.</p>
               )}
             </div>
           </div>
@@ -567,12 +482,9 @@ export default function CommunitySlugPage() {
                     key={ch.id}
                     type="button"
                     className={styles.channelLink}
-                    onClick={() => {
-                      setSelectedChannel(ch.id);
-                      setActiveTab('discussions');
-                    }}
+                    onClick={() => selectChannel(ch)}
                   >
-                    <Hash size={13} />
+                    <span className={styles.channelSlash} aria-hidden="true">/</span>
                     <span>{ch.name}</span>
                   </button>
                 ))}
@@ -585,33 +497,10 @@ export default function CommunitySlugPage() {
 
 
       {/* TAB CONTENT: MEMBERS */}
-      {activeTab === 'members' && (
-        <div className={styles.membersGrid}>
-          {community.members.map((m) => (
-            <div key={m.id} className={styles.memberCard}>
-              <div className={styles.memberAvatar}>
-                {m.user.avatarUrl ? (
-                  <Image
-                    src={m.user.avatarUrl}
-                    alt={m.user.username}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                  />
-                ) : (
-                  <span>{m.user.username.slice(0, 2).toUpperCase()}</span>
-                )}
-              </div>
-              <div className={styles.memberInfo}>
-                <span className={styles.memberName}>@{m.user.username}</span>
-                <span className={styles.memberRole}>{m.role}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {view === 'members' && <CommunityBadgeMembers key={membersKey} slug={community.slug} />}
 
       {/* TAB CONTENT: ABOUT */}
-      {activeTab === 'about' && (
+      {view === 'about' && (
         <div className={styles.aboutCard}>
           <h3 className={styles.aboutTitle}>About {community.name}</h3>
           <p className={styles.aboutText}>{community.description}</p>
@@ -639,7 +528,7 @@ export default function CommunitySlugPage() {
       {/* TAB CONTENT: MANAGE */}
       {/* Join request review — owners and admins only. The list itself is
           server-authorized; this block only decides whether to ask for it. */}
-      {activeTab === 'manage' && canManageRequests && (
+      {view === 'manage' && canManageRequests && (
         <div className={styles.manageCard} style={{ marginBottom: '16px' }}>
           <h3 className={styles.manageTitle}>Join Requests</h3>
           <p className={styles.manageSubtitle}>
@@ -653,8 +542,8 @@ export default function CommunitySlugPage() {
               {joinRequests.map((req) => (
                 <div key={req.id} className={styles.memberCard}>
                   <div className={styles.memberAvatar}>
-                    {req.avatarUrl ? (
-                      <Image src={req.avatarUrl} alt={req.username} fill unoptimized style={{ objectFit: 'cover' }} />
+                    {resolveAvatarUrl(req.avatarUrl) ? (
+                      <Image src={resolveAvatarUrl(req.avatarUrl) as string} alt={req.username} fill unoptimized style={{ objectFit: 'cover' }} />
                     ) : (
                       req.username?.charAt(0).toUpperCase()
                     )}
@@ -693,7 +582,7 @@ export default function CommunitySlugPage() {
         </div>
       )}
 
-      {activeTab === 'manage' && isMod && (
+      {view === 'manage' && isMod && (
         <div className={styles.manageCard}>
           <h3 className={styles.manageTitle}>Community Settings &amp; Media Management</h3>
           <p className={styles.manageSubtitle}>
@@ -769,6 +658,15 @@ export default function CommunitySlugPage() {
               </div>
             </div>
 
+            <div style={{ paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
+              <CommunityTopicPicker
+                anime={editAnime}
+                onAnimeChange={setEditAnime}
+                genreIds={editGenreIds}
+                onGenresChange={setEditGenreIds}
+              />
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
               <MediaPicker
                 label="Community Icon"
@@ -806,6 +704,38 @@ export default function CommunitySlugPage() {
             </div>
           </form>
         </div>
+      )}
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+
+      {view === 'chat' && isMemberListOpen && (
+        <>
+          <div className={styles.memberDock}>
+            <CommunityMemberList
+              slug={community.slug}
+              refreshKey={membersKey}
+              onShowAll={() => setView('members')}
+            />
+          </div>
+          <button
+            type="button"
+            className={styles.memberBackdrop}
+            aria-label="Close member list"
+            onClick={() => setIsMemberListOpen(false)}
+          />
+        </>
+      )}
+
+      {showSplash && (
+        <CommunityEntrySplash
+          community={community}
+          needsApproval={needsApproval}
+          onJoin={handleJoinToggle}
+          onDone={() => setShowSplash(false)}
+        />
       )}
     </div>
   );

@@ -105,3 +105,18 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* Meta tags under each card (classes were missing — 2026-10-17). */
+.cardMeta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag { padding: 3px 10px; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-size: 12px; font-weight: 600; white-space: nowrap; }
+
+/* Page title on the shared scale (2026-10-17). Also covers character / genre /
+   person / producer / theme pages, which import this module. */
+.title { font-size: clamp(30px, 4.6vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { font-size: 15px; color: var(--text-secondary); }
+
+/* Two columns on phones (a 180px minimum forced one full-screen poster per
+   row at 390px). Shared by character/genre/person/producer/theme pages. */
+.grid { grid-template-columns: repeat(auto-fill, minmax(min(160px, calc(50% - 8px)), 1fr)); gap: 16px 12px; }
+.card { border-radius: var(--radius-lg); }
+.cardTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

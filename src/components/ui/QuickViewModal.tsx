@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { CommunityScoreBadge } from '../rating/CommunityScoreBadge';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, Star, Plus, Check, Heart, ArrowRight } from 'lucide-react';
+import { X, Plus, Check, Heart, ArrowRight } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { AnimePoster } from './AnimePoster';
 import { useLibrary } from '../../context/LibraryContext';
@@ -41,8 +42,6 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ anime, isOpen, o
   const animeId = anime.slug || anime.id;
   const inLibrary = Boolean(library[animeId]);
   const isFavorite = Boolean(library[animeId]?.isFavorite);
-  // External score when recorded; never a stand-in value.
-  const score = typeof anime.score === 'number' ? anime.score.toFixed(1) : null;
   const banner = anime.bannerImage || (anime as any).bannerUrl || anime.posterImage || (anime as any).posterUrl;
 
   const studioName = Array.isArray(anime.studios) && anime.studios.length > 0
@@ -98,14 +97,10 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({ anime, isOpen, o
               {altTitle && <span className={styles.altTitle}>{altTitle}</span>}
             </div>
 
-            {score && (
-              <div className={styles.scoresRow}>
-                <div className={styles.otakuvaScore} title="Score from external rating sources">
-                  <Star size={11} fill="currentColor" aria-hidden="true" />
-                  <span>Score {score}</span>
-                </div>
-              </div>
-            )}
+            {/* Members' OTAKUVA score + retention (not the provider score). */}
+            <div className={styles.scoresRow}>
+              <CommunityScoreBadge animeId={anime.id} />
+            </div>
 
             <div className={styles.metaRow}>
               {[

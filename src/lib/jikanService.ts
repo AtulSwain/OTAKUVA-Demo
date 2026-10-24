@@ -12,8 +12,9 @@
 
 import { prisma } from './prisma';
 import { slugifyTitle } from './jikan';
+import { logger } from './logger';
 
-const JIKAN_BASE_URL = process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4';
+export const JIKAN_BASE_URL = process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4';
 
 // In-Memory Cache Entry
 interface CacheEntry<T> {
@@ -47,6 +48,11 @@ export const providerMetrics: ProviderMetrics = {
   status: 'HEALTHY',
 };
 
+// 800ms (≤1.25 req/s) is comfortably under Jikan v4's documented 3 req/s /
+// 60 req/min caps, and CACHE_TTL_MS above matches Jikan's own 24h
+// server-side cache window — reviewed 2026-09-16 against Jikan's terms,
+// no changes needed here. See docs/production/THIRD_PARTY_DATA_COMPLIANCE.md
+// for the same review of anilistProvider.ts, which does need attention.
 const MIN_REQUEST_INTERVAL_MS = 800; // Safe interval to prevent Jikan 429/504
 
 // A read-then-write "wait if too soon, then stamp lastRequestTime" throttle
@@ -134,7 +140,16 @@ export function jikanFetch<T = any>(
           const waitTime = Number.isFinite(retryAfter) && retryAfter > 0
             ? retryAfter * 1000
             : backoff + Math.floor(Math.random() * 250);
-          console.warn(`[Jikan API] Status ${res.status} on ${cleanEndpoint}, retrying in ${waitTime}ms...`);
+          // Not sent to Sentry (no toSentry) — a rate-limited/degraded
+          // response that's about to be retried is routine, expected
+          // behavior under Jikan's documented ongoing degradation (see
+          // CLAUDE.md), not an unhandled failure; reporting every one
+          // would drown real signal. Retries genuinely exhausted still
+          // end up in DeadLetterQueue via the callers that queue one
+          // (syncEngine.ts, src/lib/queue/handlers.ts) — that's the
+          // right place to track/alert on the aggregate, not a per-fetch
+          // Sentry event.
+          logger.warn('Jikan API retryable status, backing off', { endpoint: cleanEndpoint, status: res.status, waitMs: waitTime, attempt });
           await new Promise((r) => setTimeout(r, waitTime));
           continue;
         }
@@ -144,7 +159,7 @@ export function jikanFetch<T = any>(
             providerMetrics.status = 'HEALTHY';
             return null;
           }
-          console.warn(`[Jikan API] HTTP ${res.status} from ${cleanEndpoint}`);
+          logger.warn('Jikan API non-OK response', { endpoint: cleanEndpoint, status: res.status, attempt, retries });
           if (attempt === retries) {
             providerMetrics.failedRequests++;
             return null;
@@ -157,7 +172,7 @@ export function jikanFetch<T = any>(
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
           providerMetrics.failedRequests++;
           providerMetrics.status = 'DEGRADED';
-          console.warn(`[Jikan API] Malformed response from ${cleanEndpoint}`);
+          logger.warn('Jikan API malformed response', { endpoint: cleanEndpoint });
           return null;
         }
 
@@ -168,7 +183,7 @@ export function jikanFetch<T = any>(
         }
         return data as T;
       } catch (err: any) {
-        console.error(`[Jikan API] Fetch error on ${cleanEndpoint}:`, err?.message || err);
+        logger.warn('Jikan API fetch error', { error: err, endpoint: cleanEndpoint, attempt, retries });
         if (attempt === retries) {
           providerMetrics.failedRequests++;
           providerMetrics.status = 'DOWN';
@@ -663,7 +678,7 @@ export async function syncJikanAnimeToDatabase(rawItem: any): Promise<string | n
 
     return anime.id;
   } catch (err) {
-    console.error('Failed to sync Jikan anime to database:', err);
+    logger.error('Failed to sync Jikan anime to database', { error: err, malId: rawItem?.mal_id });
     return null;
   }
 }

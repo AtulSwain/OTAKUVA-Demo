@@ -165,3 +165,6 @@
   border-radius: var(--radius-sm);
   color: var(--text-muted);
 }
+
+/* Page title on the shared scale (2026-10-17). */
+.pageTitle { font-size: clamp(30px, 4.6vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }

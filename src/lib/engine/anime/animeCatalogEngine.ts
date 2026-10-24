@@ -12,6 +12,12 @@ import { normalizeSearchTitle } from '../../normalizers';
 import { getAnimeDisplayTitle } from '../../animeTitleResolver';
 import { defaultAnimeProvider } from '../../providers';
 import { syncEngine } from '../../syncEngine';
+import { searchAnimeIdsByTitle } from '../../fuzzySearch';
+
+// See src/lib/search.ts's identical constant for the rationale — same
+// generous-but-bounded cap on fuzzy title matches before the rest of
+// this query's filters/sort/pagination apply.
+const MAX_TITLE_MATCHES = 500;
 
 export class AnimeCatalogEngine {
   private static CACHE_TTL_CATALOG = 300; // 5 minutes
@@ -43,21 +49,23 @@ export class AnimeCatalogEngine {
       { status: { not: 'MERGED' } },
     ];
 
-    // 1. Text Search across title, localized titles, studio, genre, tag
+    // 1. Text Search across title (fuzzy/typo-tolerant — see
+    // fuzzySearch.ts), localized/alternate titles, studio, genre, tag.
+    // Was a plain `contains` with no `mode: 'insensitive'` — silently
+    // case-sensitive on Postgres (unlike SQLite's case-insensitive LIKE
+    // this app used to run on), so a lowercase query against a
+    // properly-capitalized title returned nothing. Replaced with
+    // Postgres full-text + pg_trgm search, which is case-insensitive by
+    // construction and also tolerates typos.
     if (filters.q) {
-      const normalizedQ = normalizeSearchTitle(filters.q);
-      const lowerQ = filters.q.toLowerCase();
+      const titleMatches = await searchAnimeIdsByTitle(filters.q, MAX_TITLE_MATCHES);
       andClauses.push({
         OR: [
-          { canonicalTitle: { contains: filters.q } },
-          { canonicalTitle: { contains: lowerQ } },
-          { slug: { contains: normalizedQ } },
-          { titles: { some: { searchableTitle: { contains: normalizedQ } } } },
-          { titles: { some: { title: { contains: filters.q } } } },
-          { titles: { some: { title: { contains: lowerQ } } } },
-          { animeStudios: { some: { studio: { name: { contains: filters.q } } } } },
-          { animeGenres: { some: { genre: { name: { contains: filters.q } } } } },
-          { animeTags: { some: { name: { contains: filters.q } } } },
+          { id: { in: titleMatches.map((m) => m.id) } },
+          { slug: { contains: normalizeSearchTitle(filters.q), mode: 'insensitive' } },
+          { animeStudios: { some: { studio: { name: { contains: filters.q, mode: 'insensitive' } } } } },
+          { animeGenres: { some: { genre: { name: { contains: filters.q, mode: 'insensitive' } } } } },
+          { animeTags: { some: { name: { contains: filters.q, mode: 'insensitive' } } } },
         ],
       });
     }
@@ -115,7 +123,9 @@ export class AnimeCatalogEngine {
       const sLower = filters.status.toLowerCase();
       let statusVariants = [filters.status];
       if (sLower.includes('finish') || sLower.includes('complete')) {
-        statusVariants = ['Finished', 'FINISHED', 'Completed', 'COMPLETED'];
+        // Jikan stores "Finished Airing" (AniList "Finished"); it was missing here, so
+        // the Finished filter silently dropped every Jikan-sourced title.
+        statusVariants = ['Finished', 'Finished Airing', 'FINISHED', 'Completed', 'COMPLETED'];
       } else if (sLower.includes('air') || sLower.includes('releas')) {
         statusVariants = ['Airing', 'CURRENTLY_AIRING', 'AIRING', 'Currently Airing', 'RELEASING'];
       } else if (sLower.includes('not') || sLower.includes('upcom')) {
@@ -129,13 +139,10 @@ export class AnimeCatalogEngine {
 
     // 7. Season Filter
     if (filters.season && filters.season !== 'All') {
-      andClauses.push({
-        OR: [
-          { season: { equals: filters.season } },
-          { season: { equals: filters.season.toUpperCase() } },
-          { season: { equals: filters.season.toLowerCase() } },
-        ],
-      });
+      // Case-insensitive: the validator upper-cases the param ("FALL") while
+      // the catalog stores "Fall"; on Postgres the old exact/UPPER/lower
+      // variants never matched, so every season filter returned nothing.
+      andClauses.push({ season: { equals: filters.season, mode: 'insensitive' } });
     }
 
     // 8. Year Filter
@@ -176,23 +183,27 @@ export class AnimeCatalogEngine {
     const sortField = filters.sortBy || 'score';
     const direction = filters.sortOrder || 'desc';
 
-    let orderBy: any = [{ score: 'desc' }, { popularity: 'desc' }];
+    // Postgres sorts NULLs first under DESC (SQLite sorted them last), so
+    // without `nulls: 'last'` every unscored/unaired title topped "Highest
+    // Score". Missing values always sink, whichever direction is asked for.
+    const by = (sort: 'asc' | 'desc') => ({ sort, nulls: 'last' as const });
+    let orderBy: any = [{ score: by('desc') }, { popularity: by('desc') }];
     if (sortField === 'popularity') {
-      orderBy = [{ popularity: direction }, { score: 'desc' }];
+      orderBy = [{ popularity: by(direction) }, { score: by('desc') }];
     } else if (sortField === 'title') {
       orderBy = [{ canonicalTitle: direction }];
     } else if (sortField === 'rank') {
-      orderBy = [{ rank: direction }, { score: 'desc' }];
+      orderBy = [{ rank: by(direction) }, { score: by('desc') }];
     } else if (sortField === 'year') {
-      orderBy = [{ year: direction }, { startYear: direction }, { score: 'desc' }];
+      orderBy = [{ year: by(direction) }, { startYear: by(direction) }, { score: by('desc') }];
     } else if (sortField === 'updatedAt') {
       orderBy = [{ updatedAt: direction }];
     } else if (sortField === 'members') {
-      orderBy = [{ members: direction }, { score: 'desc' }];
+      orderBy = [{ members: by(direction) }, { score: by('desc') }];
     } else if (sortField === 'episodes') {
-      orderBy = [{ episodes: direction }, { score: 'desc' }];
+      orderBy = [{ episodes: by(direction) }, { score: by('desc') }];
     } else if (sortField === 'score') {
-      orderBy = [{ score: direction }, { scoredBy: 'desc' }];
+      orderBy = [{ score: by(direction) }, { scoredBy: by('desc') }];
     }
 
     let [total, animes] = await Promise.all([
@@ -323,6 +334,7 @@ export class AnimeCatalogEngine {
         animeTags: { orderBy: { rank: 'desc' } },
         animeStudios: { include: { studio: true } },
         animeProducers: { include: { producer: true } },
+        streamingAvailability: { orderBy: { provider: 'asc' } },
         episodesList: { orderBy: { number: 'asc' } },
         seasons: { orderBy: { sortOrder: 'asc' } },
         characters: {
@@ -398,6 +410,7 @@ export class AnimeCatalogEngine {
               animeTags: { orderBy: { rank: 'desc' } },
               animeStudios: { include: { studio: true } },
               animeProducers: { include: { producer: true } },
+              streamingAvailability: { orderBy: { provider: 'asc' } },
               episodesList: { orderBy: { number: 'asc' } },
               seasons: { orderBy: { sortOrder: 'asc' } },
               characters: {
@@ -532,7 +545,10 @@ export class AnimeCatalogEngine {
       themes: anime.animeThemes.map((at) => at.theme.name),
       titles: anime.titles.map((t) => ({ type: t.type, title: t.title, language: t.language, isPrimary: t.isPrimary })),
       tags: anime.animeTags.map((at) => ({ name: at.name, rank: at.rank, description: at.description, isMediaSpoiler: at.isMediaSpoiler })),
-      studios: anime.animeStudios.map((as) => as.studio.name),
+      studios: anime.animeStudios.map((as) => ({ id: as.studio.id, name: as.studio.name, slug: as.studio.slug })),
+      // Official streaming listings (imported from AniList, or set by an
+      // editor). Feeds "Where to Watch"; empty means nothing is recorded.
+      streaming: dedupeStreaming(anime.streamingAvailability),
       producers: anime.animeProducers.map((ap) => ({
         id: ap.producer.id,
         name: ap.producer.name,
@@ -572,6 +588,7 @@ export class AnimeCatalogEngine {
       })),
       characters: anime.characters.map((ac) => ({
         id: ac.character.id,
+        slug: ac.character.slug,
         name: ac.character.name,
         nameKanji: ac.character.nameKanji,
         about: ac.character.about,
@@ -579,6 +596,7 @@ export class AnimeCatalogEngine {
         role: ac.role,
         voiceActors: ac.character.voiceRoles.map((vr) => ({
           id: vr.person.id,
+          slug: vr.person.slug,
           name: vr.person.name,
           nameKanji: vr.person.nameKanji,
           imageUrl: vr.person.imageUrl,
@@ -587,6 +605,7 @@ export class AnimeCatalogEngine {
       })),
       staff: anime.staff.map((as) => ({
         id: as.person.id,
+        slug: as.person.slug,
         name: as.person.name,
         nameKanji: as.person.nameKanji,
         imageUrl: as.person.imageUrl,
@@ -638,4 +657,15 @@ export class AnimeCatalogEngine {
 
     return detail;
   }
+}
+
+function dedupeStreaming(rows: Array<{ provider: string; url: string | null }>) {
+  const seen = new Set<string>();
+  const out: Array<{ name: string; url: string }> = [];
+  for (const r of rows) {
+    if (!r.url || seen.has(r.provider)) continue;
+    seen.add(r.provider);
+    out.push({ name: r.provider, url: r.url });
+  }
+  return out;
 }

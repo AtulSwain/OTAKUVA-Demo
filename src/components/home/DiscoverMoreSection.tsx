@@ -14,7 +14,7 @@ export const DiscoverMoreSection: React.FC = () => {
   const categories: CategoryItem[] = [
     { title: 'Top Ranked', subtitle: 'Leaderboards & scores', href: '/rankings' },
     { title: 'Seasonal Anime', subtitle: 'This season’s broadcasts', href: '/seasonal' },
-    { title: 'Airing Schedule', subtitle: 'Broadcast calendar', href: '/airing' },
+    { title: 'Airing Schedule', subtitle: 'Broadcast calendar', href: '/schedule' },
     { title: 'Animation Studios', subtitle: 'Studios & their works', href: '/studios' },
     { title: 'Artists', subtitle: 'Directors, writers & voice cast', href: '/artists' },
     { title: 'Community Hub', subtitle: 'Discussions & reviews', href: '/community' },

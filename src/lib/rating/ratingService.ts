@@ -5,11 +5,14 @@
  * aggregate computations, and anti-abuse signal detection.
  */
 
+import { revalidateTag } from 'next/cache';
 import { prisma } from '../prisma';
+import { HOME_SECTIONS_CACHE_TAG } from '../home/homeCacheTags';
 import { emitEngineEvent } from '../engine/events/eventEngine';
 import {
   RATING_ALGORITHM_VERSION,
   RATING_CATEGORIES,
+  ACTIVE_RATING_CATEGORIES,
   CATEGORY_LABELS,
   CATEGORY_EXPLANATION_TEXT,
   RatingCategoryType,
@@ -23,18 +26,20 @@ import {
   calculateDistribution,
   calculateCategoryPercentages,
 } from './ratingEngine';
+import { getMemberScores } from './episodeRatings';
 
 export interface SubmitRatingInput {
   userId: string;
   animeId: string;
-  score: number; // 0.5 - 10.0, 0.5 increment
+  score: number; // 0.5 - 10.0, 0.1 increments
   categoryScores?: Partial<Record<RatingCategoryType, number>>;
   ipAddress?: string;
   userAgent?: string;
 }
 
 /**
- * Validates rating score constraints (0.5 to 10.0, 0.5 precision)
+ * Validates rating score constraints (0.5 to 10.0, 0.1 precision — 9.1, 9.2…;
+ * was 0.5 steps until 2026-10-23, owner asked for finer scores)
  */
 export function validateRatingScore(score: number): { valid: boolean; error?: string; normalized: number } {
   if (typeof score !== 'number' || isNaN(score)) {
@@ -43,10 +48,10 @@ export function validateRatingScore(score: number): { valid: boolean; error?: st
   if (score < 0.5 || score > 10.0) {
     return { valid: false, error: 'Rating must be between 0.5 and 10.0.', normalized: 0 };
   }
-  // Enforce 0.5 step increments (e.g. 7.5, 8.0, 8.5)
-  const normalized = Math.round(score * 2) / 2;
+  // Enforce 0.1 step increments (e.g. 7.3, 8.0, 9.1)
+  const normalized = Math.round(score * 10) / 10;
   if (Math.abs(score - normalized) > 0.001) {
-    return { valid: false, error: 'Rating must be in increments of 0.5 (e.g., 7.5, 8.0, 8.5).', normalized };
+    return { valid: false, error: 'Rating must be in steps of 0.1 (e.g., 7.3, 8.0, 9.1).', normalized };
   }
   return { valid: true, normalized };
 }
@@ -66,7 +71,8 @@ export async function submitUserRating(input: SubmitRatingInput) {
   // Validate category ratings if provided
   const cleanCategoryScores: { category: RatingCategoryType; score: number }[] = [];
   if (categoryScores && typeof categoryScores === 'object') {
-    for (const cat of RATING_CATEGORIES) {
+    // Retired aspects are ignored rather than rejected, so an old client can't fail a rating.
+    for (const cat of ACTIVE_RATING_CATEGORIES) {
       const val = categoryScores[cat];
       if (typeof val === 'number' && !isNaN(val)) {
         const catVal = validateRatingScore(val);
@@ -156,6 +162,9 @@ export async function submitUserRating(input: SubmitRatingInput) {
     return rating;
   });
 
+  // Keep the score snapshot on this user's review in step (used for sort-by-rating).
+  await prisma.review.updateMany({ where: { userId, animeId, deletedAt: null }, data: { rating: cleanScore } });
+
   // Recompute statistical aggregates asynchronously
   await recalculateAnimeAggregates(animeId);
 
@@ -233,6 +242,8 @@ export async function deleteUserRating(userId: string, animeId: string) {
     }
   });
 
+  await prisma.review.updateMany({ where: { userId, animeId, deletedAt: null }, data: { rating: null } });
+
   // Recalculate aggregates
   await recalculateAnimeAggregates(animeId);
 
@@ -295,18 +306,12 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
   const globalAverage =
     globalAgg._avg.rating !== null ? parseFloat(globalAgg._avg.rating.toFixed(2)) : 7.5;
 
-  // 2. Fetch all valid ratings for this anime
-  const animeRatings = await prisma.animeRating.findMany({
-    where: {
-      animeId,
-      deletedAt: null,
-    },
-    include: {
-      categoryScores: true,
-    },
-  });
+  // 2. One score per member: the average of the episodes they rated, else
+  // their single overall rating (src/lib/rating/episodeRatings.ts). Each
+  // member counts once however many episodes they rate.
+  const members = await getMemberScores(animeId);
 
-  const scores = animeRatings.map((r) => r.rating);
+  const scores = members.map((m) => m.score);
   const ratingCount = scores.length;
   const rawAverage = calculateRawAverage(scores);
   const median = calculateMedian(scores);
@@ -345,6 +350,13 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
     },
   });
 
+  // Homepage posters show this OTAKUVA score; drop the cached sections so a
+  // new rating appears there on the next load instead of up to 60s later.
+  // (Throws outside a Next request context, e.g. in scripts/tests — harmless.)
+  try {
+    revalidateTag(HOME_SECTIONS_CACHE_TAG);
+  } catch {}
+
   // The OTAKUVA score lives in RatingAggregate only. Anime.score/scoredBy are
   // the provider's figures (canonical layer 2) and must never be overwritten
   // by user ratings — doing so destroyed MAL scores that were never stored
@@ -356,13 +368,10 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
     categoryScoresMap[cat] = [];
   }
 
-  animeRatings.forEach((r) => {
-    r.categoryScores.forEach((cs) => {
-      const cat = cs.category as RatingCategoryType;
-      if (categoryScoresMap[cat]) {
-        categoryScoresMap[cat].push(cs.score);
-      }
-    });
+  members.forEach((m) => {
+    for (const [cat, score] of Object.entries(m.categories) as [RatingCategoryType, number][]) {
+      if (categoryScoresMap[cat]) categoryScoresMap[cat].push(score);
+    }
   });
 
   // Calculate category averages
@@ -397,7 +406,7 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
       confidence: catConf,
     };
 
-    if (catAvg !== null && catCount > 0) {
+    if (catAvg !== null && catCount > 0 && ACTIVE_RATING_CATEGORIES.includes(cat)) {
       activeCategoryAverages.push({ category: cat, average: catAvg });
     }
   }
@@ -444,7 +453,7 @@ export async function recalculateAnimeAggregates(animeId: string): Promise<Ratin
       },
     });
 
-    if (stats.average !== null) {
+    if (stats.average !== null && ACTIVE_RATING_CATEGORIES.includes(cat)) {
       categoriesResult.push({
         category: cat,
         label: CATEGORY_LABELS[cat],
@@ -499,7 +508,7 @@ export async function getRatingSummary(animeId: string): Promise<RatingSummaryRe
   }
 
   const categories: RatingSummaryResult['categories'] = [];
-  for (const cat of RATING_CATEGORIES) {
+  for (const cat of ACTIVE_RATING_CATEGORIES) {
     const row = categoryRows.find((c) => c.category === cat);
     if (!row || row.averageScore === null || row.responseCount === 0) continue;
     categories.push({

@@ -142,7 +142,7 @@ export class StudioCreatorDiscoveryEngine {
             select: { id: true, canonicalTitle: true, slug: true, posterUrl: true, score: true, year: true },
           },
         },
-        orderBy: { anime: { score: 'desc' } },
+        orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } },
         take: 8,
       });
 

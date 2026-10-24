@@ -51,30 +51,30 @@
 }
 
 .scoreCard {
-  background-color: var(--surface-base, #101010);
-  border: 1px solid var(--border-default, #292929);
+  background: transparent;
+  border: none;
   transition: background 260ms ease, border-color 260ms ease;
-  border-radius: 9px;
-  padding: 16px 14px;
+  border-radius: 0;
+  padding: 8px 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  text-align: center;
+  text-align: left;
   gap: 6px;
 }
 
 .bigScore {
-  font-size: 38px;
-  font-weight: 900;
+  font-size: 44px;
+  font-weight: 800;
   line-height: 1;
-  color: var(--text-primary, #F4F4F2);
+  color: var(--text-pure, #FFFFFF);
   transition: color 260ms ease;
 }
 
 @media (max-width: 768px) {
   .bigScore {
-    font-size: 32px;
+    font-size: 36px;
   }
 }
 
@@ -87,35 +87,35 @@
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-secondary, #999999);
+  color: var(--text-secondary, #8C9097);
   transition: color 260ms ease, background 260ms ease;
 }
 
 .tierDesc {
-  font-size: 10.5px;
-  line-height: 1.35;
-  color: var(--text-muted, #888888);
-  text-align: center;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted, #6F747C);
+  text-align: left;
   max-width: 200px;
 }
 
 .distEmpty {
   font-size: 11px;
   line-height: 1.5;
-  color: var(--text-muted, #888888);
+  color: var(--text-muted, #6F747C);
   margin: 0;
 }
 
 .reviewCountLabel {
-  color: var(--text-muted, #888888);
+  color: var(--text-muted, #6F747C);
   font-size: 11px;
 }
 
 .rateActionBtn {
   margin-top: 6px;
-  background-color: var(--surface-elevated, #202024);
-  border: 1px solid var(--border-default, #2E2E32);
-  color: var(--text-primary, #F4F4F2);
+  background-color: var(--surface-elevated, #15171B);
+  border: 1px solid var(--border-default, #24272D);
+  color: var(--text-primary, #F3F3F1);
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 11.5px;
@@ -125,15 +125,15 @@
 }
 
 .rateActionBtn:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary-hover);
+  border-color: var(--accent-hover, #757CFF);
+  color: #FFFFFF;
 }
 
 .distributionCard {
-  background-color: var(--surface-base, #101010);
-  border: 1px solid var(--border-default, #292929);
-  border-radius: 9px;
-  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -185,3 +185,6 @@
   font-weight: 700;
   color: var(--text-primary, #F4F4F2);
 }
+
+/* Same section-title style as the rest of the anime page (2026-10-17). */
+.title { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }

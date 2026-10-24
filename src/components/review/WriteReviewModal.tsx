@@ -3,16 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, Star, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { REVIEW_TAGS, MAX_REVIEW_TAGS } from '../../lib/reviews/reviewTags';
+import { promptPhoneVerification } from '../auth/VerifyPhonePrompt';
 import styles from './WriteReviewModal.module.css';
 
 export type SpoilerLevelType = 'SPOILER_FREE' | 'MILD_SPOILERS' | 'SPOILERS' | 'FULL_SPOILERS';
 
 export interface InitialReviewData {
   id: string;
-  title: string;
+  title?: string;
   body: string;
   rating?: number | null;
   spoilerLevel?: SpoilerLevelType;
+  tags?: string[];
 }
 
 interface WriteReviewModalProps {
@@ -63,9 +66,10 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
 
   const isEditing = Boolean(initialReview?.id);
 
-  // Initial rating starts as null unless editing with an existing rating
-  const [rating, setRating] = useState<number | null>(null);
-  const [title, setTitle] = useState('');
+  // Reviews don't collect a score; when editing, show the author's rating
+  // from the rating section (the API sends it as initialReview.rating).
+  const existingRating = typeof initialReview?.rating === 'number' ? initialReview.rating : null;
+  const [tags, setTags] = useState<string[]>([]);
   const [body, setBody] = useState('');
   const [spoilerLevel, setSpoilerLevel] = useState<SpoilerLevelType>('SPOILER_FREE');
   const [submitting, setSubmitting] = useState(false);
@@ -75,14 +79,12 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (initialReview) {
-        setTitle(initialReview.title || '');
+        setTags(initialReview.tags || []);
         setBody(initialReview.body || '');
-        setRating(typeof initialReview.rating === 'number' ? initialReview.rating : null);
         setSpoilerLevel(initialReview.spoilerLevel || 'SPOILER_FREE');
       } else {
-        setTitle('');
+        setTags([]);
         setBody('');
-        setRating(null);
         setSpoilerLevel('SPOILER_FREE');
       }
       setError(null);
@@ -93,17 +95,8 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedTitle = title.trim();
     const trimmedBody = body.trim();
 
-    if (!trimmedTitle) {
-      setError('Please provide a review headline (up to 120 characters).');
-      return;
-    }
-    if (trimmedTitle.length > 120) {
-      setError('Headline cannot exceed 120 characters.');
-      return;
-    }
     if (trimmedBody.length < 20) {
       setError(`Review text is too short (${trimmedBody.length}/20 characters minimum).`);
       return;
@@ -123,9 +116,8 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: trimmedTitle,
             body: trimmedBody,
-            rating,
+            tags,
             spoilerLevel,
             containsSpoiler: spoilerLevel !== 'SPOILER_FREE',
           }),
@@ -144,9 +136,8 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             animeId,
-            title: trimmedTitle,
             body: trimmedBody,
-            rating,
+            tags,
             spoilerLevel,
             containsSpoiler: spoilerLevel !== 'SPOILER_FREE',
           }),
@@ -154,10 +145,33 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
 
         const data = await res.json();
         if (!res.ok) {
+          if (data.code === 'PHONE_NOT_VERIFIED') {
+            onClose();
+            promptPhoneVerification('review');
+            return;
+          }
           throw new Error(data.error || 'Failed to publish review');
         }
 
         showToast('Review published successfully!', 'success');
+        if (data.tagsSaved === false) {
+          showToast('Your review is live, but its tags could not be saved. Edit the review to add them again.', 'info', 6000);
+        }
+        // Badge nudge: explains whether this review can count and how far the next tier is.
+        const b = data.badge;
+        if (b) {
+          const note =
+            b.countState === 'PENDING'
+              ? `Counts toward your badge after ${b.maturityHours} hours. ${b.message}.`
+              : b.countState === 'INELIGIBLE'
+                ? b.ineligibleReason === 'TOO_SHORT'
+                  ? `Add ${b.wordsNeeded} more words for this review to count toward your badge.`
+                  : b.ineligibleReason === 'NOT_WATCHED'
+                    ? 'Mark this title as watching or completed for a review to count toward your badge.'
+                    : null
+                : null;
+          if (note) showToast(note, 'info', 6000);
+        }
       }
 
       onClose();
@@ -215,79 +229,23 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
         <form className={styles.form} onSubmit={handleSubmit}>
           {error && <div className={styles.errorBox}>{error}</div>}
 
-          {/* Rating Section (0.5 - 10.0 scale, with clearable null state) */}
-          <div className={styles.inputGroup}>
-            <div className={styles.labelRow}>
-              <label className={styles.label}>
-                Rating <span className={styles.optionalTag}>(Optional)</span>
-              </label>
-              <div className={styles.ratingValueBadge}>
-                {rating !== null ? (
-                  <span className={styles.ratingVal}>
-                    <Star size={13} fill="#F59E0B" stroke="#F59E0B" />
-                    <strong>{rating.toFixed(1)}</strong> / 10
-                  </span>
-                ) : (
-                  <span className={styles.noRatingVal}>No score selected</span>
-                )}
-                {rating !== null && (
-                  <button
-                    type="button"
-                    className={styles.clearRatingBtn}
-                    onClick={() => setRating(null)}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.sliderContainer}>
-              <input
-                type="range"
-                min="0.5"
-                max="10"
-                step="0.5"
-                value={rating ?? 5}
-                onChange={(e) => setRating(parseFloat(e.target.value))}
-                className={styles.rangeSlider}
-              />
-              <div className={styles.ratingChipsRow}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
-                  <button
-                    key={score}
-                    type="button"
-                    className={`${styles.ratingChip} ${rating === score ? styles.ratingChipActive : ''}`}
-                    onClick={() => setRating(score)}
-                  >
-                    {score}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Headline input */}
-          <div className={styles.inputGroup}>
-            <div className={styles.labelRow}>
-              <label className={styles.label}>Headline</label>
-              <span className={styles.charCount}>{title.length}/120</span>
-            </div>
-            <input
-              type="text"
-              className={styles.input}
-              placeholder="e.g. Masterpiece in pacing and emotional payoff"
-              value={title}
-              onChange={(e) => setTitle(e.target.value.slice(0, 120))}
-              required
-              maxLength={120}
-            />
-          </div>
+          {/* No score here: a review's score is the author's rating from the rating section. */}
+          <p className={styles.ratingNote}>
+            <Star size={13} fill="#F59E0B" stroke="#F59E0B" aria-hidden="true" />
+            {existingRating !== null ? (
+              <span>
+                Your rating <strong>{existingRating.toFixed(1)}</strong> / 10 appears with this review. Change it with
+                the Rate button on the anime page.
+              </span>
+            ) : (
+              <span>Your rating from the anime page appears with this review. Reviews don&apos;t have a separate score.</span>
+            )}
+          </p>
 
           {/* Body textarea */}
           <div className={styles.inputGroup}>
             <div className={styles.labelRow}>
-              <label className={styles.label}>Review Thoughts</label>
+              <label className={styles.label}>Your review</label>
               <span
                 className={`${styles.charCount} ${body.trim().length < 20 ? styles.charCountWarning : ''}`}
               >
@@ -296,12 +254,40 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
             </div>
             <textarea
               className={`${styles.input} ${styles.textarea}`}
-              placeholder="What worked? How did the pacing, characters, music, and art hold up? Share your detailed critique..."
+              placeholder="What did you think? Story, characters, animation, music — anything worth telling other fans."
               value={body}
               onChange={(e) => setBody(e.target.value.slice(0, 5000))}
               required
               rows={6}
             />
+          </div>
+
+          {/* Community tags: fixed vocabulary, rolls up into the anime's tags */}
+          <div className={styles.inputGroup}>
+            <div className={styles.labelRow}>
+              <label className={styles.label} id="review-tags-label">
+                Tags <span className={styles.optionalTag}>(Optional · up to {MAX_REVIEW_TAGS})</span>
+              </label>
+              <span className={styles.charCount}>{tags.length}/{MAX_REVIEW_TAGS}</span>
+            </div>
+            <div className={styles.tagPicker} role="group" aria-labelledby="review-tags-label">
+              {REVIEW_TAGS.map((t) => {
+                const on = tags.includes(t.key);
+                const full = !on && tags.length >= MAX_REVIEW_TAGS;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className={`${styles.tagOption} ${on ? styles.tagOptionOn : ''}`}
+                    aria-pressed={on}
+                    disabled={full}
+                    onClick={() => setTags((prev) => (on ? prev.filter((k) => k !== t.key) : [...prev, t.key]))}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 4-Tier Spoiler Selector */}
@@ -363,7 +349,7 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
               <button
                 type="submit"
                 className={styles.submitBtn}
-                disabled={submitting || deleting || body.trim().length < 20 || !title.trim()}
+                disabled={submitting || deleting || body.trim().length < 20}
               >
                 {submitting
                   ? isEditing

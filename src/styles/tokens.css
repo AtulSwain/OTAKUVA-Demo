@@ -1,64 +1,104 @@
 :root {
+  --accent-badge: #FF7A59;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Arial, sans-serif;
   /* =========================================================================
-     OTAKUVA DARK + GRAY EDITORIAL ANIME INTELLIGENCE PLATFORM — DESIGN TOKENS
+     OTAKUVA — "a quiet, premium digital archive for anime culture"
+     Black & grey theme (owner, 2026-10-20), matching the logo and the
+     OTAKUVA wordmark: dark-grey page, graphite surfaces, white/silver
+     accents. Artwork brings the colour; semantic colours (retention
+     green/yellow/red, rating tiers, score gold) are the only hues.
      ========================================================================= */
 
-  /* 1. Surfaces & Background Hierarchy (Pure Dark + Gray Architecture) */
-  --bg-primary: #0C0C0E;             /* Deep charcoal dark background */
-  --bg-secondary: #121215;           /* Secondary dark surface */
-  --surface-base: #18181B;           /* Standard panel & card background */
-  --surface-elevated: #202024;       /* Elevated surface for hovers & dropdowns */
-  --surface-overlay: #27272B;        /* Modals & mega-menu overlays */
+  /* 1. Surfaces & Background Hierarchy (Section 5 OTAKUVA Color System) */
+  --color-bg: #141416;
+  --color-surface: #1B1B1E;
+  --color-surface-2: #232327;
+  --color-border: #26262F;
+  --color-text: #F5F5F7;
+  --color-text-muted: #71717A;
+  --color-text-soft: #A1A1AA;
+  --color-accent-blue: #D4D4D8;
+  --color-accent-gold: #D6B36A;
+  --scrim-bottom: linear-gradient(180deg, rgba(20,20,22,0) 0%, rgba(20,20,22,.6) 60%, #141416 100%);
+  --scrim-side: linear-gradient(90deg, rgba(20,20,22,.88) 0%, rgba(20,20,22,.35) 48%, rgba(20,20,22,0) 100%);
+  --bg-primary: #141416;          /* Primary dark background */
+  --bg-secondary: #101012;        /* Navigation and header background */
+  --header-bg: #101012;           /* Explicit navigation background */
+  --surface-base: #1B1B1E;        /* Primary surface */
+  --surface-elevated: #232327;    /* Secondary surface (hovers, secondary cards) */
+  --surface-subtle: #232327;      /* Subtle surface */
+  --surface-overlay: #2A2A2F;     /* Modals & overlays */
   --surface-hover: rgba(255, 255, 255, 0.04);
   --surface-active: rgba(255, 255, 255, 0.08);
   --surface-selected: rgba(255, 255, 255, 0.09);
 
   /* Compatibility aliases */
-  --bg-base: #0C0C0E;
-  --bg-surface: #121215;
-  --surface-main: #18181B;
-  --surface-card: #18181B;
+  --bg-base: #141416;
+  --bg-surface: #101012;
+  --surface-main: #1B1B1E;
+  --surface-card: #1B1B1E;
 
-  /* 2. Hairline Gray Borders & Separators */
-  --border-default: #2A2A2E;         /* Subtle dark gray border */
-  --border-hover: #3E3E44;           /* Hover gray border */
-  --border-subtle: #202024;
-  --border-medium: #2A2A2E;
-  --border-strong: #424248;
-  --border-elevated: #333338;
-  --border-accent: rgba(255, 255, 255, 0.25);
+  /* 2. Gray Hairline Borders & Separators */
+  --border-default: #26262F;      /* Border */
+  --border-hover: #3A3A46;
+  --border-subtle: #1B1B22;       /* Very subtle divider */
+  --border-medium: #26262F;
+  --border-strong: #3A3A46;
+  --border-elevated: #2E2E39;
+  --border-accent: rgba(255,255,255,0.28);
 
   /* 3. Typography Color Scale */
-  --text-primary: #EDEDEF;           /* Crisp off-white primary text */
-  --text-secondary: #9E9EA4;         /* Soft neutral gray secondary text */
-  --text-muted: #68686E;             /* Muted gray for timestamps & metadata */
-  --text-tertiary: #68686E;
-  --text-inverse: #0C0C0E;
+  --text-primary: #F5F5F7;        /* Primary readable text */
+  --text-pure: #FFFFFF;           /* Strong pure white */
+  --text-secondary: #A1A1AA;      /* Secondary text */
+  --text-muted: #71717A;          /* Muted metadata / captions */
+  --text-tertiary: #71717A;
+  --text-inverse: #141416;
 
-  /* 4. Restrained Editorial Accents */
-  --accent-primary: #6366F1;         /* OTAKUVA Subtle Indigo Accent */
-  --accent-primary-hover: #818CF8;
-  --accent-primary-subtle: rgba(99, 102, 241, 0.12);
-  --accent-cyan: #38BDF8;            /* Cyan indicator */
-  --accent-cyan-subtle: rgba(56, 189, 248, 0.1);
-  --accent-score: #F59E0B;           /* Amber rating score */
+  /* 4. Restrained Accents */
+  --accent-primary: #E4E4E7;      /* Light-grey accent (links, focus, active) */
+  --accent-primary-hover: #FFFFFF;
+  --accent-primary-subtle: rgba(255,255,255,0.12);
+  --accent-active: #E4E4E7;       /* Active accent indicator */
+  --accent-active-subtle: rgba(255,255,255,0.12);
+  --accent-score: #F59E0B;        /* Golden amber rating score & stars */
   --accent-score-subtle: rgba(245, 158, 11, 0.12);
-  --accent-emerald: #10B981;         /* Emerald status */
+  --accent-cyan: #38BDF8;         /* Cyan indicator */
+  --accent-cyan-subtle: rgba(56, 189, 248, 0.1);
+  --accent-emerald: #10B981;      /* Emerald status */
   --accent-rose: #F43F5E;
 
-  /* Legacy component aliases */
-  --accent: #6366F1;
-  --accent-hover: #818CF8;
-  --accent-active: #4F46E5;
-  --accent-subtle: rgba(99, 102, 241, 0.12);
-  --accent-focus: rgba(99, 102, 241, 0.25);
-  --accent-text: #FFFFFF;
+  /* Signature accent: white → silver → graphite (was sakura → violet → blue
+     until the black & grey theme, 2026-10-20). Used sparingly — section
+     kickers, rank highlights, "airing now". No glows. --accent-on is the
+     text colour on top of it. */
+  --accent-sakura: #F4F4F5;
+  --accent-violet: #A1A1AA;
+  --accent-gradient: linear-gradient(120deg, #F4F4F5 0%, #B4B4BC 48%, #7C7C86 100%);
+  --accent-glow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+  --accent-on: #111113;
+  /* Rank medals: #1 gold, #2 silver, #3 bronze (owner, 2026-10-20). */
+  --medal-gold: linear-gradient(180deg, #FFF1B8 0%, #F2C94C 45%, #B8860B 100%);
+  --medal-silver: linear-gradient(180deg, #FFFFFF 0%, #D7DBE0 45%, #8E949C 100%);
+  --medal-bronze: linear-gradient(180deg, #FFD3A8 0%, #D08A4E 45%, #8A4B1F 100%);
+  --medal-gold-solid: #F2C94C;
+  --medal-silver-solid: #CDD2D8;
+  --medal-bronze-solid: #D08A4E;
+
+  /* Compatibility component aliases */
+  --accent: #E4E4E7;
+  --accent-hover: #FFFFFF;
+  --accent-active-legacy: #A1A1AA;
+  --accent-subtle: rgba(255,255,255,0.12);
+  --accent-focus: rgba(255,255,255,0.35);
+  --accent-text: #111113;
   --dark-graphite: #18181B;
   --metallic-dark: #202024;
   --metallic-mid: #2A2A2E;
   --metallic-light: #68686E;
 
   /* 5. Spacing Scale */
+  --space-unit: 8px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -75,44 +115,72 @@
   /* 6. Restrained Border Radii */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
   --radius-pill: 9999px;
 
-  /* 7. Refined Smaller Typography Scale */
-  --font-display: 24px;              /* Main page / hero display titles */
-  --font-hero: 20px;                 /* Section hero titles */
-  --font-heading: 16px;              /* Section & card headings */
-  --font-subheading: 14px;           /* Subheadings */
-  --font-body: 13px;                 /* Body paragraphs */
-  --font-body-small: 12px;           /* Compact text & cards */
-  --font-meta: 11px;                 /* Timestamps, tags, metadata */
-  --font-caption: 10px;              /* Captions & badges */
-  --font-micro: 9px;                 /* Micro indicators */
+  /* --font-display is used only for page/hero <h1> and section <h2> - never body text, buttons, chips, or metadata. */
+  /* 7. Typography Families */
+  --font-ui: var(--font-sans);
+  --font-display: var(--font-sans);
+  --font-sans-family: var(--font-sans);
+  --font-serif-family: var(--font-serif, 'DM Serif Display', Georgia, 'Times New Roman', serif);
 
-  /* 8. Font Weights */
+  /* 8. Typography Scale (Section 7 Master Spec) */
+  --text-display: 44px;
+  --text-display-line-height: 1.06;
+  --text-heading: 26px;
+  --text-heading-line-height: 1.2;
+  --text-body: 16px;
+  --text-body-line-height: 1.5;
+  --text-label: 12px;
+  --text-label-line-height: 1.4;
+  --text-label-letter-spacing: 0.14em;
+  --font-wordmark: 23px;          /* Desktop Wordmark 22-24px (700-800) */
+  --font-nav: 15px;               /* Navigation 15-16px (500-600) */
+  --font-eyebrow: 12px;           /* Eyebrow 11-13px (600-700, letter-spacing: 0.12em) */
+  --font-major-title: 48px;       /* Major title 44-52px (700-800) */
+  --font-section-heading: 26px;   /* Section heading 24-30px (650-750) */
+  --font-body: 16px;              /* Body 15-17px (400-500) */
+  --font-metadata: 14px;          /* Metadata 13-15px (400-500) */
+  --font-button: 15px;            /* Buttons 14-16px (600-700) */
+  --font-meta-small: 12px;        /* Compact metadata */
+  --font-caption: 11px;           /* Badges and micro tags */
+
+  /* Legacy aliases for component backwards-compatibility */
+  --font-hero: 22px;
+  --font-heading: 18px;
+  --font-subheading: 15px;
+  --font-body-small: 13px;
+  --font-meta: 12px;
+  --font-micro: 10px;
+
+  /* 9. Font Weights */
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --weight-heavy: 800;
 
-  /* 9. Layout Dimensions */
+  /* 10. Layout Dimensions */
   --header-height: 64px;
   --header-height-scrolled: 56px;
   --mobile-nav-height: 54px;
-  --max-content-width: 1440px;
+  --max-content-width: 1360px;
+  /* Catalog pages (Explore, Browse, Top Picks…) use the header's full width. */
+  --max-wide-width: 1800px;
 
-  /* 10a. Homepage Section & Card Tokens */
-  --section-gap: 48px;
+  /* 11. Section & Card Tokens */
+  --section-gap: 46px;
   --section-gap-sm: 36px;
-  --card-radius: 10px;
+  --card-radius: 16px;
   --card-hover-lift: -3px;
 
-  /* 10b. Shadow System */
-  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 12px rgba(99, 102, 241, 0.25);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+  /* 12. Shadow System */
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px rgba(161, 161, 170, 0.30);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.7);
 
   /* 10. OTAKUVA V2.0 Motion System */
   --ease-out-cubic: cubic-bezier(0.22, 1, 0.36, 1);
@@ -129,4 +197,23 @@
   --transition-normal: 280ms cubic-bezier(0.22, 1, 0.36, 1);
   --transition-slow: 400ms cubic-bezier(0.22, 1, 0.36, 1);
   --transition-hero: 600ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 13. Cinematic layer — frosted glass, pill controls, softer radii.
+     Additive: existing tokens above are untouched so other pages don't shift. */
+  --glass-bg: rgba(20, 20, 22, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(28px) saturate(160%);
+  --pill-bg: rgba(255, 255, 255, 0.10);
+  --pill-bg-hover: rgba(255, 255, 255, 0.18);
+  --pill-border: rgba(255, 255, 255, 0.12);
+  --radius-2xl: 22px;
+  --radius-3xl: 28px;
+  --card-bento: #1B1B1E;
+  --accent-vibe: #D4D4D8;
+}
+
+:root {
+  /* Header height including the iOS status-bar/notch inset; use for anything sticky below the header. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --header-offset: calc(var(--header-height, 64px) + var(--safe-top));
 }

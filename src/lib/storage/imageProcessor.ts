@@ -26,7 +26,7 @@ export class ImageProcessor {
         return { valid: false, error: 'Unable to determine image dimensions.' };
       }
 
-      if (!metadata.format || !['jpeg', 'png', 'webp', 'avif'].includes(metadata.format)) {
+      if (!metadata.format || !['jpeg', 'png', 'webp'].includes(metadata.format)) {
         return { valid: false, error: `Unsupported image format: ${metadata.format || 'unknown'}. Only JPEG, PNG, and WebP are allowed.` };
       }
 
@@ -96,6 +96,33 @@ export class ImageProcessor {
       buffer: processedBuffer,
       width: resultMetadata.width || 1920,
       height: resultMetadata.height || 640,
+      format: 'webp',
+      mimeType: 'image/webp',
+      size: processedBuffer.length,
+    };
+  }
+
+  /**
+   * Article cover image: keeps the original aspect ratio (the page crops it
+   * with object-fit), capped at 1600px on the long side, EXIF stripped, WebP.
+   */
+  public static async processArticleImage(buffer: Buffer): Promise<ProcessedImageResult> {
+    const validation = await this.validateImage(buffer);
+    if (!validation.valid || !validation.metadata) {
+      throw new Error(validation.error || 'Invalid image file.');
+    }
+
+    const processedBuffer = await sharp(buffer)
+      .rotate()
+      .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 84, effort: 4 })
+      .toBuffer();
+
+    const resultMetadata = await sharp(processedBuffer).metadata();
+    return {
+      buffer: processedBuffer,
+      width: resultMetadata.width || 1600,
+      height: resultMetadata.height || 900,
       format: 'webp',
       mimeType: 'image/webp',
       size: processedBuffer.length,

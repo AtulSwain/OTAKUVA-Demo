@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import { getAnimeBySlugOrId } from '../../../../../lib/animeData';
 import {
   submitUserRating,
   deleteUserRating,
   getUserRating,
 } from '../../../../../lib/rating/ratingService';
+import { getEpisodeReleaseState, getMyEpisodeScore } from '../../../../../lib/rating/episodeRatings';
+import { notifyFollowersOfCreatorRating } from '../../../../../lib/social/followService';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -38,13 +40,23 @@ export async function GET(
       return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
     }
 
-    const userRating = await getUserRating(authUser.id, anime.id);
+    const [userRating, episodeScore] = await Promise.all([
+      getUserRating(authUser.id, anime.id),
+      getMyEpisodeScore(authUser.id, anime.id),
+    ]);
+    // Same rule as the OTAKUVA Score: the overall rating of the anime; only a
+    // member with none falls back to their legacy per-episode score average.
+    const effective = userRating.hasRated
+      ? { ...userRating, source: 'overall', episodesRated: 0 }
+      : episodeScore
+        ? { hasRated: true, yourRating: episodeScore.score, yourCategoryRatings: episodeScore.categories, source: 'episodes', episodesRated: episodeScore.episodesRated }
+        : { ...userRating, source: null, episodesRated: 0 };
 
     return NextResponse.json(
       {
         authenticated: true,
         animeId: anime.id,
-        ...userRating,
+        ...effective,
       },
       {
         headers: {
@@ -67,21 +79,25 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to submit rating' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const anime = await getAnimeBySlugOrId(params.id);
     if (!anime) {
       return NextResponse.json({ error: 'Anime not found' }, { status: 404 });
     }
 
+    // Nothing can be rated before episode 1 has aired (server-side, not just hidden buttons).
+    const release = await getEpisodeReleaseState(anime.id);
+    if (!release.isOpen) {
+      return NextResponse.json({ error: 'Ratings open when episode 1 airs.' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { score, categoryScores } = body;
 
     if (score === undefined || score === null) {
-      return NextResponse.json({ error: 'Score is required (0.5 to 10.0 in 0.5 increments)' }, { status: 400 });
+      return NextResponse.json({ error: 'Score is required (0.5 to 10.0 in 0.1 steps)' }, { status: 400 });
     }
 
     const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -95,6 +111,9 @@ export async function POST(
       ipAddress,
       userAgent,
     });
+
+    // Creators only: their followers hear about it (once per anime).
+    await notifyFollowersOfCreatorRating(authUser.id, anime.id, rating.rating);
 
     return NextResponse.json({
       success: true,

@@ -1,86 +1,51 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-import { Clapperboard, Layers, Building2, Users, ArrowRight, Film, Award } from 'lucide-react';
+import type { Metadata } from 'next';
+import { Clapperboard, ArrowRight } from 'lucide-react';
 import { ScrollReveal } from '../../components/ui/ScrollReveal';
+import { prisma } from '../../lib/prisma';
+import { sanitizePublicEntityName } from '../../lib/normalizers';
 import styles from './production.module.css';
 
-interface ProductionCompany {
-  id: string;
-  name: string;
-  slug: string;
-  role: string;
-  description: string;
-  notableWorks: string[];
-  partnerStudios: string[];
-  foundedYear: number;
+export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Anime Production | OTAKUVA' };
+
+/**
+ * The producers with the most titles in the catalog, from the Producer /
+ * AnimeProducer tables. This list used to be hardcoded — names, "roles",
+ * founding years, partner-studio counts and marketing copy typed into the
+ * page — rather than read from the data the rest of the site uses.
+ */
+async function getTopProducers() {
+  const producers = await prisma.producer.findMany({
+    where: { slug: { not: null } },
+    orderBy: { animeProducers: { _count: 'desc' } },
+    take: 24,
+    select: {
+      name: true,
+      slug: true,
+      _count: { select: { animeProducers: true } },
+      animeProducers: {
+        where: { anime: { status: { not: 'MERGED' }, isAdult: false } },
+        orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } },
+        take: 3,
+        select: { anime: { select: { canonicalTitle: true, slug: true } } },
+      },
+    },
+  });
+  return producers
+    .filter((p) => p._count.animeProducers > 0)
+    .map((p) => ({
+      name: sanitizePublicEntityName(p.name),
+      slug: p.slug as string,
+      count: p._count.animeProducers,
+      notable: p.animeProducers.map((ap) => ({ title: sanitizePublicEntityName(ap.anime.canonicalTitle), slug: ap.anime.slug })),
+    }));
 }
 
-const PRODUCTION_COMPANIES: ProductionCompany[] = [
-  {
-    id: 'toho-animation',
-    name: 'TOHO animation',
-    slug: 'toho-animation',
-    role: 'Production & Planning',
-    description: 'The animation production branch of Toho Co., Ltd., funding and producing flagship modern masterpieces.',
-    notableWorks: ["Frieren: Beyond Journey's End", 'Jujutsu Kaisen', 'My Hero Academia', 'Spy × Family'],
-    partnerStudios: ['Madhouse', 'MAPPA', 'Bones', 'CloverWorks / Wit Studio'],
-    foundedYear: 2012,
-  },
-  {
-    id: 'aniplex',
-    name: 'Aniplex',
-    slug: 'aniplex',
-    role: 'Planning & Distribution',
-    description: 'Sony Music Entertainment subsidiary specializing in high-tier anime production, music, and distribution worldwide.',
-    notableWorks: ['Demon Slayer: Kimetsu no Yaiba', 'Fate/stay night: Heaven’s Feel', 'Bocchi the Rock!', 'Sword Art Online'],
-    partnerStudios: ['Ufotable', 'CloverWorks', 'A-1 Pictures'],
-    foundedYear: 1995,
-  },
-  {
-    id: 'kadokawa',
-    name: 'Kadokawa Corporation',
-    slug: 'kadokawa',
-    role: 'Publisher & Committee Lead',
-    description: 'Major Japanese publishing conglomerate spearheading light novel and manga adaptations into anime productions.',
-    notableWorks: ['Re:Zero', 'The Eminence in Shadow', 'Delicious in Dungeon', 'Konosuba'],
-    partnerStudios: ['White Fox', 'Nexus', 'Trigger', 'Studio Deen'],
-    foundedYear: 1945,
-  },
-  {
-    id: 'bandai-namco-filmworks',
-    name: 'Bandai Namco Filmworks',
-    slug: 'bandai-namco-filmworks',
-    role: 'Production & IP Management',
-    description: 'Consolidated entity encompassing Sunrise, Bandai Visual, and Emotion managing iconic sci-fi and franchise IPs.',
-    notableWorks: ['Mobile Suit Gundam', 'Cowboy Bebop', 'Code Geass', 'Love Live!'],
-    partnerStudios: ['Sunrise', 'Actas', 'Bandai Namco Pictures'],
-    foundedYear: 1972,
-  },
-  {
-    id: 'twin-engine',
-    name: 'Twin Engine',
-    slug: 'twin-engine',
-    role: 'Planning & Producer Network',
-    description: 'Producer-led production company fostering innovative anime with dedicated boutique animation studios.',
-    notableWorks: ['Vinland Saga', 'Dororo', 'Mononoke', 'Burn the Witch'],
-    partnerStudios: ['MAPPA', 'Wit Studio', 'Studio Colorido', 'Kafka'],
-    foundedYear: 2014,
-  },
-  {
-    id: 'pony-canyon',
-    name: 'Pony Canyon',
-    slug: 'pony-canyon',
-    role: 'Music & Production',
-    description: 'Major Japanese entertainment company producing music and investing in landmark anime committees.',
-    notableWorks: ['Attack on Titan', 'Sound! Euphonium', 'Free!', 'Clannad'],
-    partnerStudios: ['Wit Studio', 'Kyoto Animation', 'MAPPA'],
-    foundedYear: 1966,
-  },
-];
+export default async function ProductionPage() {
+  const producers = await getTopProducers();
 
-export default function ProductionPage() {
   return (
     <div className={styles.page}>
       {/* 1. Header Hero */}
@@ -88,11 +53,11 @@ export default function ProductionPage() {
         <div className={styles.heroContent}>
           <div className={styles.badge}>
             <Clapperboard size={12} />
-            <span>Anime Industry Intelligence</span>
+            <span>How anime gets made</span>
           </div>
           <h1 className={styles.heroTitle}>Anime Production &amp; Committees</h1>
           <p className={styles.heroSubtitle}>
-            Uncover the real architecture of anime creation. Explore how planning companies, publishers, production committees, and animation studios collaborate to bring projects to life.
+            Publishers, planning companies, production committees and animation studios each play a part. Here&apos;s how they fit together, and the producers behind the most titles in the catalog.
           </p>
         </div>
       </div>
@@ -141,27 +106,32 @@ export default function ProductionPage() {
       <ScrollReveal delayMs={50}>
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Key Production Companies &amp; Planners</h2>
+            <h2 className={styles.sectionTitle}>Producers in the catalog</h2>
+            <p className={styles.sectionNote}>Ranked by how many catalogued titles credit them.</p>
           </div>
 
-          <div className={styles.companyGrid}>
-            {PRODUCTION_COMPANIES.map((company) => (
-              <div key={company.id} className={styles.companyCard}>
-                <div className={styles.cardTop}>
-                  <h3 className={styles.companyName}>{company.name}</h3>
-                  <span className={styles.companyRole}>{company.role}</span>
-                </div>
-
-                <p className={styles.companyDesc}>{company.description}</p>
-
-                <div className={styles.cardStats}>
-                  <span>Est. {company.foundedYear}</span>
-                  <span>·</span>
-                  <span>{company.partnerStudios.length} Partner Studios</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          {producers.length === 0 ? (
+            <p className={styles.sectionNote}>No producers have been recorded in the catalog yet.</p>
+          ) : (
+            <div className={styles.companyGrid}>
+              {producers.map((company) => (
+                <Link key={company.slug} href={`/producer/${company.slug}`} className={styles.companyCard}>
+                  <div className={styles.cardTop}>
+                    <h3 className={styles.companyName}>{company.name}</h3>
+                    <ArrowRight size={16} aria-hidden="true" className={styles.cardArrow} />
+                  </div>
+                  {company.notable.length > 0 && (
+                    <p className={styles.companyDesc}>{company.notable.map((n) => n.title).join(' · ')}</p>
+                  )}
+                  <div className={styles.cardStats}>
+                    <span>
+                      {company.count.toLocaleString('en-US')} {company.count === 1 ? 'title' : 'titles'}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       </ScrollReveal>
     </div>

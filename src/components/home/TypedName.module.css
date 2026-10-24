@@ -1,0 +1,15 @@
+.wrap { position: relative; display: inline-flex; align-items: baseline; white-space: nowrap; }
+/* Silver text like the rest of the headline accent, with one shimmer sweep at the end. */
+.text {
+  background: linear-gradient(100deg, #f4f4f5 0%, #b4b4bc 40%, #ffffff 50%, #b4b4bc 60%, #7c7c86 100%) 0 0 / 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.done .text { animation: shimmer 1.4s ease-out 1; }
+.caret { display: inline-block; width: 3px; height: 0.9em; margin-left: 4px; border-radius: 2px; background: #fff; transform: translateY(0.08em); animation: blink 0.9s steps(1) infinite; transition: opacity 0.4s ease; }
+.done .caret { opacity: 0; animation: none; }
+@keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .text, .done .text { animation: none; }
+  .caret { display: none; }
+}

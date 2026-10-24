@@ -1,7 +1,17 @@
 import { prisma } from './prisma';
 import { AnimeCardData } from './animeData';
-import { normalizeSearchTitle } from './normalizers';
 import { getAnimeDisplayTitle } from './animeTitleResolver';
+import { searchAnimeIdsByTitle } from './fuzzySearch';
+
+// Generous cap on how many title-fuzzy-matched anime feed into the rest
+// of this query (further filters, sort, and pagination all still apply
+// after this) — bounds the IN-list size for an extremely broad query
+// while still comfortably covering any real result set. Matches are
+// already the *best* ones (searchAnimeIdsByTitle orders by rank before
+// this cap is applied), so a query with more than this many matches
+// simply drops the weakest tail rather than losing anything a user would
+// actually be looking for.
+const MAX_TITLE_MATCHES = 500;
 
 export interface SearchFilters {
   query?: string;
@@ -38,21 +48,25 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
 
   const where: any = {
     status: { not: 'MERGED' },
+    // The public site has no adult-content gate, so adult titles never surface in search.
+    isAdult: false,
   };
 
-  // Multi-field search against title, slug, alternate titles, studio, genres, and tags
+  // Multi-field search against title (fuzzy/typo-tolerant, see
+  // fuzzySearch.ts), slug, studio, genres, and tags. Title matching used
+  // to be a plain `contains` against canonicalTitle/AnimeTitle — replaced
+  // with Postgres full-text + pg_trgm search, which also covers alternate
+  // and romanized AnimeTitle rows the same way.
   if (filters.query && filters.query.trim()) {
     const rawTerm = filters.query.trim();
-    const normalizedTerm = normalizeSearchTitle(rawTerm);
+    const titleMatches = await searchAnimeIdsByTitle(rawTerm, MAX_TITLE_MATCHES);
 
     where.OR = [
-      { canonicalTitle: { contains: rawTerm } },
-      { slug: { contains: normalizedTerm } },
-      { titles: { some: { searchableTitle: { contains: normalizedTerm } } } },
-      { titles: { some: { title: { contains: rawTerm } } } },
-      { animeStudios: { some: { studio: { name: { contains: rawTerm } } } } },
-      { animeGenres: { some: { genre: { name: { contains: rawTerm } } } } },
-      { animeTags: { some: { name: { contains: rawTerm } } } },
+      { id: { in: titleMatches.map((m) => m.id) } },
+      { slug: { contains: rawTerm, mode: 'insensitive' } },
+      { animeStudios: { some: { studio: { name: { contains: rawTerm, mode: 'insensitive' } } } } },
+      { animeGenres: { some: { genre: { name: { contains: rawTerm, mode: 'insensitive' } } } } },
+      { animeTags: { some: { name: { contains: rawTerm, mode: 'insensitive' } } } },
     ];
   }
 
@@ -60,7 +74,7 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
   if (filters.genre && filters.genre !== 'All') {
     where.animeGenres = {
       some: {
-        genre: { name: { contains: filters.genre } },
+        genre: { name: { contains: filters.genre, mode: 'insensitive' } },
       },
     };
   }
@@ -69,7 +83,7 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
   if (filters.theme && filters.theme !== 'All') {
     where.animeThemes = {
       some: {
-        theme: { name: { contains: filters.theme } },
+        theme: { name: { contains: filters.theme, mode: 'insensitive' } },
       },
     };
   }
@@ -78,7 +92,7 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
   if (filters.tag && filters.tag !== 'All') {
     where.animeTags = {
       some: {
-        name: { contains: filters.tag },
+        name: { contains: filters.tag, mode: 'insensitive' },
       },
     };
   }
@@ -87,7 +101,7 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
   if (filters.studio && filters.studio !== 'All') {
     where.animeStudios = {
       some: {
-        studio: { name: { contains: filters.studio } },
+        studio: { name: { contains: filters.studio, mode: 'insensitive' } },
       },
     };
   }

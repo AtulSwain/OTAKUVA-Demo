@@ -1,5 +1,5 @@
 .wrap { position: relative; display: inline-flex; outline: none; border-radius: 8px; }
-.wrap:focus-visible { box-shadow: 0 0 0 2px var(--accent-focus, rgba(76, 141, 255, 0.5)); }
+.wrap:focus-visible { box-shadow: 0 0 0 2px var(--accent-focus, rgba(124, 124, 134, 0.5)); }
 .tip {
   position: absolute;
   z-index: 40;
@@ -9,7 +9,7 @@
   min-width: 156px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--surface-overlay, #22222b);
+  background: var(--surface-overlay, #2A2A2F);
   color: var(--text-primary, #f5f5f7);
   border: 1px solid var(--border-elevated, #2e2e39);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);

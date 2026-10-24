@@ -5,12 +5,27 @@
  */
 
 import { prisma } from '../prisma';
+import { resolveGifForAttachment } from '../media/gifProvider';
+import type { NextApiResponseServerIo } from '../../types/socket';
 
 export interface SendMessageInput {
   content: string;
   messageType?: 'TEXT' | 'IMAGE' | 'GIF' | 'MEME' | 'SYSTEM';
   mediaUrl?: string;
+  /** Client-chosen GIPHY id; resolved to a provider-verified URL here, never trusted from the client directly. */
+  gifId?: string;
   replyToId?: string;
+}
+
+/**
+ * Pushes a persisted message out over the existing Socket.IO server so open
+ * ChatThreads update live. The socket server only exists once something has
+ * hit /api/socket/io at least once (see SocketContext); until then this is a
+ * harmless no-op and clients still get the message on next fetch.
+ */
+function emitNewMessage(conversationId: string, message: unknown) {
+  const io = (global as any).socketio as NextApiResponseServerIo['socket']['server']['io'] | undefined;
+  io?.to(`conversation:${conversationId}`).emit('new_message', message);
 }
 
 export interface ConversationSummary {
@@ -20,6 +35,8 @@ export interface ConversationSummary {
   avatarUrl: string | null;
   updatedAt: Date;
   unreadCount: number;
+  animeId?: string | null;
+  animeSlug?: string | null;
   lastMessage: {
     id: string;
     senderId: string;
@@ -98,6 +115,60 @@ export async function getOrCreateDirectConversation(
 }
 
 /**
+ * Gets the persistent live chat room conversation for an anime, creating it
+ * on first visit. Anyone who opens a room is auto-joined as a participant
+ * (rooms are public, not invite-based) so it shows up in their ChatList with
+ * normal unread tracking — no separate membership model needed.
+ */
+export async function getOrCreateAnimeRoomConversation(
+  userId: string,
+  animeId: string
+): Promise<{ id: string; animeTitle: string; animePosterUrl: string | null }> {
+  const anime = await prisma.anime.findUnique({
+    where: { id: animeId },
+    select: { id: true, canonicalTitle: true, posterUrl: true },
+  });
+  if (!anime) {
+    throw new Error('Anime not found.');
+  }
+
+  let conversation = await prisma.conversation.findUnique({
+    where: { animeId },
+    select: { id: true },
+  });
+
+  if (!conversation) {
+    // Two requests racing to create the same room's first visit both hit this
+    // branch; the unique index on animeId makes the loser's insert fail
+    // cleanly rather than creating a duplicate room.
+    try {
+      conversation = await prisma.conversation.create({
+        data: {
+          type: 'ANIME_ROOM',
+          animeId,
+          createdById: userId,
+          participants: { create: [{ userId, role: 'MEMBER' }] },
+        },
+        select: { id: true },
+      });
+    } catch {
+      conversation = await prisma.conversation.findUniqueOrThrow({
+        where: { animeId },
+        select: { id: true },
+      });
+    }
+  }
+
+  await prisma.conversationParticipant.upsert({
+    where: { conversationId_userId: { conversationId: conversation.id, userId } },
+    update: {},
+    create: { conversationId: conversation.id, userId, role: 'MEMBER' },
+  });
+
+  return { id: conversation.id, animeTitle: anime.canonicalTitle, animePosterUrl: anime.posterUrl };
+}
+
+/**
  * Creates a new group conversation with multiple members
  */
 export async function createGroupConversation(
@@ -153,6 +224,9 @@ export async function getUserConversations(userId: string): Promise<Conversation
     include: {
       conversation: {
         include: {
+          anime: {
+            select: { id: true, slug: true, canonicalTitle: true, posterUrl: true },
+          },
           participants: {
             include: {
               user: {
@@ -195,6 +269,9 @@ export async function getUserConversations(userId: string): Promise<Conversation
         displayTitle = other.user.username;
         displayAvatar = other.user.avatarUrl;
       }
+    } else if (conv.type === 'ANIME_ROOM' && conv.anime) {
+      displayTitle = conv.anime.canonicalTitle;
+      displayAvatar = conv.anime.posterUrl;
     }
 
     return {
@@ -204,6 +281,8 @@ export async function getUserConversations(userId: string): Promise<Conversation
       avatarUrl: displayAvatar,
       updatedAt: conv.updatedAt,
       unreadCount: lastMsg && new Date(lastMsg.createdAt) > lastRead && lastMsg.senderId !== userId ? 1 : 0,
+      animeId: conv.anime?.id ?? null,
+      animeSlug: conv.anime?.slug ?? null,
       lastMessage: lastMsg
         ? {
             id: lastMsg.id,
@@ -306,7 +385,19 @@ export async function sendMessage(
   input: SendMessageInput
 ) {
   const content = input.content.trim();
-  if (!content && !input.mediaUrl) {
+
+  // A GIF id is always resolved here, server-side, against the provider —
+  // the client only ever supplies a chosen id, never a URL, so nothing
+  // reaches the DB that GIPHY didn't actually vouch for.
+  let mediaUrl = input.mediaUrl || null;
+  let messageType = input.messageType || 'TEXT';
+  if (input.gifId) {
+    const gif = await resolveGifForAttachment(input.gifId);
+    mediaUrl = gif.url;
+    messageType = 'GIF';
+  }
+
+  if (!content && !mediaUrl) {
     throw new Error('Message content or media is required.');
   }
 
@@ -321,8 +412,6 @@ export async function sendMessage(
     throw new Error('Unauthorized: You are not a participant in this conversation.');
   }
 
-  const messageType = input.messageType || 'TEXT';
-
   const result = await prisma.$transaction(async (tx) => {
     const msg = await tx.message.create({
       data: {
@@ -330,7 +419,7 @@ export async function sendMessage(
         senderId: userId,
         content: content || '',
         messageType,
-        mediaUrl: input.mediaUrl || null,
+        mediaUrl,
         replyToId: input.replyToId || null,
       },
       include: {
@@ -355,10 +444,9 @@ export async function sendMessage(
     return msg;
   });
 
-  return {
-    ...result,
-    reactions: {},
-  };
+  const formatted = { ...result, reactions: {} as Record<string, { count: number; users: string[]; hasReacted: boolean }> };
+  emitNewMessage(conversationId, formatted);
+  return formatted;
 }
 
 /**

@@ -1,7 +1,8 @@
 import { useId } from 'react';
-import { getTier, type Tier, type TierKey } from '../../lib/badges/tiers';
+import { getTier, tierIndex, type Tier, type TierKey } from '../../lib/badges/tiers';
 import { BADGE_STRINGS } from '../../lib/badges/strings';
 import { GLYPHS } from '../../lib/badges/glyphPaths';
+import { SEAL_BEADS, SEAL_CENTER, SEAL_GLYPHS, SEAL_ORNAMENTS, SEAL_RADII, SEAL_STUDS } from '../../lib/badges/sealOrnaments';
 import { tierVars } from './tierStyle';
 import styles from './Seal.module.css';
 
@@ -19,13 +20,14 @@ export interface SealProps {
   className?: string;
   /** Hide from assistive tech when a neighbouring element already names the tier. */
   decorative?: boolean;
+  /** Draw the un-inked slot for this tier (a level not reached yet) instead of the stamp. */
+  blank?: boolean;
 }
 
 const VIEW = 68;
-const CENTER = VIEW / 2;
-const PAIR_SCALE = 0.024; // 24-unit em => ~22-unit ink height per glyph
-const SINGLE_SCALE = 0.044;
-const PAIR_CENTERS = [21, 47];
+const C = SEAL_CENTER;
+const R = SEAL_RADII;
+const { BEADS_FROM, STUDS_FROM, DETAIL_MIN_PX, TEXTURE_MIN_PX } = SEAL_ORNAMENTS;
 
 function Glyph({ ch, cx, cy, scale, className }: { ch: string; cx: number; cy: number; scale: number; className: string }) {
   const g = GLYPHS[ch];
@@ -35,12 +37,17 @@ function Glyph({ ch, cx, cy, scale, className }: { ch: string; cx: number; cy: n
   return <path className={className} d={g.d} transform={`translate(${cx} ${cy}) scale(${scale}) translate(${-bx} ${-by})`} />;
 }
 
-/** Hanko-style seal. One component, every tier, including the Shoshinsha empty state. */
-export default function Seal({ tier, size = 'md', count, label, className, decorative }: SealProps) {
+/**
+ * Round hanko stamp. One component, every tier, including the Shoshinsha
+ * empty state (a dashed, uninked circle).
+ */
+export default function Seal({ tier, size = 'md', count, label, className, decorative, blank = false }: SealProps) {
   const t = typeof tier === 'string' ? getTier(tier) : tier;
   const px = typeof size === 'number' ? size : SEAL_SIZES[size];
   const chars = Array.from(t.kanji);
-  const empty = t.fill === null;
+  const empty = t.fill === null || blank;
+  const rank = tierIndex(t);
+  const detailed = px >= DETAIL_MIN_PX;
   const a11y =
     label ??
     (empty
@@ -48,11 +55,25 @@ export default function Seal({ tier, size = 'md', count, label, className, decor
       : count !== undefined
         ? BADGE_STRINGS.reviewerLabel(t.name, count)
         : BADGE_STRINGS.reviewerLabelNoCount(t.name));
-  const titleId = useId();
+  const uid = useId().replace(/:/g, '');
+  const titleId = `${uid}t`;
+  const ids = { depth: `${uid}d`, bevel: `${uid}b`, clip: `${uid}c`, shine: `${uid}s`, rough: `${uid}r` };
+  const glyphs = (cls: string, dx = 0, dy = 0) =>
+    chars.map((ch, i) => (
+      <Glyph
+        key={i}
+        className={cls}
+        ch={ch}
+        cx={C + dx}
+        cy={(chars.length === 1 ? C : SEAL_GLYPHS.pairCenters[i] ?? C) + dy}
+        scale={chars.length === 1 ? SEAL_GLYPHS.singleScale : SEAL_GLYPHS.pairScale}
+      />
+    ));
+  const line = t.special ? styles.lineSpecial : styles.linePlain;
 
   return (
     <svg
-      className={[styles.seal, className].filter(Boolean).join(' ')}
+      className={[styles.seal, t.special ? styles.special : '', className].filter(Boolean).join(' ')}
       style={tierVars(t)}
       width={px}
       height={px}
@@ -66,25 +87,72 @@ export default function Seal({ tier, size = 'md', count, label, className, decor
       {!decorative && <title id={titleId}>{a11y}</title>}
       {empty ? (
         <>
-          <rect className={styles.empty} x={1} y={1} width={66} height={66} rx={6} />
-          <Glyph className={styles.emptyGlyph} ch={chars[0]} cx={CENTER} cy={CENTER} scale={SINGLE_SCALE} />
+          <circle className={styles.emptyPlate} cx={C} cy={C} r={R.outline} />
+          <circle className={styles.empty} cx={C} cy={C} r={R.outline} />
+          {detailed && <circle className={styles.emptyRing} cx={C} cy={C} r={R.ringInner} />}
+          {glyphs(styles.emptyGlyph)}
         </>
       ) : (
         <>
-          <rect className={styles.plate} width={VIEW} height={VIEW} rx={6} />
-          <rect className={styles.outline} x={0.7} y={0.7} width={VIEW - 1.4} height={VIEW - 1.4} rx={5.5} />
-          {t.special && <rect className={styles.rim} x={0.8} y={0.8} width={VIEW - 1.6} height={VIEW - 1.6} rx={5.4} />}
-          <rect
-            className={`${styles.border} ${t.special ? styles.borderSpecial : styles.borderPlain}`}
-            x={5}
-            y={5}
-            width={58}
-            height={58}
-            rx={3}
-          />
-          {chars.map((ch, i) => (
-            <Glyph key={i} className={styles.glyph} ch={ch} cx={CENTER} cy={PAIR_CENTERS[i] ?? CENTER} scale={PAIR_SCALE} />
-          ))}
+          <defs>
+            {/* Enamel depth: light from the top-left, shade toward the bottom-right. */}
+            <linearGradient id={ids.depth} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="white" stopOpacity="0.26" />
+              <stop offset="0.45" stopColor="white" stopOpacity="0" />
+              <stop offset="1" stopColor="black" stopOpacity="0.3" />
+            </linearGradient>
+            <linearGradient id={ids.bevel} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="white" stopOpacity="0.45" />
+              <stop offset="0.5" stopColor="white" stopOpacity="0.05" />
+              <stop offset="1" stopColor="black" stopOpacity="0.35" />
+            </linearGradient>
+            <clipPath id={ids.clip}>
+              <circle cx={C} cy={C} r={R.plate} />
+            </clipPath>
+            {t.special && (
+              <linearGradient id={ids.shine} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="white" stopOpacity="0" />
+                <stop offset="0.5" stopColor="white" stopOpacity="0.55" />
+                <stop offset="1" stopColor="white" stopOpacity="0" />
+              </linearGradient>
+            )}
+            {px >= TEXTURE_MIN_PX && (
+              <filter id={ids.rough} x="-5%" y="-5%" width="110%" height="110%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves={2} seed={rank + 1} />
+                <feDisplacementMap in="SourceGraphic" scale="0.7" />
+              </filter>
+            )}
+          </defs>
+
+          <g filter={px >= TEXTURE_MIN_PX ? `url(#${ids.rough})` : undefined}>
+            <circle className={styles.plate} cx={C} cy={C} r={R.plate} />
+          </g>
+          <circle cx={C} cy={C} r={R.plate} fill={`url(#${ids.depth})`} />
+          <circle className={styles.outline} cx={C} cy={C} r={R.outline} />
+          {t.special && <circle className={styles.rim} cx={C} cy={C} r={R.outline} />}
+          {detailed && <circle cx={C} cy={C} r={R.bevel} fill="none" stroke={`url(#${ids.bevel})`} strokeWidth={1.2} />}
+
+          {detailed ? (
+            <>
+              <circle className={`${styles.frameOuter} ${line}`} cx={C} cy={C} r={R.ringOuter} />
+              <circle className={`${styles.frameInner} ${line}`} cx={C} cy={C} r={R.ringInner} />
+            </>
+          ) : (
+            <circle className={`${styles.border} ${t.special ? styles.borderSpecial : styles.borderPlain}`} cx={C} cy={C} r={R.border} />
+          )}
+
+          {detailed && rank >= BEADS_FROM && <path className={t.special ? styles.studSpecial : styles.stud} d={SEAL_BEADS} />}
+          {detailed && rank >= STUDS_FROM && <path className={t.special ? styles.studSpecial : styles.stud} d={SEAL_STUDS} />}
+
+          {/* Embossed kanji: a soft shade under the ink */}
+          {detailed && glyphs(styles.glyphShade, 0.6, 0.9)}
+          {glyphs(styles.glyph)}
+
+          {t.special && (
+            <g clipPath={`url(#${ids.clip})`}>
+              <rect className={styles.shine} x={-40} y={-10} width={30} height={VIEW + 20} fill={`url(#${ids.shine})`} transform="skewX(-18)" />
+            </g>
+          )}
         </>
       )}
     </svg>

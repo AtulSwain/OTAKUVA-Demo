@@ -414,7 +414,7 @@ export class StudioDiscoveryService {
         anime: { status: { notIn: ['CANCELLED'] } },
       },
       take: 4,
-      orderBy: { anime: { score: 'desc' } },
+      orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } },
       include: {
         anime: {
           select: { id: true, canonicalTitle: true, slug: true, posterUrl: true, score: true, year: true, type: true },

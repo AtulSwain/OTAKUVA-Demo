@@ -3,6 +3,9 @@
  * Contains structured history, founders, chronological milestones, and studio DNA
  */
 
+// Image fields are optional and left unset: they used to hold stock
+// Unsplash photos — portraits of unrelated people shown as these founders,
+// and a generic picture as every studio's logo. Real images only.
 export interface StudioFounder {
   name: string;
   role: string;
@@ -56,7 +59,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Suginami, Tokyo',
     country: 'Japan',
     officialWebsite: 'https://www.madhouse.co.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Legendary Japanese animation studio founded by former Mushi Production animators, renowned for prestige psychological thrillers, auteur-driven cinema, and high-octane modern masterpieces.',
     history: {
@@ -72,28 +74,24 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
         name: 'Masao Maruyama',
         role: 'Co-Founder & Legendary Producer',
         slug: 'masao-maruyama',
-        imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
         bio: 'Visionary producer who co-founded Madhouse in 1972 and later founded MAPPA and Studio M2.',
       },
       {
         name: 'Osamu Dezaki',
         role: 'Co-Founder & Auteur Director',
         slug: 'osamu-dezaki',
-        imageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
         bio: 'Pioneered signature techniques including dramatic freeze-frames (postcard memories) and split-screen framing.',
       },
       {
         name: 'Rintaro (Shigeyuki Hayashi)',
         role: 'Co-Founder & Director',
         slug: 'rintaro',
-        imageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
         bio: 'Directorial pioneer behind Metropolis, Galaxy Express 999, and X/1999.',
       },
       {
         name: 'Yoshiaki Kawajiri',
         role: 'Co-Founder, Director & Animator',
         slug: 'yoshiaki-kawajiri',
-        imageUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100',
         bio: 'Master of stylized action and dark fantasy, director of Ninja Scroll and Vampire Hunter D: Bloodlust.',
       },
     ],
@@ -191,7 +189,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Suginami, Tokyo',
     country: 'Japan',
     officialWebsite: 'http://www.mappa.co.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Powerhouse animation studio established by Masao Maruyama, celebrated for cutting-edge production scale, visceral action choreography, and blockbuster adaptations.',
     history: {
@@ -284,7 +281,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Suginami, Tokyo',
     country: 'Japan',
     officialWebsite: 'http://www.ufotable.com/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Premier animation studio celebrated for industry-leading digital VFX, seamless 3D background integration, dynamic cinematography, and the record-shattering Demon Slayer franchise.',
     history: {
@@ -377,7 +373,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Suginami, Tokyo',
     country: 'Japan',
     officialWebsite: 'https://www.bones.co.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Action animation powerhouse founded by former Sunrise staff, celebrated for Fullmetal Alchemist: Brotherhood, Mob Psycho 100, and My Hero Academia.',
     history: {
@@ -482,7 +477,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Musashino, Tokyo',
     country: 'Japan',
     officialWebsite: 'https://www.witstudio.co.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Acclaimed Tokyo studio founded by IG Port producers, celebrated for the landmark first three seasons of Attack on Titan, Vinland Saga Season 1, Spy x Family, and Ranking of Kings.',
     history: {
@@ -575,7 +569,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Uji, Kyoto',
     country: 'Japan',
     officialWebsite: 'https://www.kyotoanimation.co.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'Revered Kyoto-based animation studio renowned for unparalleled character acting, breathtaking background artistry, salaried in-house creators, and emotional masterpieces like Violet Evergarden and A Silent Voice.',
     history: {
@@ -668,7 +661,6 @@ export const CANONICAL_STUDIOS: Record<string, StudioKnowledgeEntry> = {
     location: 'Koganei, Tokyo',
     country: 'Japan',
     officialWebsite: 'https://www.ghibli.jp/',
-    logoUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=120',
     summary:
       'World-renowned animated film studio founded by Hayao Miyazaki, Isao Takahata, and Toshio Suzuki, creators of Academy Award-winning classics Spirited Away and The Boy and the Heron.',
     history: {

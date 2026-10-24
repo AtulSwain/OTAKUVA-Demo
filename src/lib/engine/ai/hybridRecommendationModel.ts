@@ -131,7 +131,7 @@ export class HybridRecommendationModel {
       fallbackUsed = true;
       const catalog = await prisma.anime.findMany({
         where: { score: { gte: 7.5 } },
-        orderBy: { score: 'desc' },
+        orderBy: { score: { sort: 'desc', nulls: 'last' } },
         take: limit * 3,
         include: {
           animeGenres: { include: { genre: true } },

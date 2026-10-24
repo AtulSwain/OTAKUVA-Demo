@@ -12,7 +12,9 @@
 }
 
 .title {
-  font-size: var(--font-display);
+  font-size: clamp(32px, 5vw, 52px); /* --font-display is a font family, not a size */
+  letter-spacing: -0.035em;
+  font-weight: 800;
   font-weight: var(--weight-bold);
   color: var(--text-primary);
 }

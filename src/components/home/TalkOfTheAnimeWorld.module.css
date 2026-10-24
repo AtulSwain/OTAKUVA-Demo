@@ -1,0 +1,121 @@
+.section {
+  padding: var(--section-gap) 0 46px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.artWrapper {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+
+.artImage {
+  object-fit: cover;
+}
+
+.copyArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kicker,
+.scoreLabel {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 700;
+  line-height: var(--text-label-line-height);
+  letter-spacing: var(--text-label-letter-spacing);
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  font-weight: 400;
+  line-height: var(--text-heading-line-height);
+}
+
+.synopsis {
+  max-width: 600px;
+  margin: 0;
+  color: var(--color-text-soft);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--text-body-line-height);
+}
+
+.scoreRow,
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  line-height: var(--text-label-line-height);
+  letter-spacing: var(--text-label-letter-spacing);
+  text-transform: uppercase;
+  padding: 8px;
+}
+
+.actionsRow {
+  gap: 16px;
+}
+
+.exploreLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 16px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: var(--text-label-letter-spacing);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .feature {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+@media (max-width: 600px) {
+  .section {
+    padding-top: 40px;
+  }
+
+  .copyArea {
+    gap: 12px;
+  }
+}

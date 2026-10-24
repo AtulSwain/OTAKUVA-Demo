@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { requireRole } from '../../../../lib/auth';
 import { providerMetrics } from '../../../../lib/jikanService';
-import { JikanImportJobManager } from '../../../../lib/ingestion/jikanImportJob';
+import { getLatestSyncJob } from '../../../../lib/queue/syncJob';
+import { syncJobToImportJobState } from '../../../../lib/queue/importJobState';
+import { JOB_TYPES } from '../../../../lib/queue/jobTypes';
 import { ImageHealthService } from '../../../../lib/engine/media/imageHealthService';
+import { getProviderHealthSnapshot } from '../../../../lib/providers';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +31,11 @@ export async function GET(request: NextRequest) {
       prisma.newsArticle.count({ where: { deletedAt: null } }),
     ]);
 
-    const importJobState = JikanImportJobManager.getStatus();
+    // Import work now runs in the queue worker (scripts/worker.ts), not
+    // in-process — this reads the same SyncJob row GET
+    // /api/admin/anime/import reconstructs its status from.
+    const latestImportJob = await getLatestSyncJob(JOB_TYPES.JIKAN_IMPORT);
+    const importJobState = syncJobToImportJobState(latestImportJob);
     const imageHealth = ImageHealthService.getHealthSummary();
 
     return NextResponse.json({
@@ -46,6 +53,12 @@ export async function GET(request: NextRequest) {
           name: 'jikan_v4',
           metrics: providerMetrics,
         },
+        // Per-adapter health + recent failover events for the
+        // getFailoverProvider() chain (src/lib/providers/index.ts) — every
+        // anime/episode/character/staff fetch that goes through
+        // syncEngine.ts now runs through this, so a degraded/down adapter
+        // and every automatic failover shows up here.
+        providerFailover: getProviderHealthSnapshot(),
         importJob: importJobState,
         imageHealth,
       },

@@ -48,7 +48,7 @@ export async function GET(
       relationship: item.relationship,
       position: item.position,
       genres: item.anime.animeGenres.map((ag) => ag.genre.name),
-      studios: item.anime.animeStudios.map((as) => as.studio.name),
+      studios: item.anime.animeStudios.map((as) => ({ id: as.studio.id, name: as.studio.name, slug: as.studio.slug })),
     }));
 
     // Generate Release Order (sorted by release date/year)

@@ -3,6 +3,8 @@ export interface TimelineEvent {
   title: string;
   description?: string;
   category?: 'premiere' | 'finale' | 'sequel' | 'movie';
+  /** Badge text, e.g. the relation type ("Prequel", "Side story"); falls back to the category. */
+  label?: string;
   sortKey: number;
 }
 
@@ -13,8 +15,12 @@ const TIMELINE_RELATIONS = ['Sequel', 'Prequel', 'Side story', 'Movie', 'Spin-of
 const formatDate = (value: string | Date, precision?: string | null) => {
   const d = new Date(value);
   if (precision === 'YEAR') return String(d.getUTCFullYear());
-  if (precision === 'MONTH') return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' });
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  // Fixed locale — `undefined` defers to the runtime's default, which
+  // differs between the server and the browser and fails hydration on a
+  // server-rendered page (the UTC timeZone above was already fixed;
+  // locale wasn't).
+  if (precision === 'MONTH') return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 };
 
 /**
@@ -49,13 +55,21 @@ export function buildTimelineEvents(anime: any, relations: any[] = []): Timeline
     });
   }
 
+  // The same related title can arrive more than once (two stored relation
+  // rows, or two providers) — show it once.
+  const seen = new Set<string>();
   for (const rel of relations) {
     if (!rel || !TIMELINE_RELATIONS.includes(rel.relationType) || typeof rel.year !== 'number') continue;
     const relTitle = rel.title || rel.canonicalTitle || rel.name;
     if (!relTitle) continue;
+    const key = `${rel.relationType}|${String(relTitle).trim().toLowerCase()}|${rel.year}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     items.push({
       year: rel.year,
-      title: `${rel.relationType}: ${relTitle}`,
+      title: relTitle,
+      // The badge names the actual relation — prequels used to be labelled "sequel".
+      label: rel.relationType,
       category: rel.relationType === 'Movie' || rel.type === 'Movie' ? 'movie' : 'sequel',
       sortKey: Date.UTC(rel.year, 0, 1),
     });

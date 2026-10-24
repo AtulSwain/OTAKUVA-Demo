@@ -1,54 +1,53 @@
 /**
- * OTAKUVA — CONTINUOUS NEWS POLLER
+ * OTAKUVA — NEWS SYNC (manual trigger)
  * Usage:
- *   npx tsx scripts/news_poller.ts [intervalSeconds]   # default 60s
+ *   npx tsx scripts/news_poller.ts             # enqueue one 'news-sync' job, exit
+ *   npx tsx scripts/news_poller.ts --loop [s]   # enqueue one every [s] seconds (default 60), Ctrl+C to stop
  *
- * Runs newsEngine.syncAllProviders() on a loop against every registered
- * real-world source (Anime News Network RSS, Crunchyroll News RSS, and
- * whatever "official studio press" feeds get configured later — see
- * src/lib/engine/news/newsEngine.ts's constructor for the registry).
+ * Enqueues onto the `otakuva-sync` queue instead of calling
+ * newsEngine.syncAllProviders() directly — scripts/worker.ts (which must
+ * be running; see docs/production/RUNBOOK.md §6) picks the job up and
+ * does the actual RSS fetch/ingest, tracked on a SyncJob row like every
+ * other queued job.
  *
- * Safe to run indefinitely: each cycle is one lightweight RSS GET per
- * source (already throttled/retried in newsProviderClient.ts), and
- * newsIngestionService's dedup stage means re-fetching the same feed
- * every cycle only ever adds genuinely *new* articles — nothing is
- * duplicated, and nothing already stored is removed or overwritten
- * beyond the fields RSS actually re-supplies (title/summary/image/url).
- *
- * There's no background job scheduler in this app yet (tracked as a
- * Phase 10 gap in CLAUDE.md), so until one exists this script — left
- * running in a terminal or via a process manager — is what keeps the
- * News section current. Ctrl+C to stop; every cycle's writes are already
- * committed, so stopping/restarting loses nothing.
+ * News sync also now runs on a real, Redis-backed schedule on its own —
+ * every 60s, registered once by the worker on startup, see
+ * src/lib/queue/recurring.ts — which is what actually keeps the News
+ * section current in production; you shouldn't need --loop unless the
+ * worker's scheduler is unavailable for some reason. Before the queue
+ * existed, this script's own while-loop (calling syncAllProviders
+ * in-process) was the only thing that did — see this file's git history
+ * for that version.
  */
 
 import { prisma } from '../src/lib/prisma';
-import { newsEngine } from '../src/lib/engine/news/newsEngine';
+import { enqueueSyncJob } from '../src/lib/queue/enqueue';
+import { JOB_TYPES } from '../src/lib/queue/jobTypes';
 
-const DEFAULT_INTERVAL_SEC = 60;
-
-async function runCycle() {
-  const results = await newsEngine.syncAllProviders(30);
-  const totalNew = results.reduce((sum, r) => sum + r.createdCount, 0);
-  const totalUpdated = results.reduce((sum, r) => sum + r.updatedCount, 0);
-  const failed = results.filter((r) => r.status === 'FAILED');
-
-  const perProvider = results
-    .map((r) => `${r.provider}: +${r.createdCount} new, ${r.updatedCount} updated${r.status === 'FAILED' ? ` (FAILED: ${r.errors[0] || 'unknown'})` : ''}`)
-    .join(' | ');
-
+async function enqueueOnce() {
+  const { syncJob, bullJobId } = await enqueueSyncJob({
+    name: 'news-sync',
+    provider: 'multiple',
+    jobType: JOB_TYPES.NEWS_SYNC,
+  });
   const stamp = new Date().toISOString();
-  if (totalNew > 0 || totalUpdated > 0 || failed.length > 0) {
-    console.log(`[${stamp}] ${perProvider}`);
-  } else {
-    console.log(`[${stamp}] no changes (${perProvider})`);
-  }
+  console.log(`[${stamp}] enqueued news-sync — syncJobId=${syncJob.id} bullJobId=${bullJobId}`);
 }
 
 async function main() {
-  const intervalSec = parseInt(process.argv[2], 10) || DEFAULT_INTERVAL_SEC;
+  const loop = process.argv.includes('--loop');
+  if (!loop) {
+    await enqueueOnce();
+    return;
+  }
+
+  const loopArgIndex = process.argv.indexOf('--loop');
+  const intervalSec = parseInt(process.argv[loopArgIndex + 1], 10) || 60;
+
   console.log('========================================================================');
-  console.log(`  OTAKUVA — NEWS POLLER (every ${intervalSec}s, Ctrl+C to stop)`);
+  console.log(`  OTAKUVA — NEWS SYNC TRIGGER LOOP (enqueue every ${intervalSec}s, Ctrl+C to stop)`);
+  console.log("  (prefer letting the worker's own recurring schedule do this — see the");
+  console.log('   header comment in this file; --loop is a fallback.)');
   console.log('========================================================================\n');
 
   let stopRequested = false;
@@ -57,11 +56,10 @@ async function main() {
 
   while (!stopRequested) {
     try {
-      await runCycle();
+      await enqueueOnce();
     } catch (err: any) {
-      console.error(`[news_poller] Cycle failed (will retry next interval):`, err?.message || err);
+      console.error('[news_poller] Failed to enqueue (will retry next interval):', err?.message || err);
     }
-
     for (let waited = 0; waited < intervalSec && !stopRequested; waited++) {
       await new Promise((r) => setTimeout(r, 1000));
     }

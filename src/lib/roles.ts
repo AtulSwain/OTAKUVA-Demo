@@ -8,6 +8,10 @@
 
 export const ROLES = [
   'USER',
+  // Content creator (2026-10-24): a USER plus creator tools — members-only
+  // communities with invitation keys, creator reviews, the /creator
+  // dashboard. Granted via POST /api/creator/upgrade or by an admin.
+  'CREATOR',
   'MODERATOR',
   'NEWS_EDITOR',
   'MEDIA_MANAGER',
@@ -23,6 +27,10 @@ export type Role = (typeof ROLES)[number];
 // others; ADMIN and SUPER_ADMIN sit above every domain role.
 const ROLE_LEVEL: Record<Role, number> = {
   USER: 0,
+  // Same tier as USER for admin purposes: CREATOR grants creator tools only,
+  // never moderation or data access. hasMinRole(role, 'CREATOR') is true
+  // for CREATOR itself and for ADMIN/SUPER_ADMIN.
+  CREATOR: 0,
   MODERATOR: 1,
   NEWS_EDITOR: 2,
   MEDIA_MANAGER: 2,
@@ -52,4 +60,9 @@ export function hasMinRole(role: string, minRole: Role): boolean {
   if (minRole === 'USER') return true;
   if (role === minRole) return true;
   return roleLevel(role) >= ROLE_LEVEL.ADMIN;
+}
+
+/** Creator tools (members-only communities, creator reviews, dashboard). */
+export function isCreator(role: string | null | undefined): boolean {
+  return typeof role === 'string' && hasMinRole(role, 'CREATOR');
 }

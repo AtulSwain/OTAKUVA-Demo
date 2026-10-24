@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../lib/auth';
 import { updateReview, deleteReview } from '../../../../lib/engine/review/reviewIntelligence';
+import { sanitizeReviewTags } from '../../../../lib/reviews/reviewTags';
+import { setReviewTags } from '../../../../lib/reviews/reviewSocial';
+import { logger } from '../../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,20 +55,8 @@ export async function PATCH(
 
     const { id } = params;
     const body = await request.json();
-    const { title, body: reviewBody, rating, spoilerLevel, containsSpoiler } = body;
-
-    let parsedRating: number | null | undefined = undefined;
-    if (rating !== undefined) {
-      if (rating === null || rating === '') {
-        parsedRating = null;
-      } else {
-        const num = Number(rating);
-        if (isNaN(num) || num < 0.5 || num > 10.0) {
-          return NextResponse.json({ error: 'Rating must be between 0.5 and 10.0' }, { status: 400 });
-        }
-        parsedRating = Math.round(num * 2) / 2;
-      }
-    }
+    // `rating` is ignored: a review's score is the author's rating from the rating section.
+    const { title, body: reviewBody, spoilerLevel, containsSpoiler } = body;
 
     if (title !== undefined && title.trim().length > 120) {
       return NextResponse.json({ error: 'Review headline cannot exceed 120 characters' }, { status: 400 });
@@ -80,12 +71,25 @@ export async function PATCH(
       reviewId: id,
       title: title?.trim(),
       body: reviewBody?.trim(),
-      rating: parsedRating,
       spoilerLevel,
       containsSpoiler,
     });
 
-    return NextResponse.json({ success: true, ...result });
+    // updateReview has already enforced ownership; tags follow the same review.
+    const tags = sanitizeReviewTags(body.tags);
+    let tagsSaved = true;
+    if (tags !== null) {
+      try {
+        const owned = await prisma.review.findFirst({ where: { id, userId: authUser.id, deletedAt: null }, select: { animeId: true } });
+        if (owned) await setReviewTags(id, owned.animeId, tags);
+      } catch (err) {
+        // The edit itself succeeded; don't report the whole update as failed.
+        tagsSaved = false;
+        logger.error('Updating review tags failed; review edit kept', { error: err, reviewId: id, route: '/api/reviews/[id]', method: 'PATCH' });
+      }
+    }
+
+    return NextResponse.json({ success: true, ...result, ...(tags !== null ? { tags, tagsSaved } : {}) });
   } catch (error: any) {
     console.error('Error updating review:', error);
     const status = error.message.includes('Unauthorized') ? 403 : error.message === 'Review not found' ? 404 : 500;

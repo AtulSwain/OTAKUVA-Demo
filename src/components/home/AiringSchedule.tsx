@@ -116,14 +116,16 @@ export const AiringSchedule: React.FC<AiringScheduleProps> = ({ animes = [] }) =
                 className={styles.card}
               >
                 <div className={styles.posterWrapper}>
-                  <Image
-                    src={item.posterImage || (item as any).posterUrl || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=60'}
-                    alt={displayTitle}
-                    fill
-                    className={styles.poster}
-                    sizes="40px"
-                    unoptimized
-                  />
+                  {(item.posterImage || (item as any).posterUrl) && (
+                    <Image
+                      src={item.posterImage || (item as any).posterUrl}
+                      alt={displayTitle}
+                      fill
+                      className={styles.poster}
+                      sizes="40px"
+                      unoptimized
+                    />
+                  )}
                 </div>
                 <div className={styles.cardInfo}>
                   <h4 className={styles.animeTitle} title={displayTitle}>

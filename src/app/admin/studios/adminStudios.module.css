@@ -3,7 +3,7 @@
   padding: 32px 40px;
   background-color: #0b0d13;
   color: #f1f3f7;
-  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-family: var(--font-sans, 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 .header {
@@ -28,9 +28,9 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.25);
+  color: #A1A1AA;
+  background: rgba(161, 161, 170, 0.12);
+  border: 1px solid rgba(161, 161, 170, 0.25);
   padding: 3px 10px;
   border-radius: 999px;
   width: fit-content;
@@ -60,7 +60,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, #A1A1AA 100%);
   color: #ffffff;
   border: none;
   padding: 10px 18px;
@@ -69,12 +69,12 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 4px 12px rgba(161, 161, 170, 0.25);
 }
 
 .primaryBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 6px 16px rgba(161, 161, 170, 0.35);
 }
 
 .secondaryBtn {
@@ -175,7 +175,7 @@
 }
 
 .searchInput:focus {
-  border-color: #8b5cf6;
+  border-color: #A1A1AA;
 }
 
 .filterSelect {
@@ -491,7 +491,7 @@
 }
 
 .input:focus, .textarea:focus, .select:focus {
-  border-color: #8b5cf6;
+  border-color: #A1A1AA;
 }
 
 .textarea {
@@ -532,6 +532,6 @@
 }
 
 .activeTab {
-  color: #8b5cf6;
-  border-bottom-color: #8b5cf6;
+  color: #A1A1AA;
+  border-bottom-color: #A1A1AA;
 }

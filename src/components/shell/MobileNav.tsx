@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LucideIcon, Home, Compass, Users, Bookmark, User, Calendar } from 'lucide-react';
+import { LucideIcon, Home, Compass, Search, Users, Bookmark, User, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import styles from './MobileNav.module.css';
 
@@ -11,12 +11,13 @@ interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  isSearch?: boolean;
 }
 
 const MOBILE_NAV: NavItem[] = [
   { label: 'Home', href: '/', icon: Home },
-  { label: 'Explore', href: '/explore', icon: Compass },
-  { label: 'Community', href: '/community', icon: Users },
+  { label: 'Explore', href: '/anime', icon: Compass },
+  { label: 'Search', href: '#search', icon: Search, isSearch: true },
   { label: 'Schedule', href: '/schedule', icon: Calendar },
   { label: 'Library', href: '/library', icon: Bookmark },
   { label: 'Profile', href: '/profile/you', icon: User },
@@ -43,6 +44,21 @@ export const MobileNav: React.FC<MobileNavProps> = ({ onOpenSearch }) => {
           const isProfile = item.href === '/profile/you';
           const active = isRouteActive(item.href);
           const Icon = item.icon;
+
+          if (item.isSearch) {
+            return (
+              <button
+                key="mobile_search"
+                type="button"
+                className={styles.navItem}
+                onClick={onOpenSearch}
+                aria-label="Open Search"
+              >
+                <Icon size={18} strokeWidth={1.75} className={styles.icon} />
+                <span className={styles.label}>{item.label}</span>
+              </button>
+            );
+          }
 
           if (isProfile && !user) {
             return (

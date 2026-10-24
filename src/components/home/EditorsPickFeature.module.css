@@ -95,8 +95,13 @@
 .synopsis {
   color: var(--text-secondary, #BDBDBD);
   line-height: 1.7;
-  font-size: 14px;
+  font-size: 13.5px;
   margin: 0;
+  /* Real synopses run long; keep the feature card compact. */
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .tagsRow {
@@ -140,4 +145,21 @@
 .btnPrimary:hover {
   background-color: #FFFFFF;
   transform: translateY(-1px);
+}
+
+.btnSecondary {
+  padding: 11px 20px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #F4F4F2);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color var(--transition-fast, 150ms ease);
+}
+
+.btnSecondary:hover {
+  background-color: rgba(255, 255, 255, 0.18);
 }

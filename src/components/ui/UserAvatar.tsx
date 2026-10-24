@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import styles from './UserAvatar.module.css';
+import { avatarInitial, resolveAvatarUrl } from '../../lib/mediaResolver';
 
 interface UserAvatarProps {
   username?: string | null;
@@ -17,9 +18,9 @@ interface UserAvatarProps {
  */
 export const UserAvatar: React.FC<UserAvatarProps> = ({ username, avatarUrl, size = 28, className }) => {
   const [failed, setFailed] = useState(false);
-  const name = (username || '?').trim();
-  const initials = name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
-  const showImage = Boolean(avatarUrl) && !failed;
+  const initials = avatarInitial(username);
+  const photo = resolveAvatarUrl(avatarUrl);
+  const showImage = Boolean(photo) && !failed;
 
   return (
     <span
@@ -29,7 +30,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({ username, avatarUrl, siz
     >
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl as string} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+        <img src={photo as string} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
       ) : (
         initials
       )}

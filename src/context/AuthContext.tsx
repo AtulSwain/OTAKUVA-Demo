@@ -6,11 +6,20 @@ import { useIsomorphicLayoutEffect } from '../lib/useIsomorphicLayoutEffect';
 export interface AuthUser {
   id: string;
   username: string;
-  email: string;
+  /** Optional public name ("Victor Winters"); the username stays the handle. */
+  displayName?: string | null;
+  /** Null for accounts created by phone sign-up. */
+  email?: string | null;
   role: string;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   bio?: string | null;
+  /** False until a phone number is verified by SMS code; gates rating, reviewing and posting. */
+  phoneVerified?: boolean;
+  /** e.g. "+91 ••••••3210" — the full number never reaches the client. */
+  phoneMasked?: string | null;
+  /** False while phone verification is switched off site-wide; no prompts are shown then. */
+  phoneVerificationRequired?: boolean;
 }
 
 export type AuthIntent =
@@ -23,11 +32,30 @@ export type AuthIntent =
   | { type: 'START_DISCUSSION'; animeId?: string; animeTitle?: string }
   | { type: 'CUSTOM'; animeId?: string; animeTitle?: string; callback?: () => void; description?: string };
 
+export type OtpPurpose = 'register' | 'login' | 'link';
+
+/** `code` is the API's machine-readable error code (e.g. PHONE_IN_USE), when there is one. */
+export interface AuthResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  /** Development only: the SMS provider's own error, so a misconfiguration is visible in the form. */
+  devDetail?: string;
+  /** The signed-in account's platform role (sign-in only), e.g. to open the creator dashboard. */
+  role?: string;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  /** Texts a one-time code. `username` is required for 'register'. */
+  requestOtp: (args: { purpose: OtpPurpose; phone: string; country: string; username?: string }) => Promise<AuthResult & { devMode?: boolean; mockCode?: string }>;
+  loginWithPhone: (phone: string, country: string, code: string) => Promise<AuthResult>;
+  /** Legacy email/password accounts that haven't linked a phone yet. */
+  loginWithPassword: (identifier: string, password: string) => Promise<AuthResult>;
+  register: (username: string, phone: string, country: string, code: string) => Promise<AuthResult>;
+  /** Replaces the signed-in user after a server-side change (e.g. phone linked). */
+  setSessionUser: (user: AuthUser) => void;
   logout: () => Promise<void>;
   showAuthModal: boolean;
   authModalMode: 'login' | 'register';
@@ -124,48 +152,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchSession]);
 
-  const login = async (identifier: string, password: string) => {
+  const applySession = useCallback((nextUser: AuthUser) => {
+    setUser(nextUser);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('otakuva_user', JSON.stringify(nextUser));
+    }
+  }, []);
+
+  const postAuth = async (url: string, payload: unknown): Promise<{ ok: boolean; data: any }> => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Failed to sign in.' };
-      }
-      setUser(data.user);
-      if (typeof window !== 'undefined' && data.user) {
-        localStorage.setItem('otakuva_user', JSON.stringify(data.user));
-      }
-      setShowAuthModal(false);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'An unexpected error occurred.' };
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, data };
+    } catch {
+      return { ok: false, data: { error: 'Could not reach the server. Check your connection and try again.' } };
     }
   };
 
-  const register = async (username: string, email: string, password: string) => {
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Failed to create account.' };
-      }
-      setUser(data.user);
-      if (typeof window !== 'undefined' && data.user) {
-        localStorage.setItem('otakuva_user', JSON.stringify(data.user));
-      }
-      setShowAuthModal(false);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'An unexpected error occurred.' };
+  const finishSignIn = (ok: boolean, data: any, fallbackError: string): AuthResult => {
+    if (!ok || !data.user) {
+      return { success: false, error: data.error || fallbackError, code: data.code };
     }
+    applySession(data.user);
+    setShowAuthModal(false);
+    return { success: true, role: data.user.role };
+  };
+
+  const requestOtp: AuthContextType['requestOtp'] = async (args) => {
+    const { ok, data } = await postAuth('/api/auth/phone/send-otp', args);
+    if (!ok) return { success: false, error: data.error || 'Could not send the code.', code: data.code, devDetail: data.devDetail };
+    return { success: true, devMode: data.devMode === true, mockCode: typeof data.mockCode === 'string' ? data.mockCode : undefined };
+  };
+
+  const loginWithPhone = async (phone: string, country: string, code: string) => {
+    const { ok, data } = await postAuth('/api/auth/login', { phone, country, code });
+    return finishSignIn(ok, data, 'Failed to sign in.');
+  };
+
+  const loginWithPassword = async (identifier: string, password: string) => {
+    const { ok, data } = await postAuth('/api/auth/login', { identifier, password });
+    return finishSignIn(ok, data, 'Failed to sign in.');
+  };
+
+  const register = async (username: string, phone: string, country: string, code: string) => {
+    const { ok, data } = await postAuth('/api/auth/register', { username, phone, country, code });
+    return finishSignIn(ok, data, 'Failed to create account.');
   };
 
   const logout = async () => {
@@ -234,8 +269,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isLoading,
-        login,
+        requestOtp,
+        loginWithPhone,
+        loginWithPassword,
         register,
+        setSessionUser: applySession,
         logout,
         showAuthModal,
         authModalMode,

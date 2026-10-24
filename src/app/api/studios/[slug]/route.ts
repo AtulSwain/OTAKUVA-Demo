@@ -44,7 +44,8 @@ export async function GET(
     const ovaCount = studio.projects.filter((p) => ['OVA', 'ONA', 'SPECIAL'].includes((p.type || '').toUpperCase())).length;
 
     const scores = studio.projects.map((p) => p.score).filter((s): s is number => typeof s === 'number' && s > 0);
-    const avgScore = scores.length > 0 ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : 8.2;
+    // null when no work has a score — this used to fall back to a made-up 8.2.
+    const avgScore = scores.length > 0 ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : null;
 
     const foundersList = studio.staff.map((s) => ({
       name: s.name,
@@ -72,18 +73,14 @@ export async function GET(
       })),
       founders: foundersList,
       keyPersonnel: foundersList,
-      history: studio.metadata?.history || {
-        foundingEra: studio.about || 'Founded with a passion for distinctive animation.',
-        goldenAge: 'Established standard-setting animation pipelines.',
-        modernEra: 'Continuing to innovate modern Japanese television and film animation.',
-      },
+      // No recorded history/DNA means none is shown. These used to fall back
+      // to canned prose ("Founded with a passion for distinctive animation…",
+      // a "signature style", a default genre list) presented as fact about
+      // every studio, and the location to "Japan".
+      history: studio.metadata?.history || null,
       timeline: studio.metadata?.timeline || [],
-      dna: studio.metadata?.dna || {
-        signatureStyle: 'High-production value animation with expressive character acting.',
-        primaryGenres: ['Action', 'Drama', 'Fantasy', 'Sci-Fi'],
-        artisticPhilosophy: 'Artistic integrity and director-driven storytelling.',
-      },
-      location: studio.region || studio.city ? `${studio.city ? studio.city + ', ' : ''}${studio.region || ''}` : studio.country || 'Japan',
+      dna: studio.metadata?.dna || null,
+      location: studio.region || studio.city ? `${studio.city ? studio.city + ', ' : ''}${studio.region || ''}` : studio.country || null,
       stats: {
         totalWorks: studio.totalAnimeCount,
         tvCount,
@@ -91,7 +88,7 @@ export async function GET(
         ovaCount,
         onaCount: ovaCount,
         averageScore: avgScore,
-        topGenres: studio.metadata?.dna?.primaryGenres || ['Action', 'Drama', 'Fantasy'],
+        topGenres: studio.metadata?.dna?.primaryGenres || [],
       },
     };
 

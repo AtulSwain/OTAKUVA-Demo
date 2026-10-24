@@ -26,7 +26,7 @@ const PATHWAYS: IndexPathway[] = [
   {
     title: 'Trending Now',
     subtitle: 'High-velocity popular titles with active community engagement',
-    href: '/discover?sort=POPULARITY_DESC',
+    href: '/anime?sortBy=popularity',
     icon: Flame,
     badge: 'LIVE',
   },

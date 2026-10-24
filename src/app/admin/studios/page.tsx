@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Building2,
   Search,
@@ -260,7 +261,14 @@ export default function AdminStudiosPage() {
                     <div className={styles.studioCell}>
                       <div className={styles.logoThumb}>
                         {s.imageUrl ? (
-                          <img src={s.imageUrl} alt={s.name} className={styles.logoImg} />
+                          <Image
+                            src={s.imageUrl}
+                            alt={s.name}
+                            width={38}
+                            height={38}
+                            unoptimized
+                            className={styles.logoImg}
+                          />
                         ) : (
                           <Building2 size={18} color="#64748b" />
                         )}

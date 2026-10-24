@@ -1,18 +1,28 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Newspaper } from 'lucide-react';
 import styles from './AnimeNewsList.module.css';
 
+/**
+ * The shape `/api/anime/[id]/news` actually returns (NewsArticle rows). The
+ * old component read `thumbnail` / `source` / `date`, which never existed on
+ * these rows, so every story showed an empty image box (fixed 2026-10-24).
+ * The legacy names are still accepted for any other caller.
+ */
 interface NewsItem {
   id?: string;
+  slug?: string | null;
   title: string;
-  url?: string;
+  summary?: string | null;
+  imageUrl?: string | null;
+  sourceName?: string | null;
+  publishedAt?: string | null;
+  category?: string | null;
+  thumbnail?: string;
   source?: string;
   date?: string;
-  thumbnail?: string;
 }
 
 interface AnimeNewsListProps {
@@ -20,63 +30,66 @@ interface AnimeNewsListProps {
   onViewAll?: () => void;
 }
 
-const DEFAULT_NEWS: NewsItem[] = [
-  {
-    id: 'news-1',
-    title: 'Attack on Titan New Exhibition Announced for 2025',
-    source: 'Anime News Network',
-    date: 'May 12, 2025',
-    thumbnail: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&q=80',
-  },
-  {
-    id: 'news-2',
-    title: 'Hiroyuki Sawano Concert Celebrating AoT 10th Anniversary',
-    source: 'Oricon News',
-    date: 'May 8, 2025',
-    thumbnail: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
-  },
-  {
-    id: 'news-3',
-    title: 'MAPPA Releases Special Illustration for AoT Final Season',
-    source: 'Anime Corner',
-    date: 'May 5, 2025',
-    thumbnail: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&q=80',
-  },
-];
+/** An author avatar / tracking pixel is not article art. */
+function articleImage(item: NewsItem): string | null {
+  const url = item.imageUrl || item.thumbnail || null;
+  if (!url || /gravatar\.com|\/avatar\//i.test(url)) return null;
+  return url;
+}
 
-export const AnimeNewsList: React.FC<AnimeNewsListProps> = ({ news = [], onViewAll }) => {
-  const items = news.length > 0 ? news.slice(0, 3) : DEFAULT_NEWS;
+function when(item: NewsItem): string | null {
+  const raw = item.publishedAt || item.date;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return isNaN(+d) ? raw : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const label = (c?: string | null) => (c ? c.charAt(0) + c.slice(1).toLowerCase().replace(/_/g, ' ') : null);
+
+function NewsCard({ item }: { item: NewsItem }) {
+  const [broken, setBroken] = useState(false);
+  const img = broken ? null : articleImage(item);
+  const meta = [item.sourceName || item.source, when(item)].filter(Boolean).join(' · ');
+  return (
+    <Link href={`/news/${item.slug || item.id}`} className={`${styles.card} ${img ? '' : styles.cardText}`}>
+      {img ? (
+        <span className={styles.art}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />
+          {label(item.category) && <span className={styles.category}>{label(item.category)}</span>}
+        </span>
+      ) : (
+        <span className={styles.textTop}>
+          <Newspaper size={16} aria-hidden="true" />
+          {label(item.category) && <span className={styles.categoryPlain}>{label(item.category)}</span>}
+        </span>
+      )}
+      <span className={styles.body}>
+        <span className={styles.headline}>{item.title}</span>
+        {!img && item.summary && <span className={styles.summary}>{item.summary}</span>}
+        {meta && <span className={styles.meta}>{meta}</span>}
+      </span>
+    </Link>
+  );
+}
+
+export const AnimeNewsList: React.FC<AnimeNewsListProps> = ({ news = [] }) => {
+  // Real stories only. This used to fall back to three invented Attack on
+  // Titan headlines (with stock photos) for any anime without news.
+  const items = news.slice(0, 3);
+  if (items.length === 0) return null;
 
   return (
     <section className={styles.section} aria-label="Latest News">
       <div className={styles.headerRow}>
-        <h3 className={styles.headerTitle}>Latest News</h3>
+        <h2 className={styles.headerTitle}>Latest News</h2>
         <Link href="/news" className={styles.viewAllLink}>
-          <span>View All</span>
-          <ChevronRight size={12} />
+          All news <ChevronRight size={14} aria-hidden="true" />
         </Link>
       </div>
-
-      <div className={styles.newsGrid}>
+      <div className={styles.grid}>
         {items.map((item, idx) => (
-          <Link
-            key={item.id || idx}
-            href={`/news/${item.id || idx}`}
-            className={styles.newsCard}
-          >
-            <div className={styles.newsThumbWrapper}>
-              <Image
-                src={item.thumbnail || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&q=80'}
-                alt={item.title}
-                fill
-                className={styles.newsThumb}
-                unoptimized
-              />
-            </div>
-
-            <span className={styles.newsHeadline}>{item.title}</span>
-            <span className={styles.newsMeta}>{item.source || 'Industry Dispatch'} · {item.date || 'Recently'}</span>
-          </Link>
+          <NewsCard key={item.id || idx} item={item} />
         ))}
       </div>
     </section>

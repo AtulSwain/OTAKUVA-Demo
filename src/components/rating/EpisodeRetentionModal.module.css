@@ -1,0 +1,27 @@
+/* Extras for the episode window; everything else comes from RatingModal.module.css. */
+.epTitle { margin-top: 2px; font-size: 12px; color: var(--text-muted, #666666); }
+
+.stepper { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 13px; color: var(--text-secondary); }
+.stepper strong { color: var(--text-primary, #f2f2f2); }
+.stepper button {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border-subtle, #2a2a2a); border-radius: 50%;
+  background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.stepper button:hover:not(:disabled) { border-color: var(--border-hover); color: var(--text-primary, #f2f2f2); }
+.stepper button:disabled { opacity: 0.35; cursor: default; }
+
+.community { margin-top: 6px; font-size: 12px; color: var(--text-muted, #666666); }
+.community strong { color: var(--text-primary, #f2f2f2); }
+
+.animeRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border-subtle, #2a2a2a); font-size: 13px; color: var(--text-secondary); }
+.animeRow span { display: inline-flex; align-items: center; gap: 6px; }
+.animeRow strong { color: var(--text-primary, #f2f2f2); }
+.animeRow button { padding: 0; border: 0; background: transparent; color: var(--text-primary, #f2f2f2); font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+.log { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-subtle, #2a2a2a); }
+.logHead { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #666666); }
+.log ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.logItem { padding: 5px 10px; border: 1px solid var(--border-subtle, #2a2a2a); border-radius: 999px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.logItem:hover { border-color: var(--border-hover); color: var(--text-primary, #f2f2f2); }
+.logItem strong { color: var(--text-primary, #f2f2f2); font-variant-numeric: tabular-nums; }
+.logItemActive { border-color: var(--border-accent); color: var(--text-primary, #f2f2f2); }

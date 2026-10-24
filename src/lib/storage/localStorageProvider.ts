@@ -36,7 +36,6 @@ export class LocalStorageProvider implements StorageProvider {
     let ext = 'jpg';
     if (actualMime === 'image/png') ext = 'png';
     else if (actualMime === 'image/webp') ext = 'webp';
-    else if (actualMime === 'image/avif') ext = 'avif';
 
     // Generate collision-resistant unique identifier
     const uniqueId = crypto.randomBytes(16).toString('hex');

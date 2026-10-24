@@ -173,3 +173,39 @@
   color: var(--text-primary);
   border-color: var(--border-elevated);
 }
+
+/* ==========================================================================
+   Shelf language (matches the front page). Visual properties only.
+   ========================================================================== */
+.title { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { font-size: 16px; color: var(--text-secondary); }
+.headerIcon { border-radius: 16px; }
+.formCard { border: 0; border-radius: 22px; background: var(--surface-base); padding: 28px; }
+.label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.input, .textarea { border: 1px solid transparent; border-radius: 14px; padding: 12px 16px; font-size: 14px; background: var(--surface-elevated); transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.input:focus, .textarea:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); outline: none; }
+.submitBtn { border: 0; border-radius: 9999px; padding: 12px 26px; font-size: 15px; font-weight: 600; background: #fff; color: #141416; transition: transform var(--duration-micro, 180ms) var(--ease-out-cubic, ease-out), background var(--transition-fast); }
+.submitBtn:hover { background: #e8e8ec; }
+.submitBtn:active { transform: scale(0.97); }
+.addRuleBtn { border: 0; border-radius: 9999px; padding: 8px 16px; font-size: 13px; font-weight: 600; background: var(--surface-elevated); color: var(--text-secondary); }
+.ruleRow { border-radius: 14px; }
+.errorBox { border-radius: 14px; }
+.submitBtn:focus-visible, .addRuleBtn:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+
+/* ===== Missing classes (2026-10-17): rules header/list and the submit spinner. ===== */
+.rulesHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.ruleItem { padding: 12px; margin-bottom: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-base); }
+.removeRuleBtn {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.removeRuleBtn:hover { color: var(--accent-rose); border-color: var(--accent-rose); }
+.spin { animation: createSpin 1s linear infinite; }
+@keyframes createSpin { to { transform: rotate(360deg); } }
+.addRuleBtn { white-space: nowrap; flex-shrink: 0; }

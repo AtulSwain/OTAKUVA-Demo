@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
-import { fetchTopAnimeFromJikan, fetchSeasonalAnimeFromJikan } from './jikan';
+import { normalizeJikanAnime } from './jikan';
+import { getJikanTopAnime } from './jikanService';
 
 export async function syncAnimeCatalog() {
   console.log('Starting full relational anime catalog synchronization...');
@@ -9,8 +10,10 @@ export async function syncAnimeCatalog() {
   // into whatever database the sync ran against — production included.
   // Seeding is a dev-only step (`prisma db seed`), never part of a sync.
 
-  // 2. Fetch Top Anime from Jikan
-  const topAnimeList = await fetchTopAnimeFromJikan(1, 25);
+  // 2. Fetch Top Anime from Jikan (via jikanService, which owns
+  // pacing/retry/caching — see the note in jikan.ts)
+  const { animes: topAnimeRaw } = await getJikanTopAnime(1, 25);
+  const topAnimeList = topAnimeRaw.map(normalizeJikanAnime);
   for (const item of topAnimeList) {
     try {
       const savedAnime = await prisma.anime.upsert({

@@ -13,6 +13,8 @@ interface RequestOptions {
   body?: unknown;
 }
 
+const BASE_URL = 'http://localhost:3000';
+
 export function request(method: string, path: string, { as, body }: RequestOptions = {}): NextRequest {
   const headers = new Headers();
   if (as) {
@@ -20,7 +22,12 @@ export function request(method: string, path: string, { as, body }: RequestOptio
     headers.set('cookie', `anilog_token=${token}`);
   }
   if (body !== undefined) headers.set('content-type', 'application/json');
-  return new NextRequest(new URL(path, 'http://localhost:3000'), {
+  // A real browser sends Origin on same-origin fetch/form submissions too,
+  // not just cross-origin ones — matches it here so cookie-authenticated
+  // mutating requests pass the CSRF origin check in src/lib/auth.ts the
+  // same way a legitimate same-origin request would.
+  headers.set('origin', BASE_URL);
+  return new NextRequest(new URL(path, BASE_URL), {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

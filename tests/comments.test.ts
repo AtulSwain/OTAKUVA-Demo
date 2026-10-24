@@ -34,7 +34,10 @@ const list = async (discussionId: string, query = '', as?: TestUser) =>
 function uploadRequest(as: TestUser, file: Buffer, name = 'meme.png', type = 'image/png') {
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(file)], { type }), name);
-  const headers = new Headers({ cookie: `anilog_token=${signJwtToken({ userId: as.id, username: as.username, email: as.email })}` });
+  const headers = new Headers({
+    cookie: `anilog_token=${signJwtToken({ userId: as.id, username: as.username, email: as.email })}`,
+    origin: 'http://localhost:3000',
+  });
   return new NextRequest('http://localhost:3000/api/uploads/comment-media', { method: 'POST', body: form, headers });
 }
 

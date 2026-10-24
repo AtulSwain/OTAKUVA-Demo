@@ -930,3 +930,53 @@
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Shelf language (matches the front page). Visual properties only.
+   ========================================================================== */
+.sectionTitle { font-size: clamp(20px, 2vw, 24px); font-weight: 700; letter-spacing: -0.03em; }
+.tabs { gap: 8px; }
+.tab { padding: 7px 16px; border-radius: 9999px; background: var(--surface-elevated); font-size: 13px; font-weight: 600; transition: background var(--transition-fast), color var(--transition-fast); }
+.tab:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.tabActive { background: #fff; color: #141416; }
+.tabActive:hover { background: #fff; color: #141416; }
+.tab:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 2px; }
+
+.composer { border: 1px solid transparent; border-radius: 18px; background: var(--surface-elevated); padding: 14px 16px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+.composer:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+.composerSheet { border-radius: 22px 22px 0 0; }
+.composerInput { font-size: 15px; }
+.postBtn { min-height: 36px; padding: 0 20px; border-radius: 9999px; background: #fff; color: #141416; font-size: 14px; font-weight: 600; transition: transform var(--duration-micro, 180ms) var(--ease-out-cubic, ease-out), background var(--transition-fast); }
+.postBtn:hover { background: #e8e8ec; }
+.postBtn:active { transform: scale(0.97); }
+.postBtn:disabled { opacity: 0.4; }
+.postBtn:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+
+.comment { gap: 14px; padding: 18px 0; }
+.author { font-size: 14px; font-weight: 600; }
+.body { font-size: 15px; line-height: 1.55; }
+.time, .metaRow { font-size: 13px; color: var(--text-muted); }
+.action { font-size: 13px; min-height: 32px; }
+.moreBtn, .iconBtn { width: 32px; height: 32px; border-radius: 50%; }
+.moreBtn:hover, .iconBtn:hover { background: var(--surface-active); color: var(--text-primary); }
+.menu { border-radius: 16px; padding: 6px; border-color: var(--border-elevated); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); }
+.dialog { border-radius: 22px; padding: 24px; border-color: var(--border-elevated); }
+.dialogTitle { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.mediaItem, .gifOption { border-radius: 14px; }
+.gifPicker { border-radius: 18px; }
+.loadMore, .moreReplies { font-size: 14px; font-weight: 600; }
+.emptyState { font-size: 14px; color: var(--text-muted); }
+
+/* 2026-10-19: the comment box is the shared ui/Composer — plain, on the page background. */
+.composerWrap { display: flex; flex-direction: column; gap: 10px; }
+.composerWrap .signInPrompt { border: 0; border-bottom: 1px solid var(--border-default); border-radius: 0; background: transparent; justify-content: flex-start; padding: 10px 0; color: var(--text-muted); }
+.composerWrap .signInPrompt:hover { color: var(--text-primary); border-bottom-color: var(--border-hover); background: transparent; }
+.composerSheet.composerWrap { padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--bg-primary, #131315); border-top: 1px solid var(--border-subtle); }
+
+/* 2026-10-20 (owner): comments blend into the page — no outlines, no panels.
+   Threads are separated by space, replies by indentation only. */
+.thread { border-top: 0; padding-top: 6px; padding-bottom: 6px; }
+.replies { border-left: 0; }
+.composer { border: 0; border-radius: 0; background: transparent; padding-left: 0; padding-right: 0; }
+.tabs { border: 0; }
+.mediaItem { border: 0; }

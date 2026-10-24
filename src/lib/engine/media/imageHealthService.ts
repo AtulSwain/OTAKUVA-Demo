@@ -9,6 +9,7 @@
  */
 
 import { prisma } from '../../prisma';
+import { anilistProvider, jikanProvider } from '../../providers';
 
 export interface ImageHealthMetrics {
   totalScanned: number;
@@ -27,7 +28,6 @@ export interface ImageHealthMetrics {
 }
 
 const BAD_URL_PATTERN = /\b(undefined|null|nan|placeholder|demo)\b/i;
-const DEFAULT_FALLBACK_POSTER = 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&q=80';
 
 export function isCleanImageUrl(url?: string | null): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -97,6 +97,17 @@ export class ImageHealthService {
     return { ...this.metrics };
   }
 
+  /**
+   * Re-fetches the real poster for anime whose stored poster is empty or a
+   * stringified "undefined"/"null", from the provider the record came from
+   * (AniList ids go to AniList, MAL ids to Jikan — never the failover wrapper,
+   * which would hand an id to the other provider's id space).
+   *
+   * This used to overwrite those posters with a stock Unsplash photo and
+   * count it as "repaired" — invented artwork stored as canonical data. A
+   * poster the provider can't supply now stays missing (the UI shows its
+   * placeholder) and is counted as failed, so it can be retried later.
+   */
   static async repairCatalogImages(): Promise<{ repaired: number; failed: number }> {
     let repaired = 0;
     let failed = 0;
@@ -109,16 +120,33 @@ export class ImageHealthService {
           { posterUrl: { contains: 'null' } },
         ],
       },
+      select: { id: true, externalId: true, externalSource: true, malId: true, anilistId: true },
       take: 50,
     });
 
     for (const anime of brokenAnimes) {
       try {
+        const lookup =
+          anime.anilistId != null
+            ? { provider: anilistProvider, id: String(anime.anilistId) }
+            : anime.malId != null
+            ? { provider: jikanProvider, id: String(anime.malId) }
+            : anime.externalId
+            ? { provider: anime.externalSource === 'mal' || anime.externalSource === 'jikan' ? jikanProvider : anilistProvider, id: anime.externalId }
+            : null;
+        if (!lookup) {
+          failed++;
+          continue;
+        }
+        const fresh = await lookup.provider.getAnime(lookup.id);
+        const poster = fresh?.largePosterUrl || fresh?.posterUrl;
+        if (!poster || !/^https?:\/\//.test(poster)) {
+          failed++;
+          continue;
+        }
         await prisma.anime.update({
           where: { id: anime.id },
-          data: {
-            posterUrl: DEFAULT_FALLBACK_POSTER,
-          },
+          data: { posterUrl: poster, ...(fresh?.largePosterUrl ? { largePosterUrl: fresh.largePosterUrl } : {}) },
         });
         repaired++;
       } catch (e) {

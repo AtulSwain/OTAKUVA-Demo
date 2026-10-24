@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { ArrowLeft, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 import styles from '../data/page.module.css';
 
+// Label shown only before the real value loads from /api/admin/data-sources
+// (which reflects src/lib/jikanService.ts's JIKAN_BASE_URL) — never used to
+// make a request itself.
+const DEFAULT_JIKAN_BASE_URL_LABEL = 'https://api.jikan.moe/v4'; // provider-call-check-ignore
+
 export default function AdminDataSourcesPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +82,7 @@ export default function AdminDataSourcesPage() {
       <div className={styles.sectionBox}>
         <h2 className={styles.sectionTitle}>Provider Configuration (Jikan v4)</h2>
         <p style={{ color: 'var(--text-secondary, #BDBDBD)', fontSize: 13, lineHeight: 1.6 }}>
-          Base Endpoint: <code>{data?.baseUrl || 'https://api.jikan.moe/v4'}</code><br />
+          Base Endpoint: <code>{data?.baseUrl || DEFAULT_JIKAN_BASE_URL_LABEL}</code><br />
           Throttling Window: <strong>800ms per request</strong> (~2.5 req/sec)<br />
           In-Flight Request Deduplication: <strong>ACTIVE</strong><br />
           Resilience: <strong>Exponential Backoff + Retries (2x)</strong>

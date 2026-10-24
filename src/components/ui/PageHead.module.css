@@ -1,0 +1,8 @@
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 8px; }
+.text { min-width: 0; flex: 1 1 320px; }
+.kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary); }
+.kicker::before { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--accent-gradient); }
+.title { margin: 0; font-size: clamp(34px, 5vw, 56px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; color: var(--text-primary); }
+.subtitle { margin: 12px 0 0; max-width: 62ch; font-size: clamp(15px, 1.6vw, 17px); line-height: 1.5; color: var(--text-secondary); }
+.subtitle a { color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
+.actions { display: flex; align-items: center; gap: 8px; flex: none; }

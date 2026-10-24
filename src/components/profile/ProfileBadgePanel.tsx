@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Seal, BadgeTooltip } from '../badges';
 import TierProgress from '../badges/TierProgress';
-import BadgeLadder from '../badges/BadgeLadder';
+import LevelJourney from '../badges/LevelJourney';
+import StampCollection from '../badges/StampCollection';
 import { getTier, isTierKey, progressToNext, type TierKey } from '../../lib/badges/tiers';
 import { BADGE_STRINGS, glossFor } from '../../lib/badges/strings';
 import { formatCompact, pluralize } from '../../lib/badges/format';
@@ -34,7 +35,21 @@ function tileColor(name: string): string {
   return `hsl(${h} 38% 38%)`;
 }
 
-export function ProfileBadgePanel({ username }: { username: string }) {
+/**
+ * `owner`: the member's own full view — progress, helpful votes, the level
+ * journey with stamps (a newly earned one is pressed on), communities.
+ * `public`: what other people see — the level and the stamps collected, nothing more.
+ */
+export function ProfileBadgePanel({
+  username,
+  variant = 'owner',
+  showCommunities = true,
+}: {
+  username: string;
+  variant?: 'owner' | 'public';
+  /** Off where the page already has its own Communities tab. */
+  showCommunities?: boolean;
+}) {
   const [data, setData] = useState<BadgeData | null>(null);
 
   useEffect(() => {
@@ -56,6 +71,26 @@ export function ProfileBadgePanel({ username }: { username: string }) {
   const communityHeader = `${pluralize(data.communities.length, 'community', 'communities')}${
     data.foundedCount ? ` · ${data.foundedCount} founded` : ''
   }`;
+
+  if (variant === 'public') {
+    return (
+      <section className={styles.panel} aria-label="Stamps collected">
+        <div className={styles.head}>
+          <BadgeTooltip tier={tier}>
+            <Seal tier={tier} size="lg" count={data.countedReviewCount} />
+          </BadgeTooltip>
+          <div className={styles.headText}>
+            <h2 className={styles.username}>{data.username}</h2>
+            <p className={styles.title}>{BADGE_STRINGS.titleWithMeaning(tier.name, glossFor(tier.glossKey))}</p>
+          </div>
+        </div>
+        <div className={styles.block}>
+          <h3 className={styles.blockTitle}>Stamps</h3>
+          <StampCollection count={data.countedReviewCount} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.panel} aria-label="Reviewer badge">
@@ -79,11 +114,11 @@ export function ProfileBadgePanel({ username }: { username: string }) {
       <TierProgress progress={{ ...progress, current: tier }} />
 
       <div className={styles.block}>
-        <h3 className={styles.blockTitle}>{BADGE_STRINGS.ladderTitle}</h3>
-        <BadgeLadder current={tier} />
+        <h3 className={styles.blockTitle}>Level journey · stamps</h3>
+        <LevelJourney count={data.countedReviewCount} celebrateFor={data.username} />
       </div>
 
-      {data.communities.length > 0 && (
+      {showCommunities && data.communities.length > 0 && (
         <div className={styles.block}>
           <h3 className={styles.blockTitle}>Communities</h3>
           <p className={styles.blockSub}>{communityHeader}</p>

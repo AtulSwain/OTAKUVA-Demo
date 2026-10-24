@@ -22,7 +22,9 @@ export type SecurityEventType =
   | 'IDOR_BLOCKED'
   | 'RATE_LIMIT_EXCEEDED'
   | 'ADMIN_ACTION'
-  | 'SUSPICIOUS_REQUEST';
+  | 'SUSPICIOUS_REQUEST'
+  | 'ACCOUNT_DELETED'
+  | 'ACCOUNT_DATA_EXPORTED';
 
 export interface SecurityEventPayload {
   eventType: SecurityEventType;

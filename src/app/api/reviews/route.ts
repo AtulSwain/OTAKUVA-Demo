@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hasMinRole } from '../../../lib/roles';
+import { currentRating, getReviewerRatings, reviewerRatingFrom } from '../../../lib/reviews/reviewerRatings';
 import { prisma } from '../../../lib/prisma';
-import { getAuthUserFromRequest } from '../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../lib/auth';
 import { createAndAnalyzeReview } from '../../../lib/engine/review/reviewIntelligence';
 import { getAnimeDisplayTitle } from '../../../lib/animeTitleResolver';
+import { criticUserWhere, getTierBriefs, getUserBadgeSnapshot } from '../../../lib/badges/queries';
+import { feedScore } from '../../../lib/badges/ranking';
+import { BADGE_RULES } from '../../../lib/badges/config';
+import { BADGE_STRINGS } from '../../../lib/badges/strings';
+import { sanitizeReviewTags } from '../../../lib/reviews/reviewTags';
+import { getCommunityTags, getRepliesForReviews, getTagsForReviews, setReviewTags } from '../../../lib/reviews/reviewSocial';
+import { logger } from '../../../lib/logger';
+import { getEpisodeReleaseState } from '../../../lib/rating/episodeRatings';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +27,7 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
     const skip = (page - 1) * limit;
+    const criticsOnly = searchParams.get('critics') === '1';
 
     const authUser = await getAuthUserFromRequest(request);
 
@@ -24,6 +35,15 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
       status: 'PUBLISHED',
     };
+    // Critics filter: only counted reviews by critic-eligible reviewers (see badges/config).
+    if (criticsOnly) {
+      where.countState = 'COUNTED';
+      where.user = criticUserWhere();
+    }
+    // Creator reviews only (Creator Mode): the label is stamped by the server.
+    if (searchParams.get('creators') === '1') {
+      where.isCreatorReview = true;
+    }
 
     let canonicalAnimeId: string | null = null;
     if (animeId) {
@@ -82,13 +102,15 @@ export async function GET(request: NextRequest) {
       orderBy = [{ likesCount: 'desc' }, { createdAt: 'desc' }];
     }
 
-    // Fetch reviews and total count
-    const [reviews, total] = await Promise.all([
+    // The default (recommended) order is re-scored in memory so a reviewer's badge can add
+    // a small, capped boost (see badges/ranking.ts): fetch a window, rank it, then page it.
+    const isRecommended = sort === 'recommended';
+    const [fetched, total] = await Promise.all([
       prisma.review.findMany({
         where,
         orderBy,
-        skip,
-        take: limit,
+        skip: isRecommended ? 0 : skip,
+        take: isRecommended ? Math.max(200, skip + limit) : limit,
         include: {
           user: { select: { id: true, username: true, avatarUrl: true } },
           anime: {
@@ -106,6 +128,46 @@ export async function GET(request: NextRequest) {
       }),
       prisma.review.count({ where }),
     ]);
+
+    // Reviews a moderator pinned to the top of this anime (any page, any sort).
+    const pinnedRows = canonicalAnimeId
+      ? await prisma.review.findMany({
+          where: { animeId: canonicalAnimeId, deletedAt: null, status: 'PUBLISHED', pinnedAt: { not: null } },
+          orderBy: { pinnedAt: 'asc' },
+          take: 3,
+          include: {
+            user: { select: { id: true, username: true, avatarUrl: true } },
+            anime: {
+              select: {
+                id: true,
+                slug: true,
+                canonicalTitle: true,
+                posterUrl: true,
+                type: true,
+                year: true,
+              },
+            },
+            aspects: true,
+          },
+        })
+      : [];
+
+    const everyone = [...fetched, ...pinnedRows];
+    const briefs = await getTierBriefs(everyone.map((r) => r.user.id));
+    // Each review shows its author's score from the rating section (read live).
+    const reviewerRatings = await getReviewerRatings(everyone.map((r) => ({ userId: r.user.id, animeId: r.anime.id })));
+    const now = new Date();
+    const reviews = isRecommended
+      ? [...fetched]
+          .sort((a, b) => {
+            // Creator reviews lead the default order (owner, 2026-10-24).
+            if (a.isCreatorReview !== b.isCreatorReview) return a.isCreatorReview ? -1 : 1;
+            const score = (r: (typeof fetched)[number]) =>
+              feedScore({ helpfulVotes: r.likesCount, createdAt: r.createdAt, tier: briefs.get(r.user.id)?.tier ?? 'shoshinsha', now });
+            return score(b) - score(a);
+          })
+          .slice(skip, skip + limit)
+      : fetched;
 
     // Check auth user's reaction states for these reviews
     let userLikedReviewIds = new Set<string>();
@@ -132,6 +194,8 @@ export async function GET(request: NextRequest) {
             userId: authUser.id,
             animeId: canonicalAnimeId,
             deletedAt: null,
+            // A creator's unpublished draft lives in their dashboard, not here.
+            status: { not: 'DRAFT' },
           },
           include: {
             user: { select: { id: true, username: true, avatarUrl: true } },
@@ -152,9 +216,10 @@ export async function GET(request: NextRequest) {
         if (existingOwnReview) {
           userReview = {
             id: existingOwnReview.id,
+            pinnedAt: existingOwnReview.pinnedAt ? existingOwnReview.pinnedAt.toISOString() : null,
             title: existingOwnReview.title,
             body: existingOwnReview.body,
-            rating: existingOwnReview.rating,
+            rating: await currentRating(authUser.id, existingOwnReview.anime.id),
             spoilerLevel: existingOwnReview.spoilerLevel,
             containsSpoiler: existingOwnReview.containsSpoiler,
             watchStatusAtReview: existingOwnReview.watchStatusAtReview,
@@ -166,6 +231,7 @@ export async function GET(request: NextRequest) {
             createdAt: existingOwnReview.createdAt.toISOString(),
             updatedAt: existingOwnReview.updatedAt.toISOString(),
             isOwnReview: true,
+            isCreatorReview: existingOwnReview.isCreatorReview,
             user: {
               id: existingOwnReview.user.id,
               username: existingOwnReview.user.username,
@@ -191,11 +257,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const parsed = reviews.map((r) => ({
+    const toItem = (r: (typeof fetched)[number]) => ({
       id: r.id,
+      pinnedAt: r.pinnedAt ? r.pinnedAt.toISOString() : null,
       title: r.title,
       body: r.body,
-      rating: r.rating,
+      rating: reviewerRatingFrom(reviewerRatings, r.user.id, r.anime.id),
       spoilerLevel: r.spoilerLevel,
       containsSpoiler: r.containsSpoiler,
       watchStatusAtReview: r.watchStatusAtReview,
@@ -208,10 +275,13 @@ export async function GET(request: NextRequest) {
       updatedAt: r.updatedAt.toISOString(),
       userLiked: userLikedReviewIds.has(r.id),
       isOwnReview: authUser ? r.user.id === authUser.id : false,
+      isCreatorReview: r.isCreatorReview,
       user: {
         id: r.user.id,
         username: r.user.username,
         avatarUrl: r.user.avatarUrl,
+        // Reviewer's CURRENT tier, not the tier they held when they wrote this review.
+        badge: briefs.get(r.user.id) ?? { tier: 'shoshinsha', count: 0 },
       },
       anime: {
         id: r.anime.id,
@@ -228,11 +298,41 @@ export async function GET(request: NextRequest) {
         sentimentScore: a.sentimentScore,
         confidence: a.confidence,
       })),
-    }));
+    });
+    const parsed = reviews.map(toItem);
+    const pinned = pinnedRows.map(toItem);
+
+    // Member-picked tags + replies, for the listed reviews, pinned ones and the viewer's own.
+    const socialIds = [...parsed.map((r) => r.id), ...pinned.map((r) => r.id), ...(userReview ? [userReview.id] : [])];
+    // Tags and replies are extras: if they can't be read, the reviews must
+    // still load for everyone rather than the whole list failing.
+    let tagMap = new Map<string, string[]>();
+    let replyMap: Awaited<ReturnType<typeof getRepliesForReviews>> = new Map();
+    let communityTags: Awaited<ReturnType<typeof getCommunityTags>> | undefined;
+    try {
+      [tagMap, replyMap, communityTags] = await Promise.all([
+        getTagsForReviews(socialIds),
+        getRepliesForReviews(socialIds, authUser ? { id: authUser.id, role: authUser.role } : null),
+        canonicalAnimeId ? getCommunityTags(canonicalAnimeId) : Promise.resolve(undefined),
+      ]);
+    } catch (err) {
+      logger.error('Review tags/replies unavailable; serving reviews without them', { error: err, route: '/api/reviews', method: 'GET' });
+    }
+    const withSocial = <T extends { id: string }>(r: T) => ({
+      ...r,
+      tags: tagMap.get(r.id) ?? [],
+      replyCount: replyMap.get(r.id)?.count ?? 0,
+      replies: replyMap.get(r.id)?.replies ?? [],
+    });
 
     return NextResponse.json({
-      reviews: parsed,
-      userReview,
+      reviews: parsed.map(withSocial),
+      /** Pinned by a moderator: shown above everything else. */
+      pinned: pinned.map(withSocial),
+      /** Whether the viewer may pin/unpin reviews (moderators and admins). */
+      canPin: Boolean(authUser && hasMinRole(authUser.role, 'MODERATOR')),
+      userReview: userReview ? withSocial(userReview) : null,
+      ...(communityTags ? { communityTags } : {}),
       pagination: {
         page,
         limit,
@@ -248,19 +348,21 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to write a review' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const body = await request.json();
-    const { animeId, episodeId, episodeNumber, title, body: reviewBody, rating, spoilerLevel, containsSpoiler } = body;
+    // A `rating` in the body is ignored: reviews don't collect a score any more.
+    const { animeId, episodeId, episodeNumber, title, body: reviewBody, spoilerLevel, containsSpoiler } = body;
+    const tags = sanitizeReviewTags(body.tags) ?? [];
 
-    if (!animeId || !title?.trim() || !reviewBody?.trim()) {
-      return NextResponse.json({ error: 'animeId, title, and review body are required' }, { status: 400 });
+    // The headline is optional now: the anime page shows the review text,
+    // score and tags, not a tagline. Stored as '' when omitted.
+    if (!animeId || !reviewBody?.trim()) {
+      return NextResponse.json({ error: 'animeId and review body are required' }, { status: 400 });
     }
 
-    const trimmedTitle = title.trim();
+    const trimmedTitle = typeof title === 'string' ? title.trim() : '';
     const trimmedBody = reviewBody.trim();
 
     if (trimmedTitle.length > 120) {
@@ -285,15 +387,14 @@ export async function POST(request: NextRequest) {
     }
     const canonicalAnimeId = anime.id;
 
-    // Validate rating: null or 0.5 to 10.0 in 0.5 increments
-    let parsedRating: number | null = null;
-    if (rating !== null && rating !== undefined && rating !== '') {
-      const num = Number(rating);
-      if (isNaN(num) || num < 0.5 || num > 10.0) {
-        return NextResponse.json({ error: 'Rating must be between 0.5 and 10.0' }, { status: 400 });
-      }
-      parsedRating = Math.round(num * 2) / 2;
+    // Reviews need something to have watched: none before episode 1 airs.
+    const release = await getEpisodeReleaseState(canonicalAnimeId);
+    if (!release.isOpen) {
+      return NextResponse.json({ error: 'Reviews open when episode 1 airs.' }, { status: 403 });
     }
+
+    // The score comes from the rating section; snapshotted for sort-by-rating.
+    const parsedRating = await currentRating(authUser.id, canonicalAnimeId);
 
     // Validate spoiler level
     const validLevels = ['SPOILER_FREE', 'MILD_SPOILERS', 'SPOILERS', 'FULL_SPOILERS'] as const;
@@ -329,12 +430,48 @@ export async function POST(request: NextRequest) {
       episodeProgressAtReview: userAnime?.episodesWatched ?? null,
     });
 
+    // The review itself is already saved. A tag-write failure must not turn
+    // a published review into an error for the author.
+    let savedTags = tags;
+    if (tags.length > 0) {
+      try {
+        await setReviewTags(review.id, canonicalAnimeId, tags);
+      } catch (err) {
+        savedTags = [];
+        logger.error('Saving review tags failed; review kept without tags', { error: err, reviewId: review.id, route: '/api/reviews', method: 'POST' });
+      }
+    }
+
+    // Badge progress for the post-submit nudge ("12 more to Senpai"). Reads the
+    // cached stats; this review itself only counts after the maturity window.
+    const stored = await prisma.review.findUnique({
+      where: { id: review.id },
+      select: { countState: true, countRemovalReason: true, wordCount: true },
+    });
+    const snapshot = await getUserBadgeSnapshot(authUser.id);
+    const next = snapshot.progress.next;
+    const badge = {
+      countState: stored?.countState ?? null,
+      ineligibleReason: stored?.countState === 'INELIGIBLE' ? stored.countRemovalReason : null,
+      wordsNeeded: Math.max(0, BADGE_RULES.minWords - (stored?.wordCount ?? 0)),
+      maturityHours: BADGE_RULES.maturityHours,
+      tier: snapshot.tier,
+      countedReviewCount: snapshot.countedReviewCount,
+      pendingReviewCount: snapshot.pendingReviewCount,
+      nextTier: next?.key ?? null,
+      remaining: snapshot.progress.remaining,
+      message: next ? BADGE_STRINGS.moreTo(snapshot.progress.remaining, next.name) : BADGE_STRINGS.topTier,
+    };
+
     return NextResponse.json({
       success: true,
       review: {
         ...review,
         aspects: extractedAspects,
+        tags: savedTags,
       },
+      tagsSaved: savedTags.length === tags.length,
+      badge,
     });
   } catch (error: any) {
     console.error('Error creating review:', error);

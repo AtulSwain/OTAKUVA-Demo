@@ -330,7 +330,7 @@ export class StudioAffinityService {
         },
       },
       orderBy: {
-        anime: { score: 'desc' },
+        anime: { score: { sort: 'desc', nulls: 'last' } },
       },
     });
 

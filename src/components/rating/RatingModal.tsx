@@ -1,20 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Star, X, Trash2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { RATING_CATEGORIES, CATEGORY_LABELS, RatingCategoryType } from '../../lib/rating/ratingEngine';
-import {
-  getRatingTier,
-  getScoreColor,
-  getScoreGradient,
-  getScoreSoftColor,
-  scoreToPercent,
-  RATING_TIERS,
-  NO_SCORE_COLOR,
-} from '../../lib/rating/ratingTiers';
+import { notifyCommunityScoresChanged } from '../../lib/rating/useCommunityScore';
+import { Star, X, Trash2, Minus, Plus, Sparkles } from 'lucide-react';
+import { ACTIVE_RATING_CATEGORIES, CATEGORY_LABELS, RatingCategoryType } from '../../lib/rating/ratingEngine';
+import { getRatingTier, getScoreColor, NO_SCORE_COLOR } from '../../lib/rating/ratingTiers';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import styles from './RatingModal.module.css';
+import { promptPhoneVerification } from '../auth/VerifyPhonePrompt';
+import styles from './RateWindow.module.css';
 
 interface RatingModalProps {
   isOpen: boolean;
@@ -27,28 +21,34 @@ interface RatingModalProps {
   onRatingDeleted?: () => void;
 }
 
-// The modal used to have its own eight-step ladder ("Fine", "Appalling", …)
-// that disagreed with the vibe graph and the score gauge. It now reads the
-// same five tiers as everything else, so the word a user sees while rating is
-// the word the page will show once the rating lands.
-function getScoreLabel(score: number | null): string {
-  if (score === null) return "WHAT'S YOUR RATING?";
-  return (getRatingTier(score)?.label ?? '').toUpperCase();
-}
+/** Scores run 0.5–10.0 in steps of 0.1 (9.1, 9.2 …) since 2026-10-23. */
+const MIN = 0.5;
+const MAX = 10;
+const STEP = 0.1;
+const DEFAULT_THUMB = 7.5;
+const clean = (v: number) => Math.min(MAX, Math.max(MIN, Math.round(v * 10) / 10));
+/** Guide numbers under the slider — whole numbers only (no 2.5 / 5.5 chips). */
+const GUIDE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const guidePos = (n: number) => `${((n - MIN) / (MAX - MIN)) * 100}%`;
 
-/** Track background for a range input: filled portion tinted to the score. */
-function sliderTrackStyle(score: number | null, fallback: number): React.CSSProperties {
-  const value = score ?? fallback;
-  const pct = scoreToPercent(value);
+/** The filled part of a slider track, in the colour of the score under the thumb. */
+function trackStyle(score: number | null): React.CSSProperties {
+  const value = score ?? DEFAULT_THUMB;
+  const pct = ((value - MIN) / (MAX - MIN)) * 100;
   const color = score === null ? NO_SCORE_COLOR : getScoreColor(value);
   return {
-    background: `linear-gradient(90deg, ${color} 0%, ${color} ${pct}%, rgba(255,255,255,0.10) ${pct}%, rgba(255,255,255,0.10) 100%)`,
-    accentColor: color,
+    background: `linear-gradient(90deg, ${color} 0%, ${color} ${pct}%, rgba(255,255,255,0.09) ${pct}%, rgba(255,255,255,0.09) 100%)`,
+    ['--thumb' as string]: color,
   };
 }
 
-const POPULAR_QUICK_RATINGS = [5.0, 6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
-
+/**
+ * "Rate this anime" window (redesigned 2026-10-23, owner: drop the 0.5 / 2.5 /
+ * 5.5 quick picks, one slider people can drag in 0.1 steps). One big score in
+ * its tier colour, a slider with −/+ fine-tune (0.1), and the optional
+ * OTAKUVA Vibe aspects as simple 0.1-step sliders — untouched aspects stay
+ * unrated and are never submitted.
+ */
 export const RatingModal: React.FC<RatingModalProps> = ({
   isOpen,
   onClose,
@@ -62,12 +62,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
   const { user, openAuthModalWithIntent } = useAuth();
   const { showToast } = useToast();
   const [overallScore, setOverallScore] = useState<number | null>(currentRating ?? null);
-  const [categoryScores, setCategoryScores] = useState<Partial<Record<RatingCategoryType, number>>>(
-    currentCategoryRatings || {}
-  );
-  const [showCategoryPanel, setShowCategoryPanel] = useState<boolean>(
-    Boolean(currentCategoryRatings && Object.keys(currentCategoryRatings).length > 0)
-  );
+  const [categoryScores, setCategoryScores] = useState<Partial<Record<RatingCategoryType, number>>>(currentCategoryRatings || {});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,17 +70,13 @@ export const RatingModal: React.FC<RatingModalProps> = ({
     if (isOpen) {
       setOverallScore(currentRating ?? null);
       setCategoryScores(currentCategoryRatings || {});
-      setShowCategoryPanel(Boolean(currentCategoryRatings && Object.keys(currentCategoryRatings).length > 0));
       setError(null);
     }
   }, [isOpen, currentRating, currentCategoryRatings]);
 
-  // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape' && isOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -93,116 +84,78 @@ export const RatingModal: React.FC<RatingModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Everything colour-related in this modal derives from these two values, so
-  // the panel, the slider, the chips and the aspect preview all move together
-  // the moment the score changes.
-  const activeTier = getRatingTier(overallScore);
-  const activeColor = overallScore === null ? NO_SCORE_COLOR : getScoreColor(overallScore);
+  const tier = getRatingTier(overallScore);
+  const color = overallScore === null ? NO_SCORE_COLOR : getScoreColor(overallScore);
+  const ratedCount = ACTIVE_RATING_CATEGORIES.filter((c) => typeof categoryScores[c] === 'number').length;
 
-  // Live preview of the aspect bars the user is about to contribute to the
-  // OTAKUVA Vibe graph. Only aspects they have actually rated appear — nothing
-  // is invented to fill the chart out.
-  const ratedCategories = RATING_CATEGORIES.filter(
-    (cat) => typeof categoryScores[cat] === 'number'
-  );
-
-  const handleCategoryChange = (cat: RatingCategoryType, val: number) => {
-    const clean = Math.round(val * 2) / 2;
-    setCategoryScores((prev) => ({
-      ...prev,
-      [cat]: clean,
-    }));
-  };
-
-  const handleClearCategory = (cat: RatingCategoryType) => {
+  const nudge = (delta: number) => setOverallScore((prev) => clean((prev ?? DEFAULT_THUMB) + delta));
+  const setCategory = (cat: RatingCategoryType, val: number) => setCategoryScores((prev) => ({ ...prev, [cat]: clean(val) }));
+  const clearCategory = (cat: RatingCategoryType) =>
     setCategoryScores((prev) => {
       const copy = { ...prev };
       delete copy[cat];
       return copy;
     });
-  };
 
   const handleSave = async () => {
     if (overallScore === null) {
-      setError('Please select an overall rating before saving.');
+      setError('Drag the slider to choose your score first.');
       return;
     }
-
     try {
       setIsSaving(true);
       setError(null);
 
-      const cleanScore = Math.round(overallScore * 2) / 2;
-      const payload: {
-        score: number;
-        categoryScores?: Partial<Record<RatingCategoryType, number>>;
-      } = {
-        score: cleanScore,
-      };
-
-      if (showCategoryPanel && categoryScores && Object.keys(categoryScores).length > 0) {
-        const cleanCats: Partial<Record<RatingCategoryType, number>> = {};
-        for (const [k, v] of Object.entries(categoryScores)) {
-          if (typeof v === 'number' && !isNaN(v) && v >= 0.5 && v <= 10.0) {
-            cleanCats[k as RatingCategoryType] = Math.round(v * 2) / 2;
-          }
-        }
-        if (Object.keys(cleanCats).length > 0) {
-          payload.categoryScores = cleanCats;
-        }
+      const cleanScore = clean(overallScore);
+      const payload: { score: number; categoryScores?: Partial<Record<RatingCategoryType, number>> } = { score: cleanScore };
+      const cleanCats: Partial<Record<RatingCategoryType, number>> = {};
+      for (const [k, v] of Object.entries(categoryScores)) {
+        if (typeof v === 'number' && !isNaN(v) && v >= MIN && v <= MAX) cleanCats[k as RatingCategoryType] = clean(v);
       }
+      if (Object.keys(cleanCats).length > 0) payload.categoryScores = cleanCats;
 
-      // Guest flow: save locally and prompt login smoothly without 401 error
+      // Guest flow: save locally and prompt login smoothly without a 401 error
       if (!user) {
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(
-              `otakuva_guest_rating_${animeId}`,
-              JSON.stringify({
-                score: cleanScore,
-                categoryScores: payload.categoryScores,
-                timestamp: Date.now(),
-              })
-            );
-          } catch {
-            // ignore localStorage quota errors
-          }
+        try {
+          localStorage.setItem(
+            `otakuva_guest_rating_${animeId}`,
+            JSON.stringify({ score: cleanScore, categoryScores: payload.categoryScores, timestamp: Date.now() })
+          );
+        } catch {
+          // ignore storage errors
         }
-
-        if (onRatingSaved) {
-          onRatingSaved(cleanScore, payload.categoryScores);
-        }
+        onRatingSaved?.(cleanScore, payload.categoryScores);
         showToast(`Rated ★ ${cleanScore.toFixed(1)}/10 (Saved locally)`, 'success');
         onClose();
-
         openAuthModalWithIntent(
-          {
-            type: 'RATE_ANIME',
-            animeId,
-            animeTitle,
-            score: cleanScore,
-          },
+          { type: 'RATE_ANIME', animeId, animeTitle, score: cleanScore },
           `Rating saved locally! Sign in to sync your score and contribute to Otakuva Vibe.`
         );
         return;
       }
 
-      // Authenticated flow: submit to API
       const res = await fetch(`/api/anime/${animeId}/rating`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to save rating');
+        const errData = await res.json().catch(() => ({} as { error?: string; code?: string }));
+        if (errData.code === 'PHONE_NOT_VERIFIED') {
+          onClose();
+          promptPhoneVerification('rate');
+          return;
+        }
+        throw new Error(
+          res.status === 401
+            ? 'Your session is no longer valid. Please sign in again, then save your rating.'
+            : errData.error || 'Failed to save rating'
+        );
       }
-
+      // Cards and posters show the new OTAKUVA score straight away.
+      notifyCommunityScoresChanged();
       showToast(`Rated ★ ${cleanScore.toFixed(1)}/10`, 'success');
-      if (onRatingSaved) {
-        onRatingSaved(cleanScore, payload.categoryScores);
-      }
+      onRatingSaved?.(cleanScore, payload.categoryScores);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Unable to save rating. Please try again.');
@@ -215,31 +168,22 @@ export const RatingModal: React.FC<RatingModalProps> = ({
     try {
       setIsSaving(true);
       setError(null);
-
       if (!user) {
-        if (typeof window !== 'undefined') {
+        try {
           localStorage.removeItem(`otakuva_guest_rating_${animeId}`);
+        } catch {
+          // ignore
         }
         showToast('Rating removed', 'info');
-        if (onRatingDeleted) {
-          onRatingDeleted();
-        }
+        onRatingDeleted?.();
         onClose();
         return;
       }
-
-      const res = await fetch(`/api/anime/${animeId}/rating`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete rating');
-      }
-
+      const res = await fetch(`/api/anime/${animeId}/rating`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete rating');
+      notifyCommunityScoresChanged();
       showToast('Rating removed', 'info');
-      if (onRatingDeleted) {
-        onRatingDeleted();
-      }
+      onRatingDeleted?.();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Unable to delete rating.');
@@ -249,308 +193,145 @@ export const RatingModal: React.FC<RatingModalProps> = ({
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true">
+    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={`Rate ${animeTitle}`}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className={styles.header}>
-          <div className={styles.titleCol}>
-            <span className={styles.kicker}>YOUR RATING</span>
-            <h3 className={styles.animeTitle}>{animeTitle}</h3>
+          <div className={styles.headText}>
+            <span className={styles.kicker}>Rate this anime</span>
+            <h3 className={styles.title}>{animeTitle}</h3>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        {error && <div className={styles.errorAlert}>{error}</div>}
-
-        {/* Big Overall Rating Display — every colour here is derived from the
-            score currently under the user's thumb, so the whole panel shifts
-            from red to green live as they drag. */}
-        <div
-          className={styles.scoreHero}
-          style={{
-            background: overallScore === null ? undefined : getScoreSoftColor(overallScore, 0.09),
-            borderColor: overallScore === null ? undefined : getScoreSoftColor(overallScore, 0.35),
-            boxShadow:
-              overallScore === null
-                ? undefined
-                : `inset 0 0 40px ${getScoreSoftColor(overallScore, 0.12)}`,
-          }}
-        >
-          <div className={styles.starRow}>
-            {overallScore !== null ? (
-              <Star size={32} className={styles.starIcon} fill={activeColor} color={activeColor} />
-            ) : (
-              <Star size={32} className={styles.starIconEmpty} />
-            )}
-          </div>
-          <div className={styles.scoreValueRow}>
-            {overallScore !== null ? (
-              <>
-                <span className={styles.scoreBig} style={{ color: activeColor }}>
-                  {overallScore.toFixed(1)}
-                </span>
-                <span className={styles.scoreMax}>/ 10.0</span>
-              </>
-            ) : (
-              <>
-                <span className={styles.scorePlaceholder}>—</span>
-                <span className={styles.scoreMax}>/ 10.0</span>
-              </>
-            )}
-          </div>
-          <span
-            className={styles.scoreLabel}
-            style={{ color: overallScore === null ? undefined : activeColor }}
-          >
-            {getScoreLabel(overallScore)}
-          </span>
-          {activeTier ? (
-            <span className={styles.scoreHint}>{activeTier.description}</span>
-          ) : (
-            <span className={styles.scoreHint}>Select a score from 0.5 to 10.0 below</span>
-          )}
-
-          {/* The five-tier ladder, with the user's current band lit up. */}
-          <div className={styles.tierLadder} role="list" aria-label="Rating tiers">
-            {RATING_TIERS.map((tier) => {
-              const isActive = activeTier?.id === tier.id;
-              return (
-                <span
-                  key={tier.id}
-                  role="listitem"
-                  className={`${styles.tierStep} ${isActive ? styles.tierStepActive : ''}`}
-                  style={
-                    isActive
-                      ? { color: tier.color, borderColor: tier.color, background: tier.colorSoft }
-                      : undefined
-                  }
-                  title={`${tier.min.toFixed(1)} – ${tier.max >= 10 ? '10.0' : tier.max.toFixed(1)}`}
-                >
-                  {tier.label}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Quick Stepper Slider (0.5 increments) */}
-        <div className={styles.sliderSection}>
-          <div className={styles.sliderControlsRow}>
-            <button
-              type="button"
-              className={styles.stepperBtn}
-              onClick={() =>
-                setOverallScore((prev) => Math.max(0.5, Number(((prev ?? 8.0) - 0.5).toFixed(1))))
-              }
-              title="Decrease by 0.5"
-            >
-              -0.5
-            </button>
-            <input
-              type="range"
-              min="0.5"
-              max="10.0"
-              step="0.5"
-              value={overallScore ?? 7.5}
-              onChange={(e) => setOverallScore(parseFloat(e.target.value))}
-              className={styles.scoreSlider}
-              style={sliderTrackStyle(overallScore, 7.5)}
-              aria-label="Select score from 0.5 to 10.0 in 0.5 steps"
-            />
-            <button
-              type="button"
-              className={styles.stepperBtn}
-              onClick={() =>
-                setOverallScore((prev) => Math.min(10.0, Number(((prev ?? 7.0) + 0.5).toFixed(1))))
-              }
-              title="Increase by 0.5"
-            >
-              +0.5
-            </button>
-          </div>
-          <div className={styles.sliderTicks}>
-            <span>0.5</span>
-            <span>2.5</span>
-            <span>5.0</span>
-            <span>7.5</span>
-            <span>10.0</span>
-          </div>
-
-          {/* Quick Preset Chips */}
-          <div className={styles.quickChipsRow}>
-            <span className={styles.quickChipsLabel}>Quick Select:</span>
-            <div className={styles.quickChips}>
-              {POPULAR_QUICK_RATINGS.map((val) => (
-                <button
-                  key={val}
-                  type="button"
-                  className={`${styles.chipBtn} ${overallScore === val ? styles.chipBtnActive : ''}`}
-                  onClick={() => setOverallScore(val)}
-                  style={{
-                    color: getScoreColor(val),
-                    borderColor:
-                      overallScore === val
-                        ? getScoreColor(val)
-                        : getScoreSoftColor(val, 0.35),
-                    background:
-                      overallScore === val ? getScoreSoftColor(val, 0.2) : undefined,
-                  }}
-                  title={`${val.toFixed(1)} · ${getRatingTier(val)?.label ?? ''}`}
-                >
-                  {val.toFixed(1)}
-                </button>
-              ))}
+        <div className={styles.body}>
+          {/* The score — colour follows the tier as you drag */}
+          <div className={styles.scoreBlock} style={{ ['--c' as string]: color }}>
+            <div className={styles.scoreRow}>
+              <Star size={26} className={styles.scoreStar} fill={overallScore === null ? 'none' : color} color={color} aria-hidden="true" />
+              <span className={styles.score} aria-live="polite">
+                {overallScore === null ? '–' : overallScore.toFixed(1)}
+              </span>
+              <span className={styles.scoreMax}>/ 10</span>
             </div>
-          </div>
-        </div>
-
-        {/* Optional Collapsible Detailed Category Ratings Panel */}
-        <div className={styles.categoryToggleSection}>
-          <button
-            type="button"
-            className={styles.toggleCategoryBtn}
-            onClick={() => setShowCategoryPanel((prev) => !prev)}
-          >
-            <Sparkles size={14} />
-            <span>Detailed Aspect Ratings (Optional)</span>
-            {showCategoryPanel ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-
-          {showCategoryPanel && (
-            <div className={styles.categoryPanel}>
-              <p className={styles.categoryNote}>
-                Rate individual dimensions to shape OTAKUVA&apos;s Community Vibe profile. Unrated dimensions remain blank and are not manufactured.
-              </p>
-              <div className={styles.categoryList}>
-                {RATING_CATEGORIES.map((cat) => {
-                  const val = categoryScores[cat];
-                  const hasVal = typeof val === 'number';
-                  return (
-                    <div key={cat} className={styles.categoryRow}>
-                      <div className={styles.categoryLabelCol}>
-                        <span className={styles.catName}>{CATEGORY_LABELS[cat]}</span>
-                        <div className={styles.catRightCol}>
-                          {hasVal ? (
-                            <>
-                              <span
-                                className={styles.catTierChip}
-                                style={{
-                                  color: getScoreColor(val),
-                                  background: getScoreSoftColor(val, 0.14),
-                                }}
-                              >
-                                {getRatingTier(val)?.label}
-                              </span>
-                              <span className={styles.catVal} style={{ color: getScoreColor(val) }}>
-                                {val.toFixed(1)}
-                              </span>
-                              <button
-                                type="button"
-                                className={styles.catClearBtn}
-                                onClick={() => handleClearCategory(cat)}
-                                title="Clear rating for this aspect"
-                              >
-                                Clear
-                              </button>
-                            </>
-                          ) : (
-                            <span className={styles.catUnrated}>— Unrated</span>
-                          )}
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="10.0"
-                        step="0.5"
-                        value={val ?? 7.5}
-                        onChange={(e) => handleCategoryChange(cat, parseFloat(e.target.value))}
-                        className={styles.catSlider}
-                        style={sliderTrackStyle(hasVal ? val : null, 7.5)}
-                        aria-label={`Rate ${CATEGORY_LABELS[cat]}`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Live preview of what these scores will look like in the
-                  OTAKUVA Vibe graph. Same tier colours, same bars — so the
-                  user can see the graph move before they commit. */}
-              {ratedCategories.length > 0 && (
-                <div className={styles.vibePreview}>
-                  <div className={styles.vibePreviewHead}>
-                    <span>Your Vibe Preview</span>
-                    <span className={styles.vibePreviewCount}>
-                      {ratedCategories.length} of {RATING_CATEGORIES.length} aspects rated
-                    </span>
-                  </div>
-                  <div className={styles.vibePreviewBars}>
-                    {ratedCategories.map((cat) => {
-                      const value = categoryScores[cat] as number;
-                      return (
-                        <div key={cat} className={styles.vibePreviewRow}>
-                          <span className={styles.vibePreviewLabel}>{CATEGORY_LABELS[cat]}</span>
-                          <span
-                            className={styles.vibePreviewTrack}
-                            style={{ background: getScoreSoftColor(value, 0.1) }}
-                          >
-                            <span
-                              className={styles.vibePreviewFill}
-                              style={{
-                                width: `${scoreToPercent(value)}%`,
-                                background: getScoreGradient(value),
-                              }}
-                            />
-                          </span>
-                          <span
-                            className={styles.vibePreviewVal}
-                            style={{ color: getScoreColor(value) }}
-                          >
-                            {value.toFixed(1)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            <p className={styles.tierLine}>
+              {tier ? (
+                <>
+                  <strong>{tier.label}</strong> · {tier.description}
+                </>
+              ) : (
+                'Drag the slider to choose your score'
               )}
+            </p>
+          </div>
+
+          {/* One slider, 0.1 steps; −/+ fine-tune by 0.1 */}
+          <div className={styles.sliderBlock}>
+            <button type="button" className={styles.nudge} onClick={() => nudge(-STEP)} aria-label="Lower by 0.1">
+              <Minus size={16} />
+            </button>
+            <div className={styles.sliderWrap}>
+              <input
+                type="range"
+                min={MIN}
+                max={MAX}
+                step={STEP}
+                value={overallScore ?? DEFAULT_THUMB}
+                onChange={(e) => setOverallScore(clean(parseFloat(e.target.value)))}
+                className={`${styles.slider} ${overallScore === null ? styles.sliderIdle : ''}`}
+                style={trackStyle(overallScore)}
+                aria-label="Your score, 0.5 to 10 in steps of 0.1"
+                aria-valuetext={overallScore === null ? 'Not rated' : `${overallScore.toFixed(1)} out of 10`}
+              />
+              <div className={styles.guide} aria-hidden="true">
+                {GUIDE.map((n) => (
+                  <span key={n} style={{ left: guidePos(n) }}>
+                    {n}
+                  </span>
+                ))}
+              </div>
             </div>
-          )}
+            <button type="button" className={styles.nudge} onClick={() => nudge(STEP)} aria-label="Raise by 0.1">
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {/* OTAKUVA Vibe aspects — optional */}
+          <section className={styles.vibe} aria-label="OTAKUVA Vibe aspects">
+            <div className={styles.vibeHead}>
+              <span className={styles.vibeTitle}>
+                <Sparkles size={14} aria-hidden="true" /> OTAKUVA Vibe
+              </span>
+              <span className={styles.vibeNote}>
+                Optional · {ratedCount} of {ACTIVE_RATING_CATEGORIES.length} rated
+              </span>
+            </div>
+            <ul className={styles.aspects}>
+              {ACTIVE_RATING_CATEGORIES.map((cat) => {
+                const val = categoryScores[cat];
+                const has = typeof val === 'number';
+                return (
+                  <li key={cat} className={`${styles.aspect} ${has ? styles.aspectOn : ''}`}>
+                    <span className={styles.aspectName}>{CATEGORY_LABELS[cat]}</span>
+                    <input
+                      type="range"
+                      min={MIN}
+                      max={MAX}
+                      step={STEP}
+                      value={val ?? DEFAULT_THUMB}
+                      onChange={(e) => setCategory(cat, parseFloat(e.target.value))}
+                      className={`${styles.aspectSlider} ${has ? '' : styles.sliderIdle}`}
+                      style={trackStyle(has ? val : null)}
+                      aria-label={`Rate ${CATEGORY_LABELS[cat]}`}
+                    />
+                    <span className={styles.aspectValue} style={has ? { color: getScoreColor(val) } : undefined}>
+                      {has ? val.toFixed(1) : '–'}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.aspectClear}
+                      onClick={() => clearCategory(cat)}
+                      aria-label={`Clear ${CATEGORY_LABELS[cat]}`}
+                      disabled={!has}
+                    >
+                      <X size={13} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         </div>
 
-        {/* Actions Footer */}
         <div className={styles.footer}>
-          {currentRating !== null && currentRating !== undefined ? (
-            <button
-              type="button"
-              className={styles.deleteBtn}
-              onClick={handleDelete}
-              disabled={isSaving}
-              title="Remove your rating"
-            >
-              <Trash2 size={14} />
-              <span>Remove Rating</span>
-            </button>
-          ) : (
-            <div />
+          {error && (
+            <div className={styles.error} role="alert">
+              {error}
+            </div>
           )}
-
-          <div className={styles.actionRight}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isSaving}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={styles.saveBtn}
-              onClick={handleSave}
-              disabled={overallScore === null || isSaving}
-              title={overallScore === null ? 'Select a rating first' : 'Save your rating'}
-            >
-              {isSaving ? 'Saving...' : 'Save Rating'}
-            </button>
+          <div className={styles.footerRow}>
+            {currentRating !== null && currentRating !== undefined ? (
+              <button type="button" className={styles.remove} onClick={handleDelete} disabled={isSaving}>
+                <Trash2 size={14} /> Remove
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className={styles.actions}>
+              <button type="button" className={styles.cancel} onClick={onClose} disabled={isSaving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.save}
+                onClick={handleSave}
+                disabled={overallScore === null || isSaving}
+                style={overallScore === null ? undefined : { background: color }}
+              >
+                {isSaving ? 'Saving…' : overallScore === null ? 'Save rating' : `Save ${overallScore.toFixed(1)}`}
+              </button>
+            </div>
           </div>
         </div>
       </div>

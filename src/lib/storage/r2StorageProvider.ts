@@ -7,6 +7,15 @@ import {
 import crypto from 'crypto';
 import { StorageProvider, UploadOptions, UploadResult } from './types';
 
+/** R2 refused the credentials (401/403) — retrying won't help. */
+export class R2AuthError extends Error {
+  readonly code = 'R2_AUTH';
+  constructor(message: string) {
+    super(message);
+    this.name = 'R2AuthError';
+  }
+}
+
 export class R2StorageProvider implements StorageProvider {
   public name = 'r2' as const;
   private client: S3Client | null = null;
@@ -119,9 +128,15 @@ export class R2StorageProvider implements StorageProvider {
         };
       } catch (err: any) {
         lastError = err;
-        // Do not retry authorization or bad request failures
-        if (err.name === 'InvalidAccessKeyId' || err.name === 'SignatureDoesNotMatch' || err.$metadata?.httpStatusCode === 403) {
-          throw new Error(`R2 Authorization Error: ${err.message}`);
+        // Do not retry authorization failures — they can't succeed on retry.
+        // R2 answers a revoked/rolled API token with 401 "Unauthorized",
+        // which used to fall through to three backed-off retries.
+        const status = err.$metadata?.httpStatusCode;
+        if (err.name === 'InvalidAccessKeyId' || err.name === 'SignatureDoesNotMatch' || status === 401 || status === 403) {
+          throw new R2AuthError(
+            `Cloudflare R2 rejected the configured credentials (HTTP ${status ?? '?'}: ${err.name}). ` +
+              'The R2 API token in R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY is invalid, revoked, or lacks access to this bucket — create a new token in the Cloudflare dashboard.'
+          );
         }
 
         if (attempt < maxRetries) {

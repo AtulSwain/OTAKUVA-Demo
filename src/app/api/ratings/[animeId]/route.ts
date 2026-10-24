@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserFromRequest } from '../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../lib/auth';
 import { prisma } from '../../../../lib/prisma';
 import {
   submitUserRating,
@@ -56,10 +56,8 @@ export async function POST(
   { params }: { params: { animeId: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to rate anime' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const { animeId } = params;
     const body = await request.json();

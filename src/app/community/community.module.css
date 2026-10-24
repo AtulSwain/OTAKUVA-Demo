@@ -417,3 +417,67 @@
   color: var(--text-muted);
   margin-bottom: 16px;
 }
+
+/* ==========================================================================
+   Shelf language (matches the front page). Visual properties only.
+   ========================================================================== */
+.title { font-size: clamp(32px, 4.4vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { font-size: 16px; color: var(--text-secondary); }
+.mainTabs { gap: 8px; border-bottom: 0; }
+.tabBtn, .catBtn { border: 0; border-radius: 9999px; background: var(--surface-elevated); color: var(--text-secondary); font-size: 14px; font-weight: 600; padding: 9px 18px; transition: background var(--transition-fast), color var(--transition-fast); }
+.tabBtn:hover, .catBtn:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.tabBtnActive, .catBtnActive { background: #fff; color: #141416; font-weight: 700; }
+.searchBox { border: 1px solid transparent; border-radius: 9999px; background: var(--surface-elevated); }
+.searchInput { font-size: 14px; }
+.searchBox:focus-within { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+
+/* Cards: the artwork is the card. No border, soft radius, lift on hover. */
+.communityCard { border: 0; border-radius: 22px; background: var(--surface-base); overflow: hidden; transition: transform var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out), box-shadow var(--duration-normal, 280ms) var(--ease-out-cubic, ease-out); }
+.communityCard:hover { transform: scale(1.02); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55); }
+.bannerWrap { border-radius: 0; }
+.communityName { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.communityDesc { font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.cardMeta, .metaStats, .statItem { font-size: 13px; color: var(--text-muted); }
+.categoryBadge { border: 0; border-radius: 9999px; padding: 4px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: var(--surface-elevated); color: var(--text-secondary); }
+.icon, .iconWrapper { border-radius: 16px; }
+
+.createBtn, .enterBtn, .joinBtn, .publicBannerBtn { border: 0; border-radius: 9999px; padding: 10px 22px; font-size: 14px; font-weight: 600; background: #fff; color: #141416; transition: transform var(--duration-micro, 180ms) var(--ease-out-cubic, ease-out), background var(--transition-fast); }
+.createBtn:hover, .enterBtn:hover, .joinBtn:hover, .publicBannerBtn:hover { background: #e8e8ec; }
+.createBtn:active, .enterBtn:active, .joinBtn:active, .publicBannerBtn:active { transform: scale(0.97); }
+.joinedBtn { border: 0; border-radius: 9999px; padding: 10px 22px; font-size: 14px; font-weight: 600; background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
+.publicBanner, .emptyCard { border: 0; border-radius: 22px; background: var(--surface-base); padding: 24px 28px; }
+.publicBannerTitle, .emptyTitle { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.publicBannerDesc, .emptySubtitle { font-size: 14px; color: var(--text-secondary); }
+.createBtn:focus-visible, .enterBtn:focus-visible, .joinBtn:focus-visible, .tabBtn:focus-visible, .catBtn:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+
+/* Community card layout: roomier banner, stacked footer, equal-width actions. */
+.communityGrid { grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 24px; }
+.bannerWrap { height: 132px; }
+.cardBody { padding: 20px 22px 22px; gap: 14px; }
+.iconWrapper { width: 64px; height: 64px; top: -32px; left: 22px; border: 3px solid var(--surface-base); border-radius: 18px; }
+.cardHeaderInfo { margin-top: 26px; gap: 6px; }
+.communityDesc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cardMeta { flex-direction: column; align-items: stretch; gap: 14px; padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.metaStats { gap: 10px; flex-wrap: wrap; }
+.statItem { display: inline-flex; align-items: center; gap: 6px; }
+.actionButtonGroup { gap: 10px; }
+.actionButtonGroup > * { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; text-align: center; white-space: nowrap; }
+.enterBtn { background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
+.enterBtn:hover { background: rgba(255, 255, 255, 0.22); }
+
+.title { text-transform: none; font-size: clamp(30px, 4vw, 42px); }
+
+/* Full-width search on phones (was a half-width box) — 2026-10-17. */
+@media (max-width: 640px) {
+  .searchBox { width: 100%; min-width: 0; min-height: 44px; padding: 0 14px; }
+}
+
+/* Genre filter + topic tags (2026-10-19) */
+.genreSelect { min-height: 32px; margin-left: auto; padding: 0 12px; border: 1px solid var(--border-default); border-radius: var(--radius-pill, 999px); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.genreSelect option { background: var(--surface-elevated, #16161a); color: var(--text-primary); }
+.genreSelectActive { border-color: transparent; background: var(--accent-primary-subtle, rgba(124, 124, 134, 0.14)); color: var(--accent-primary-hover, #D4D4D8); }
+.topicTag { display: inline-flex; align-items: center; padding: 2px 8px; border: 0; border-radius: var(--radius-pill, 999px); background: rgba(255, 255, 255, 0.07); color: var(--text-secondary); font: inherit; font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.topicTag:hover { background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
+@media (max-width: 640px) {
+  .genreSelect { margin-left: 0; }
+}

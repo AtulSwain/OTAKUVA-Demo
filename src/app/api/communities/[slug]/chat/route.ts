@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
-import { getAuthUserFromRequest } from '../../../../../lib/auth';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import { sendCommunityChatMessage, canViewCommunity } from '../../../../../lib/engine/community/communityEngine';
+import { getChatAuthorMeta } from '../../../../../lib/community/chatAuthorMeta';
+import { logger } from '../../../../../lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +80,12 @@ export async function GET(
     // Return in chronological order for frontend display
     messages.reverse();
 
+    const meta = await getChatAuthorMeta(
+      community.id,
+      community.ownerId,
+      messages.map((m) => m.authorId)
+    );
+
     return NextResponse.json({
       channelId: channel.id,
       channelName: channel.name,
@@ -86,11 +94,11 @@ export async function GET(
         body: m.body,
         spoilerLevel: m.spoilerLevel,
         createdAt: m.createdAt.toISOString(),
-        author: m.author,
+        author: { ...m.author, ...meta.get(m.authorId) },
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching chat messages:', error);
+    logger.error('Error fetching chat messages', { error, route: '/api/communities/[slug]/chat', method: 'GET' });
     return NextResponse.json({ error: 'Failed to fetch chat messages' }, { status: 500 });
   }
 }
@@ -100,10 +108,8 @@ export async function POST(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const { slug } = params;
     const body = await request.json();
@@ -123,7 +129,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (error: any) {
-    console.error('Error sending chat message:', error);
+    logger.error('Error sending chat message', { error, route: '/api/communities/[slug]/chat', method: 'POST' });
     const status = error.message.includes('Unauthorized') ? 403 : error.message.includes('not found') ? 404 : 500;
     return NextResponse.json({ error: error.message || 'Failed to send chat message' }, { status });
   }

@@ -34,7 +34,7 @@ export const AiringTodaySection: React.FC = () => {
           <Calendar size={18} style={{ color: 'var(--accent-primary-hover)' }} />
           <h2 className={styles.title}>Airing Today</h2>
         </div>
-        <Link href="/airing" className={styles.viewAllLink}>
+        <Link href="/schedule" className={styles.viewAllLink}>
           <span>View Full Schedule</span>
           <ArrowRight size={14} />
         </Link>

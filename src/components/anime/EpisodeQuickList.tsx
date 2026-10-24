@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLibrary } from '../../context/LibraryContext';
 import { useToast } from '../../context/ToastContext';
 import { Check, ChevronDown, ChevronUp, Play, Tv } from 'lucide-react';
+import type { EpisodeRetentionSummary } from '../rating/EpisodeRetentionModal';
+import { RetentionBars } from './RetentionBars';
 import styles from './EpisodeQuickList.module.css';
 
 export interface EpisodeItem {
@@ -40,22 +42,30 @@ interface EpisodeQuickListProps {
   seasonsList?: SeasonItem[];
   animeTitle?: string;
   onOpenTrailer?: () => void;
+  /** Aired episodes + retention, from GET /api/anime/:id/episode-ratings. */
+  ratingSummary?: EpisodeRetentionSummary | null;
+  /** Opens the rating window for one episode (unused when rating inline). */
+  onRateEpisode?: (episodeNumber: number) => void;
+  /** Episode retention is rated inline in the row; called with the fresh summary. */
+  onSummaryChange?: (summary: EpisodeRetentionSummary) => void;
 }
 
 export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
   animeId,
-  totalEpisodes = 12,
+  totalEpisodes,
   episodesList = [],
   seasonsList = [],
   animeTitle = 'Anime',
   onOpenTrailer,
+  ratingSummary = null,
+  onRateEpisode,
+  onSummaryChange,
 }) => {
   const { user } = useAuth();
-  const { updateStatus } = useLibrary();
+  const { applyTracking, getItem } = useLibrary();
   const { showToast } = useToast();
 
   const [selectedSeasonIdx, setSelectedSeasonIdx] = useState(0);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string | null>(null);
   const [watchedEpisodeIds, setWatchedEpisodeIds] = useState<Set<string>>(new Set());
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -82,7 +92,9 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
           ? s.episodes
           : episodesList.filter((ep) => ep.seasonId === s.id || ep.seasonNumber === (s.seasonNumber || idx + 1));
 
-        const epCount = seasonEps.length || s.episodeCount || (idx === 0 ? totalEpisodes : 12);
+        // Real rows first, then the season's declared count; never an
+        // invented default (this used to fall back to 12).
+        const epCount = seasonEps.length || s.episodeCount || (idx === 0 ? totalEpisodes ?? 0 : 0);
         return {
           id: s.id || `season-${s.seasonNumber || idx + 1}`,
           seasonNumber: s.seasonNumber || idx + 1,
@@ -90,7 +102,10 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
           episodeCount: epCount,
           episodes: seasonEps,
         };
-      });
+      })
+        // A season with no episodes and no known count is an empty placeholder
+        // row (e.g. a stray "Season 2" whose real season is its own anime).
+        .filter((s, idx) => idx === 0 || s.episodes.length > 0 || s.episodeCount > 0);
     }
 
     // 2. Fallback: If we have an episodes list with seasonIds
@@ -117,24 +132,16 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       return result;
     }
 
-    // 3. Single Season Default with actual episodes
-    const fallbackEps = episodesList.length > 0
-      ? episodesList
-      : Array.from({ length: Math.min(totalEpisodes || 12, 100) }, (_, i) => ({
-          id: `ep-${i + 1}`,
-          number: i + 1,
-          title: `Episode ${i + 1}`,
-          duration: '24 min',
-          aired: 'Broadcast',
-        }));
-
+    // 3. Single season: the real episode rows, if any. No rows are generated
+    // here any more — this used to invent "Episode N · 24 min · Broadcast"
+    // rows (for ~95% of the catalog), whose ids could never be saved.
     return [
       {
         id: 'season-1',
         seasonNumber: 1,
         title: 'Season 1',
-        episodeCount: fallbackEps.length,
-        episodes: fallbackEps,
+        episodeCount: episodesList.length || totalEpisodes || 0,
+        episodes: episodesList,
       },
     ];
   }, [seasonsList, episodesList, totalEpisodes]);
@@ -142,23 +149,27 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
   const activeSeason = normalizedSeasons[selectedSeasonIdx] || normalizedSeasons[0];
 
   // Active episodes for the selected season
-  const activeEpisodes: EpisodeItem[] = useMemo(() => {
-    if (activeSeason.episodes && activeSeason.episodes.length > 0) {
-      return activeSeason.episodes;
-    }
-    // If season record has episodeCount but empty episodes array, generate clean episodes
-    const count = activeSeason.episodeCount || totalEpisodes || 12;
-    return Array.from({ length: Math.min(count, 100) }, (_, i) => ({
-      id: `ep-${activeSeason.seasonNumber}-${i + 1}`,
-      number: i + 1,
-      title: `Episode ${i + 1}`,
-      duration: '24 min',
-      aired: 'Broadcast',
-    }));
-  }, [activeSeason, totalEpisodes]);
+  // Real episode rows only. When there are none, the guide shows a progress
+  // counter instead (see below) rather than placeholder episodes.
+  const storedEpisodes: EpisodeItem[] = useMemo(() => activeSeason.episodes || [], [activeSeason]);
+  const hasEpisodeRows = storedEpisodes.length > 0;
+  // No stored rows but we know which episodes have aired (schedule, status,
+  // official count): list exactly those, numbered — no invented titles,
+  // durations or dates. Only for a single-season entry, where the aired count
+  // is this entry's own.
+  const releasedRows: EpisodeItem[] = useMemo(() => {
+    if (hasEpisodeRows || normalizedSeasons.length > 1 || !ratingSummary) return [];
+    return ratingSummary.episodes.map((e) => ({ number: e.number, title: e.title ?? undefined } as EpisodeItem));
+  }, [hasEpisodeRows, normalizedSeasons.length, ratingSummary]);
+  const activeEpisodes: EpisodeItem[] = hasEpisodeRows ? storedEpisodes : releasedRows;
+  const hasListRows = activeEpisodes.length > 0;
+  const released = ratingSummary?.released ?? 0;
+  const retentionOf = (n: number) => ratingSummary?.episodes.find((e) => e.number === n) ?? null;
+  const myRetentionOf = (n: number) => ratingSummary?.mine[n]?.retention ?? null;
+  const declaredCount = activeSeason.episodeCount || null;
 
   // Display limited rows when not expanded
-  const INITIAL_DISPLAY_COUNT = 8;
+  const INITIAL_DISPLAY_COUNT = 12;
   const displayedEpisodes = isExpanded
     ? activeEpisodes
     : activeEpisodes.slice(0, INITIAL_DISPLAY_COUNT);
@@ -167,8 +178,135 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
     return activeEpisodes.filter((ep) => watchedEpisodeIds.has(ep.id || `ep-${ep.number}`)).length;
   }, [activeEpisodes, watchedEpisodeIds]);
 
-  const handleSelectEpisode = (epId: string) => {
-    setSelectedEpisodeId((prev) => (prev === epId ? null : epId));
+  // --- Progress counter (no episode rows on record) ---------------------
+  // Saves a plain count through the library API; nothing is invented.
+  const libraryItem = getItem(animeId);
+  const watchedTotal = libraryItem?.episodesWatched ?? 0;
+  const [isSavingCount, setIsSavingCount] = useState(false);
+
+  const setWatchedCount = async (next: number) => {
+    if (!user) {
+      showToast('Sign in to save episode progress', 'info');
+      return;
+    }
+    const cap = declaredCount ?? Number.MAX_SAFE_INTEGER;
+    const target = Math.max(0, Math.min(next, cap));
+    if (target === watchedTotal || isSavingCount) return;
+
+    const previous = libraryItem;
+    const status =
+      declaredCount && target >= declaredCount
+        ? 'completed'
+        : !previous || previous.status === 'plan_to_watch' || previous.status === 'completed'
+        ? 'watching'
+        : undefined;
+    applyTracking(animeId, { episodesWatched: target, ...(status ? { status } : {}) });
+    setIsSavingCount(true);
+    try {
+      const res = await fetch(`/api/library/${encodeURIComponent(animeId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episodesWatched: target, ...(status ? { status } : {}) }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Request failed (${res.status})`);
+    } catch (err: any) {
+      applyTracking(animeId, { episodesWatched: previous?.episodesWatched ?? 0, status: previous?.status ?? null });
+      showToast(err?.message ? `Couldn't save progress: ${err.message}` : "Couldn't save progress", 'error');
+    } finally {
+      setIsSavingCount(false);
+    }
+  };
+
+  // Every aired row carries its own retention bar (always visible) — there is
+  // nothing to open; clicking a row just highlights it.
+  const canRate = Boolean(onSummaryChange);
+
+  // Rows built from the aired count (no stored episode rows): each tick is its
+  // own record (UserEpisodeWatch, 2026-10-21) — ticking episode 5 marks only
+  // 5. It used to mean "watched up to 5" and ticked 1–4 as well.
+  const [tickedNumbers, setTickedNumbers] = useState<Set<number>>(new Set());
+  const [tickBusy, setTickBusy] = useState<Set<number>>(new Set());
+  // Bumped on every tick; a page load that started before a tick never
+  // overwrites it (that showed up as ticks "moving" between episodes).
+  const tickVersion = React.useRef(0);
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (hasEpisodeRows || !userId) {
+      setTickedNumbers(new Set());
+      return;
+    }
+    let live = true;
+    const startedAt = tickVersion.current;
+    fetch(`/api/anime/${encodeURIComponent(animeId)}/watched-episodes`, { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (live && body?.numbers && tickVersion.current === startedAt) setTickedNumbers(new Set<number>(body.numbers));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [animeId, hasEpisodeRows, userId]);
+
+  const isTicked = (n: number) => !hasEpisodeRows && tickedNumbers.has(n);
+
+  // Progress strip + "Up next" (2026-10-22): from the same watched state the
+  // rows use — nothing estimated.
+  const rowWatched = (ep: EpisodeItem) =>
+    hasEpisodeRows ? watchedEpisodeIds.has(ep.id || `ep-${ep.number}`) : isTicked(Math.floor(ep.number));
+  const rowAired = (ep: EpisodeItem) => !canRate || (ep.number >= 1 && ep.number <= released);
+  const listWatched = activeEpisodes.filter(rowWatched).length;
+  const listAired = activeEpisodes.filter(rowAired).length;
+  const nextUpNumber = user ? activeEpisodes.find((ep) => rowAired(ep) && !rowWatched(ep))?.number ?? null : null;
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => setNowMs(Date.now()), []);
+  const isFresh = (ep: EpisodeItem) => {
+    if (!ep.airedAt || nowMs === null) return false;
+    const t = new Date(ep.airedAt).getTime();
+    return t <= nowMs && nowMs - t < 7 * 86_400_000;
+  };
+  // Each tick touches only its own episode — in the UI and on the server.
+  // Taps on different episodes can overlap; a reply never rewrites other
+  // episodes' ticks (the server applies one member's ticks one at a time).
+  const toggleTick = async (n: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      showToast('Sign in to save episode progress', 'info');
+      return;
+    }
+    if (tickBusy.has(n)) return;
+    const version = ++tickVersion.current;
+    const watched = !tickedNumbers.has(n);
+    const flip = (on: boolean) =>
+      setTickedNumbers((prev) => {
+        const next = new Set(prev);
+        if (on) next.add(n);
+        else next.delete(n);
+        return next;
+      });
+    flip(watched);
+    setTickBusy((prev) => new Set(prev).add(n));
+    try {
+      const res = await fetch(`/api/anime/${encodeURIComponent(animeId)}/watched-episodes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episodeNumber: n, watched }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+      // The tick already shows; only the library count/status comes from the
+      // server (from the newest tap, so an older reply can't roll it back).
+      if (version === tickVersion.current) applyTracking(animeId, { episodesWatched: body.episodesWatched, status: body.status });
+    } catch (err: any) {
+      flip(!watched);
+      showToast(err?.message ? `Couldn't save episode ${n}: ${err.message}` : `Couldn't save episode ${n}`, 'error');
+    } finally {
+      setTickBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(n);
+        return next;
+      });
+    }
   };
 
   // Toggle single episode watched state
@@ -188,6 +326,19 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
 
     setIsUpdating(epId);
 
+    // Paint every progress display (hero progress box, journey card, sticky
+    // bar) right away instead of waiting for the round trip; the server's
+    // numbers replace this guess when they arrive.
+    const previousItem = getItem(animeId);
+    if (user) {
+      applyTracking(animeId, {
+        episodesWatched: (previousItem?.episodesWatched ?? 0) + (currentlyWatched ? -1 : 1),
+        episodeNumber: ep.number,
+        watched: !currentlyWatched,
+        ...(previousItem ? {} : { status: 'watching' }),
+      });
+    }
+
     try {
       if (user) {
         const res = await fetch(`/api/anime/${animeId}/episodes/${epId}/progress`, {
@@ -196,11 +347,16 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
           body: JSON.stringify({ status: targetStatus, episodeNumber: ep.number }),
         });
 
-        if (res.ok) {
-          const json = await res.json();
-          if (json.userTracking) {
-            await updateStatus(animeId, json.userTracking.status.toLowerCase());
-          }
+        // A rejected write used to fall through as success.
+        if (!res.ok) throw new Error(`Episode progress update failed (${res.status})`);
+        const json = await res.json();
+        // Authoritative status/count from the same response — no second
+        // PATCH /api/library round trip (it used to call updateStatus here).
+        if (json.userTracking) {
+          applyTracking(animeId, {
+            status: json.userTracking.status,
+            episodesWatched: json.userTracking.episodesWatched,
+          });
         }
       }
 
@@ -210,6 +366,14 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       );
     } catch (err: any) {
       console.error('Episode toggle error:', err);
+      if (user) {
+        applyTracking(animeId, {
+          status: previousItem?.status ?? null,
+          episodesWatched: previousItem?.episodesWatched ?? 0,
+          episodeNumber: ep.number,
+          watched: currentlyWatched,
+        });
+      }
       setWatchedEpisodeIds((prev) => {
         const rollback = new Set(prev);
         if (currentlyWatched) rollback.add(epId);
@@ -236,12 +400,25 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       return next;
     });
 
+    const previousIds = watchedEpisodeIds;
+    const previousItem = getItem(animeId);
     try {
-      await fetch(`/api/anime/${animeId}/progress/mark-all-watched`, { method: 'POST' });
-      await updateStatus(animeId, 'completed');
+      const res = await fetch(`/api/anime/${animeId}/progress/mark-all-watched`, { method: 'POST' });
+      const json = await res.json().catch(() => ({}));
+      // A 409 ("no released episodes") or 500 used to still report success
+      // and flip the library status to Completed.
+      if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+      applyTracking(animeId, {
+        status: json.libraryStatus || 'completed',
+        ...(typeof json.totalWatched === 'number' ? { episodesWatched: json.totalWatched } : {}),
+      });
       showToast(`All ${activeEpisodes.length} episodes marked as watched!`, 'success');
-    } catch {
-      showToast("Couldn't mark all episodes", 'error');
+    } catch (err: any) {
+      setWatchedEpisodeIds(previousIds);
+      if (previousItem) {
+        applyTracking(animeId, { status: previousItem.status, episodesWatched: previousItem.episodesWatched });
+      }
+      showToast(err?.message ? `Couldn't mark all episodes: ${err.message}` : "Couldn't mark all episodes", 'error');
     }
   };
 
@@ -254,18 +431,26 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
             <h3 className={styles.title}>Episode Guide</h3>
           </div>
           <span className={styles.subtitle}>
-            {activeSeason.title} • {watchedCount}/{activeEpisodes.length} watched
+            {hasEpisodeRows
+              ? `${activeSeason.title} • ${watchedCount}/${activeEpisodes.length} watched`
+              : hasListRows
+              ? `${activeEpisodes.length} aired${declaredCount ? ` of ${declaredCount}` : ''} · mark an episode watched, then rate it`
+              : declaredCount
+              ? `${declaredCount} episode${declaredCount === 1 ? '' : 's'}`
+              : activeSeason.title}
           </span>
         </div>
 
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.markAllBtn}
-            onClick={handleMarkAllSeasonWatched}
-          >
-            Mark season watched
-          </button>
+          {hasEpisodeRows && (
+            <button
+              type="button"
+              className={styles.markAllBtn}
+              onClick={handleMarkAllSeasonWatched}
+            >
+              Mark season watched
+            </button>
+          )}
           {onOpenTrailer && (
             <button
               type="button"
@@ -296,58 +481,150 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
               }}
             >
               <span className={styles.tabSeasonName}>{season.title}</span>
-              <span className={styles.tabEpCount}>{season.episodeCount} eps</span>
+              {(season.episodeCount ?? 0) > 0 && <span className={styles.tabEpCount}>{season.episodeCount} eps</span>}
             </button>
           ))}
         </div>
       )}
 
-      {/* Compact Episode Container */}
-      <div className={styles.episodesContainer} role="list">
-        {displayedEpisodes.map((ep) => {
-          const epId = ep.id || `ep-${ep.number}`;
-          const isWatched = watchedEpisodeIds.has(epId);
-          const isSelected = selectedEpisodeId === epId;
-
-          return (
-            <div
-              key={epId}
-              role="listitem"
-              className={`${styles.episodeRow} ${isSelected ? styles.selectedRow : ''}`}
-              onClick={() => handleSelectEpisode(epId)}
+      {/* No list at all: the progress counter is the only way to track. */}
+      {!hasListRows && (
+        <div className={styles.counterCard}>
+          <p className={styles.counterNote}>
+            The episode-by-episode list for this {normalizedSeasons.length > 1 ? 'season' : 'series'} isn&apos;t in our catalog yet
+            {declaredCount ? '' : ', and the total episode count hasn’t been announced'}. You can still track how far you are.
+          </p>
+          <div className={styles.counterRow}>
+            <button
+              type="button"
+              className={styles.counterBtn}
+              onClick={() => setWatchedCount(watchedTotal - 1)}
+              disabled={isSavingCount || watchedTotal <= 0}
+              aria-label="One episode fewer"
             >
-              <span className={styles.epNum}>
-                {String(ep.number).padStart(2, '0')}
-              </span>
-
-              <div className={styles.epDetails}>
-                <div className={styles.titleLine}>
-                  <strong className={styles.epTitle}>{ep.title || `Episode ${ep.number}`}</strong>
-                  {ep.filler && <span className={styles.fillerBadge}>Filler</span>}
-                  {ep.recap && <span className={styles.recapBadge}>Recap</span>}
-                </div>
-                <div className={styles.epMeta}>
-                  {ep.duration && <span>{ep.duration}</span>}
-                  {ep.aired && <span>• {ep.aired}</span>}
-                  {ep.airedAt && !ep.aired && <span>• {new Date(ep.airedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                role="button"
-                aria-pressed={isWatched}
-                className={`${styles.checkBtn} ${isWatched ? styles.checkBtnWatched : styles.checkBtnUnwatched}`}
-                disabled={isUpdating === epId}
-                onClick={(e) => handleToggleWatched(ep, e)}
-                title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
-              >
-                {isWatched ? <Check size={13} strokeWidth={3} /> : null}
-              </button>
+              −
+            </button>
+            <div className={styles.counterValue} aria-live="polite">
+              <strong>{watchedTotal}</strong>
+              {declaredCount ? <span> / {declaredCount}</span> : null}
+              <span className={styles.counterLabel}>episodes watched</span>
             </div>
-          );
-        })}
-      </div>
+            <button
+              type="button"
+              className={styles.counterBtn}
+              onClick={() => setWatchedCount(watchedTotal + 1)}
+              disabled={isSavingCount || (declaredCount !== null && watchedTotal >= declaredCount)}
+              aria-label="One more episode watched"
+            >
+              +
+            </button>
+          </div>
+          {declaredCount !== null && watchedTotal > 0 && (
+            <div className={styles.counterBar} aria-hidden="true">
+              <span style={{ width: `${Math.min(100, Math.round((watchedTotal / declaredCount) * 100))}%` }} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Progress strip: one segment per listed episode (watched / aired /
+          not yet), or a plain bar for very long shows. */}
+      {hasListRows && user && listAired > 0 && (
+        <div className={styles.progress}>
+          <div className={styles.progressText}>
+            <strong>{listWatched}</strong>
+            <span>/ {listAired} watched</span>
+            {nextUpNumber !== null && listWatched > 0 && <em>Up next · Episode {nextUpNumber}</em>}
+            {listWatched > 0 && listWatched >= listAired && <em className={styles.progressDone}>All caught up</em>}
+          </div>
+          {activeEpisodes.length <= 60 ? (
+            <div className={styles.strip} aria-hidden="true">
+              {activeEpisodes.map((ep) => (
+                <span
+                  key={ep.id || ep.number}
+                  className={rowWatched(ep) ? styles.segWatched : rowAired(ep) ? styles.segAired : styles.segUpcoming}
+                  title={`Episode ${ep.number}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.counterBar} aria-hidden="true">
+              <span style={{ width: `${Math.min(100, Math.round((listWatched / listAired) * 100))}%` }} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasListRows && (
+        <ul className={styles.epLines}>
+          {displayedEpisodes.map((ep) => {
+            const epId = ep.id || `ep-${ep.number}`;
+            const n = Math.floor(ep.number);
+            const isWatched = hasEpisodeRows ? watchedEpisodeIds.has(epId) : isTicked(n);
+            const aired = ep.number >= 1 && ep.number <= released;
+            const community = retentionOf(ep.number);
+            const mine = myRetentionOf(ep.number);
+            const date = ep.aired || (ep.airedAt ? new Date(ep.airedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null);
+            const realTitle = ep.title && !/^episode\s*\d+$/i.test(ep.title.trim()) ? ep.title : null;
+            const isNext = ep.number === nextUpNumber;
+            const fresh = isFresh(ep);
+
+            return (
+              <li
+                key={epId}
+                className={`${styles.epLine} ${isWatched ? styles.epLineWatched : ''} ${!aired && canRate ? styles.epLineUpcoming : ''} ${isNext ? styles.epLineNext : ''}`}
+              >
+                <span className={styles.epLineNo}>
+                  <small>EP</small>
+                  {String(ep.number).padStart(2, '0')}
+                </span>
+                <span className={styles.epLineText}>
+                  <span className={styles.epLineTitleRow}>
+                    <span className={realTitle ? styles.epLineTitle : styles.epLineTitleMuted}>{realTitle || `Episode ${ep.number}`}</span>
+                    {isNext && <span className={styles.nextBadge}>Up next</span>}
+                    {fresh && <span className={styles.newBadge}>New</span>}
+                  </span>
+                  {(date || ep.filler || ep.recap) && (
+                    <span className={styles.epLineMeta}>
+                      {date}
+                      {ep.filler && <span className={styles.fillerBadge}>Filler</span>}
+                      {ep.recap && <span className={styles.recapBadge}>Recap</span>}
+                    </span>
+                  )}
+                </span>
+                {canRate && (
+                  <span className={styles.epLineRate}>
+                    {aired && onSummaryChange ? (
+                      <RetentionBars
+                        animeId={animeId}
+                        episodeNumber={n}
+                        mine={mine}
+                        community={{ value: community?.retention ?? null, count: community?.retentionCount ?? 0 }}
+                        onSaved={onSummaryChange}
+                        compact
+                        locked={!isWatched}
+                      />
+                    ) : (
+                      <span className={styles.notAired}>Not aired yet</span>
+                    )}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-pressed={isWatched}
+                  className={`${styles.epTick} ${isWatched ? styles.epTickOn : ''}`}
+                  disabled={hasEpisodeRows ? isUpdating === epId : tickBusy.has(n) || !aired}
+                  onClick={(e) => (hasEpisodeRows ? handleToggleWatched(ep, e) : toggleTick(n, e))}
+                  title={isWatched ? 'Mark as unwatched' : 'Mark as watched'}
+                  aria-label={`${isWatched ? 'Unmark' : 'Mark'} episode ${ep.number} as watched`}
+                >
+                  <Check size={14} strokeWidth={3} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/* Expand / Collapse Toggle if many episodes */}
       {activeEpisodes.length > INITIAL_DISPLAY_COUNT && (

@@ -1,0 +1,212 @@
+/* Matches the homepage shelf language (page.module.css: .section/.sectionHead). */
+.section { padding: 40px 0 0; }
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.sub {
+  margin: 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fullLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.fullLink:hover { color: #fff; }
+
+/* --- Day tabs --- */
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 2px 14px;
+  margin: 0 -2px;
+}
+
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 112px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tab:hover { background: var(--surface-overlay); color: var(--text-primary); }
+.tab:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 2px; }
+
+.tabActive,
+.tabActive:hover { background: #fff; color: #141416; }
+
+.tabLabel { font-size: 14px; font-weight: 700; }
+.tabMeta { font-size: 12px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+
+/* --- Episode list --- */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 72px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 14px;
+  background: var(--surface-base);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.row:hover { background: var(--surface-elevated); }
+.row:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 2px; }
+
+.time {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.poster {
+  position: relative;
+  width: 44px;
+  height: 62px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-elevated);
+}
+
+.info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.animeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta { font-size: 12px; color: var(--text-muted); }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  font-variant-numeric: tabular-nums;
+}
+
+.statusSoon { color: var(--accent-score); background: var(--accent-score-subtle); }
+.statusAired { color: var(--accent-emerald); background: rgba(16, 185, 129, 0.12); }
+
+.rowAired .time { color: var(--text-secondary); }
+
+/* "Now" divider between aired and upcoming on today's list. */
+.nowMarker {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-rose);
+}
+
+.nowMarker::after { content: ''; flex: 1; height: 1px; background: var(--accent-rose); opacity: 0.6; }
+
+.empty {
+  margin: 0;
+  padding: 28px 16px;
+  border-radius: 14px;
+  background: var(--surface-base);
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.more {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 9999px;
+  padding: 9px 18px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.more:hover { background: rgba(255, 255, 255, 0.18); }
+
+.skeleton { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.skeleton span { height: 78px; border-radius: 14px; background: var(--surface-base); }
+
+@media (max-width: 860px) {
+  .list,
+  .skeleton { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .row { grid-template-columns: 58px 40px minmax(0, 1fr) auto; gap: 10px; padding-right: 10px; }
+  .poster { width: 40px; height: 56px; }
+  .time { font-size: 13px; }
+  .status { padding: 4px 8px; }
+  .animeTitle { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+  .tab { min-width: 96px; padding: 9px 12px; }
+}

@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(50, parseInt(searchParams.get('limit') || '25', 10));
     const skip = (page - 1) * limit;
 
-    let orderBy: any = [{ score: 'desc' }, { scoredBy: 'desc' }];
+    let orderBy: any = [{ score: { sort: 'desc', nulls: 'last' } }, { scoredBy: 'desc' }];
     if (category === 'popular') {
       orderBy = [{ popularity: 'asc' }, { members: 'desc' }];
     } else if (category === 'favorited') {
-      orderBy = [{ favoritesCount: 'desc' }, { score: 'desc' }];
+      orderBy = [{ favoritesCount: 'desc' }, { score: { sort: 'desc', nulls: 'last' } }];
     } else if (category === 'trending') {
       orderBy = [{ members: 'desc' }, { updatedAt: 'desc' }];
     }

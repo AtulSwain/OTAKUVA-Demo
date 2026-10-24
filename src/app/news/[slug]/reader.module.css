@@ -151,10 +151,11 @@
 }
 
 .heroTitle {
-  font-size: 28px;
+  font-family: var(--font-sans, 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: clamp(26px, 3.5vw, 38px);
   font-weight: 800;
-  line-height: 1.28;
-  color: var(--text-primary);
+  line-height: 1.18;
+  color: #FFFFFF;
   letter-spacing: -0.02em;
   max-width: 900px;
 }
@@ -962,4 +963,110 @@
 .communityJoinBtn:hover {
   background: var(--dark-graphite);
   border-color: #FFFFFF;
+}
+
+/* ===== Sidebar + byline (2026-10-17) =====
+   None of these classes existed. Most importantly .entityPosterWrap wasn't
+   positioned or sized, so its `fill` poster image spread over the nearest
+   positioned ancestor instead of sitting in a thumbnail. */
+.authorName { font-size: 13px; color: var(--text-secondary); }
+.authorName strong { color: var(--text-primary); }
+.sidebarCard {
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-base);
+}
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.entityItems { display: flex; flex-direction: column; gap: 4px; }
+.entityItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  margin: 0 -8px;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+.entityItem:hover { background: var(--surface-hover); }
+.entityPosterWrap {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 62px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+}
+.entityPoster { object-fit: cover; }
+.entityMeta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.entityTitle { overflow: hidden; color: var(--text-primary); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.entitySubtitle { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 12px; }
+.entityItem:hover .entitySubtitle { color: var(--accent-primary-hover); }
+.sidebarHeader h4 { margin: 0; font: inherit; color: inherit; letter-spacing: inherit; }
+
+/* "Discuss this story" (2026-10-19): replaces a comment box that never saved anything. */
+.discussPrompt { margin: 0 0 14px; color: var(--text-secondary); font-size: 14px; line-height: 1.5; }
+.discussBtn { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 18px; border-radius: 999px; background: var(--accent-gradient); color: var(--accent-on); font-size: 14px; font-weight: 800; text-decoration: none; }
+.discussBtn:hover { filter: brightness(1.1); }
+
+/* ───── 2026-10-19 restyle: wider, borderless soft panels, matches the news list + homepage ───── */
+.readerWrapper { max-width: 1320px; padding: 24px 24px 72px; gap: 28px; }
+.contentLayout { grid-template-columns: minmax(0, 1fr) 340px; gap: 48px; }
+
+.readerHeader { border-bottom: 0; padding-bottom: 0; }
+.backBtn, .actionIconBtn { border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.06); }
+.backBtn:hover, .actionIconBtn:hover { background: rgba(255, 255, 255, 0.11); }
+.categoryBadge, .contentTypeBadge { border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.06); }
+
+.heroImageContainer { border: 0; border-radius: 22px; }
+
+.keyHighlightsBox,
+.readOriginalBanner,
+.attributionNotice,
+.transparencyBanner,
+.discussionSection,
+.syndicatedBox,
+.sidebarCard,
+.railWidget {
+  border: 0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.keyHighlightsBox { position: relative; padding: 18px 22px 18px 26px; }
+.keyHighlightsBox::before { content: ''; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 3px; background: var(--accent-gradient); }
+.readOriginalBanner { padding: 20px 22px; }
+.readOriginalTitle { font-size: 15px; }
+.readOriginalDesc { font-size: 13px; }
+.readOriginalActionBtn { border: 0; border-radius: 999px; background: #fff; color: #141416; padding: 10px 18px; font-size: 13px; }
+.readOriginalActionBtn:hover { background: #e9e9ee; border-color: transparent; }
+.attributionNotice, .transparencyBanner { padding: 12px 16px; font-size: 12px; }
+.discussionSection { padding: 22px; gap: 12px; }
+.discussionHeader { border-bottom: 0; padding-bottom: 0; }
+.discussBtn { align-self: flex-start; }
+.sidebarCard { padding: 18px; }
+.sidebarHeader { border-bottom: 0; }
+.entityItem { border: 0; border-radius: 12px; }
+.entityItem:hover { background: rgba(255, 255, 255, 0.05); }
+.communityJoinBtn { border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.communityJoinBtn:hover { background: rgba(255, 255, 255, 0.14); }
+.seqNavCard { border: 0; border-radius: 18px; background: rgba(255, 255, 255, 0.03); }
+.seqNavCard:hover { background: rgba(255, 255, 255, 0.06); }
+
+@media (max-width: 900px) {
+  .contentLayout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
+@media (max-width: 640px) {
+  .readerWrapper { padding: 16px 16px 56px; }
 }

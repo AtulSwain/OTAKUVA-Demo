@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -37,7 +37,7 @@ export default function AdminReviewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
 
-  const fetchAdminReviews = async () => {
+  const fetchAdminReviews = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -65,13 +65,13 @@ export default function AdminReviewsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, search, page]);
 
   useEffect(() => {
     if (authorized) {
       fetchAdminReviews();
     }
-  }, [authorized, statusFilter, page]);
+  }, [authorized, fetchAdminReviews]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

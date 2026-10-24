@@ -84,9 +84,9 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     }
 
     // Validate MIME
-    const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+    const validMimes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validMimes.includes(file.type)) {
-      setUploadError('Unsupported file format. Please upload JPEG, PNG, WebP, or AVIF.');
+      setUploadError('Unsupported file format. Please upload JPEG, PNG, or WebP.');
       return;
     }
 
@@ -271,7 +271,7 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
+            accept="image/jpeg,image/png,image/webp"
             className={styles.hiddenFileInput}
             onChange={handleFileChange}
           />

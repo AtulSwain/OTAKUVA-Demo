@@ -246,7 +246,7 @@ export class HomeFeedEngine {
         where: {
           animeStudios: { some: { studio: { name: topStudioName } } },
         },
-        orderBy: { score: 'desc' },
+        orderBy: { score: { sort: 'desc', nulls: 'last' } },
         take: 6,
         include: {
           animeGenres: { include: { genre: true } },
@@ -285,7 +285,7 @@ export class HomeFeedEngine {
           score: { gte: 8.0 },
           animeGenres: { none: { genre: { name: { in: taste.topGenres } } } },
         },
-        orderBy: { score: 'desc' },
+        orderBy: { score: { sort: 'desc', nulls: 'last' } },
         take: 6,
         include: {
           animeGenres: { include: { genre: true } },

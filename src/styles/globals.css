@@ -8,12 +8,16 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body {
   min-height: 100%;
-  background-color: var(--bg-primary, #0C0C0E);
-  color: var(--text-primary, #EDEDEF);
-  font-family: var(--font-geist-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+  background-color: var(--bg-primary, #141416);
+  color: var(--text-primary, #F5F5F7);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
   font-size: var(--font-body, 13px);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -22,7 +26,7 @@ body {
 }
 
 ::selection {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(161, 161, 170, 0.35);
   color: #FFFFFF;
 }
 
@@ -33,29 +37,30 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary, #0C0C0E);
+  background: var(--bg-primary, #141416);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-default, #2A2A2E);
+  background: var(--border-default, #292D34);
   border-radius: var(--radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover, #3E3E44);
+  background: var(--border-hover, #3A3F48);
 }
 
 /* Typography Defaults with Smaller, Crisp Headings */
 h1, h2, h3, h4, h5, h6 {
-  color: var(--text-primary, #EDEDEF);
-  font-weight: var(--weight-semibold, 600);
+  color: #FFFFFF;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+  font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1.25;
 }
 
 h1 {
   font-size: var(--font-display, 24px);
-  font-weight: var(--weight-bold, 700);
+  font-weight: 800;
 }
 
 h2 {
@@ -71,7 +76,7 @@ h4 {
 }
 
 p {
-  color: var(--text-secondary, #9E9EA4);
+  color: var(--text-secondary, #B8BDC3);
   font-size: var(--font-body, 13px);
 }
 
@@ -81,13 +86,20 @@ a {
   transition: color var(--transition-fast), opacity var(--transition-fast);
 }
 
-button {
-  font-family: inherit;
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
   font-size: inherit;
+  color: inherit;
+}
+
+button {
   border: none;
   background: none;
   cursor: pointer;
-  color: inherit;
   transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 
@@ -115,4 +127,43 @@ input:focus-visible {
 svg.lucide {
   flex-shrink: 0;
   vertical-align: -0.15em;
+}
+
+/* Apple-TV-style display type: heavy weight, tight tracking. Component classes
+   that set their own weight/size still win. */
+h1, h2 { letter-spacing: -0.02em; }
+h1 { font-weight: 800; letter-spacing: -0.035em; }
+:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+/* Apple-TV-style display type: heavy weight, tight tracking. Component classes
+   that set their own weight/size still win. */
+h1, h2 { letter-spacing: -0.02em; }
+h1 { font-weight: 800; letter-spacing: -0.035em; }
+:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+
+
+/* ===== Phones & tablets (2026-10-16) =====
+   Groundwork for running as an installed app on Android/iOS. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  -webkit-tap-highlight-color: transparent; /* no grey flash on tap; :active/:focus-visible give feedback instead */
+  /* Landscape iPhones: keep content clear of the notch side. */
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+/* Removes the double-tap-to-zoom delay on anything tappable. */
+a, button, [role='button'], [role='tab'], input, select, textarea, label, summary {
+  touch-action: manipulation;
+}
+/* iOS zooms the page when a focused field's text is under 16px. */
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
+/* Horizontal rails: smooth momentum scrolling, and a sideways swipe never drags the page back/forward. */
+[class*='rail'], [class*='Rail'] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }

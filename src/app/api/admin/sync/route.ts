@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncEngine } from '../../../../lib/syncEngine';
-import { anilistProvider, jikanProvider } from '../../../../lib/providers';
 import { requireRole } from '../../../../lib/auth';
-import { ScheduleEngine } from '../../../../lib/engine/schedule/scheduleEngine';
+import { enqueueSyncJob } from '../../../../lib/queue/enqueue';
+import { JOB_TYPES } from '../../../../lib/queue/jobTypes';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Enqueues sync work onto the `otakuva-sync` BullMQ queue instead of
+ * running it inline — a worker process (scripts/worker.ts) must be running
+ * for anything queued here to actually happen; see
+ * docs/production/RUNBOOK.md §6. Same URL, method, auth, and request body
+ * shape as before; the response is now `{success, jobId, syncJobId,
+ * status}` instead of the finished sync's stats, since the work hasn't run
+ * yet by the time this returns — poll `GET /api/admin/datacenter` (or
+ * `SyncJob.id === syncJobId`) for progress/outcome.
+ */
 export async function POST(request: NextRequest) {
   const auth = await requireRole(request, 'DATA_EDITOR');
   if (auth instanceof NextResponse) return auth;
@@ -18,29 +27,34 @@ export async function POST(request: NextRequest) {
       if (!externalId) {
         return NextResponse.json({ error: 'externalId is required for SYNC_ANIME' }, { status: 400 });
       }
-      const p = provider === 'jikan' ? jikanProvider : anilistProvider;
-      const rawAnime = await p.getAnime(String(externalId));
-      if (!rawAnime) {
-        return NextResponse.json({ error: 'Anime not found on provider' }, { status: 404 });
-      }
-      const res = await syncEngine.ingestAnime(rawAnime, provider);
-      await Promise.allSettled([
-        syncEngine.syncEpisodes(res.animeId, String(externalId), 'jikan'),
-        syncEngine.syncCharacters(res.animeId, String(externalId), 'anilist'),
-        syncEngine.syncStaff(res.animeId, String(externalId), 'anilist'),
-        syncEngine.syncRelations(res.animeId, String(externalId), 'anilist'),
-      ]);
-      return NextResponse.json({ success: true, ...res });
+      const { syncJob, bullJobId } = await enqueueSyncJob({
+        name: 'sync:anime',
+        provider,
+        jobType: JOB_TYPES.SYNC_ANIME,
+        payload: { externalId, provider },
+        data: { externalId: String(externalId), provider },
+      });
+      return NextResponse.json({ success: true, jobId: bullJobId, syncJobId: syncJob.id, status: syncJob.status });
     }
 
     if (action === 'SYNC_CATALOG') {
-      const res = await syncEngine.syncCatalog(provider, maxPages, 'FULL_CATALOG');
-      return NextResponse.json(res);
+      const { syncJob, bullJobId } = await enqueueSyncJob({
+        name: 'sync:catalog',
+        provider,
+        jobType: JOB_TYPES.FULL_CATALOG,
+        payload: { provider, maxPages },
+        data: { provider, maxPages },
+      });
+      return NextResponse.json({ success: true, jobId: bullJobId, syncJobId: syncJob.id, status: syncJob.status });
     }
 
     if (action === 'SYNC_AIRING') {
-      const res = await syncEngine.syncWeeklySchedule();
-      return NextResponse.json(res);
+      const { syncJob, bullJobId } = await enqueueSyncJob({
+        name: 'sync:airing',
+        provider: 'anilist',
+        jobType: JOB_TYPES.AIRING,
+      });
+      return NextResponse.json({ success: true, jobId: bullJobId, syncJobId: syncJob.id, status: syncJob.status });
     }
 
     // Real-world weekly broadcast slots, computed from Jikan-sourced
@@ -49,13 +63,17 @@ export async function POST(request: NextRequest) {
     // from SYNC_AIRING (which needs AniList-specific per-episode data most
     // of this Jikan-sourced catalog doesn't have).
     if (action === 'SYNC_BROADCAST_SCHEDULE') {
-      const res = await ScheduleEngine.syncFromBroadcastMetadata();
-      return NextResponse.json({ success: true, ...res });
+      const { syncJob, bullJobId } = await enqueueSyncJob({
+        name: 'sync:broadcast-schedule',
+        provider: 'jikan',
+        jobType: JOB_TYPES.BROADCAST_SCHEDULE,
+      });
+      return NextResponse.json({ success: true, jobId: bullJobId, syncJobId: syncJob.id, status: syncJob.status });
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error: any) {
     console.error('Admin sync error:', error);
-    return NextResponse.json({ error: error.message || 'Sync failed' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to enqueue sync job' }, { status: 500 });
   }
 }

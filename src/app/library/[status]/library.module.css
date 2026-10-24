@@ -82,3 +82,26 @@
   color: var(--text-primary);
   border-color: var(--border-elevated);
 }
+
+/* ===== Reference-led polish (2026-10-17) =====
+   Page title on the shared catalog scale; pill status tabs with the same
+   white active state used across Browse / Seasons / Episode Guide. */
+.header { gap: 8px; padding-bottom: 20px; }
+.title { font-size: clamp(32px, 5vw, 52px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { font-size: 15px; color: var(--text-secondary); max-width: 560px; }
+.tabsRow { gap: 8px; padding-bottom: 4px; }
+.tabLink {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--pill-bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tabLink:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
+.tabActive, .tabActive:hover { background: #fff; color: #000; }
+.tabCount { font-size: 12px; padding: 1px 7px; border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.1); color: inherit; }
+.tabActive .tabCount { background: rgba(0, 0, 0, 0.08); color: rgba(0, 0, 0, 0.62); }

@@ -1,0 +1,14 @@
+.section { padding: var(--section-gap) 0 46px; border-bottom: 1px solid var(--color-border); }
+.sectionHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; }
+.sectionHead h2 { margin: 0; color: var(--color-text); font-family: var(--font-display); font-size: var(--text-heading); font-weight: 400; line-height: var(--text-heading-line-height); }
+.sectionHead a { color: var(--color-text-muted); font-family: var(--font-ui); font-size: var(--text-label); letter-spacing: var(--text-label-letter-spacing); text-transform: uppercase; }
+.journey { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; }
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 16px; }
+.stat strong, .stat span, .genres p, .genres strong, .genres span { display: block; font-family: var(--font-ui); }
+.stat strong { color: var(--color-text); font-size: 30px; font-weight: 800; line-height: 1; }
+.stat span { margin-top: 8px; color: var(--color-text-muted); font-size: var(--text-label); text-transform: uppercase; letter-spacing: var(--text-label-letter-spacing); }
+.genres { padding-left: 24px; border-left: 1px solid var(--color-border); }
+.genres p { margin: 0 0 12px; color: var(--color-text-muted); font-size: var(--text-label); font-weight: 700; letter-spacing: var(--text-label-letter-spacing); text-transform: uppercase; }
+.genres strong { color: var(--color-text); font-size: var(--text-body); }
+.genres span { margin-top: 8px; color: var(--color-text-muted); font-size: var(--text-label); line-height: var(--text-label-line-height); }
+@media (max-width: 700px) { .journey { grid-template-columns: 1fr; gap: 32px; } .genres { padding: 24px 0 0; border-top: 1px solid var(--color-border); border-left: 0; } }

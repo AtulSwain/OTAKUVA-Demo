@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Newspaper,
@@ -94,7 +94,7 @@ export default function AdminNewsPage() {
   });
 
   // Load articles
-  const loadArticles = async () => {
+  const loadArticles = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -117,10 +117,10 @@ export default function AdminNewsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter, categoryFilter, searchQuery, page]);
 
   // Load Operations Data
-  const loadOperations = async () => {
+  const loadOperations = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/news/operations');
       if (res.ok) {
@@ -130,10 +130,10 @@ export default function AdminNewsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   // Load Analytics Data
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/news/analytics?timeframe=7d');
       if (res.ok) {
@@ -143,10 +143,10 @@ export default function AdminNewsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   // Load Review Queue
-  const loadReviewQueue = async () => {
+  const loadReviewQueue = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/news/review');
       if (res.ok) {
@@ -156,10 +156,10 @@ export default function AdminNewsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   // Load Duplicates
-  const loadDuplicates = async () => {
+  const loadDuplicates = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/news/duplicates');
       if (res.ok) {
@@ -169,10 +169,10 @@ export default function AdminNewsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   // Load Sync Status
-  const loadSyncStatus = async () => {
+  const loadSyncStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/news/sync');
       if (res.ok) {
@@ -182,7 +182,7 @@ export default function AdminNewsPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (authorized) {
@@ -193,7 +193,7 @@ export default function AdminNewsPage() {
       else if (activeTab === 'duplicates') loadDuplicates();
       else if (activeTab === 'sync') loadSyncStatus();
     }
-  }, [authorized, activeTab, statusFilter, categoryFilter, page]);
+  }, [authorized, activeTab, loadArticles, loadOperations, loadAnalytics, loadReviewQueue, loadDuplicates, loadSyncStatus]);
 
   if (authLoading) {
     return <div className={styles.adminNewsContainer}><p>Loading administrative session...</p></div>;

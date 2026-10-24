@@ -9,7 +9,7 @@
  * - Confidence Level Assessment
  */
 
-export const RATING_ALGORITHM_VERSION = 1;
+export const RATING_ALGORITHM_VERSION = 2; // 2 (2026-10-19): per-member score = episode-rating average, else overall rating
 
 export const RATING_CATEGORIES = [
   'STORY',
@@ -23,6 +23,27 @@ export const RATING_CATEGORIES = [
 ] as const;
 
 export type RatingCategoryType = (typeof RATING_CATEGORIES)[number];
+
+/**
+ * The aspects people can rate and that OTAKUVA Vibe shows. DIRECTION is the
+ * one retired category: it stays in RATING_CATEGORIES so scores already
+ * stored for it keep their type and stay in the database, but it's no longer
+ * collected, aggregated into percentages, or shown. (Briefly cut to 3 on
+ * 2026-10-16, restored to these 7 the same day.)
+ */
+export const ACTIVE_RATING_CATEGORIES: readonly RatingCategoryType[] = [
+  'STORY',
+  'CHARACTERS',
+  'ANIMATION',
+  'MUSIC',
+  'PACING',
+  'WORLD_BUILDING',
+  'ENJOYMENT',
+];
+
+export function isActiveRatingCategory(cat: string): cat is RatingCategoryType {
+  return (ACTIVE_RATING_CATEGORIES as readonly string[]).includes(cat);
+}
 
 export const CATEGORY_LABELS: Record<RatingCategoryType, string> = {
   STORY: 'Story',

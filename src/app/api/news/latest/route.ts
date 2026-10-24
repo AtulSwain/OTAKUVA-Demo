@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { newsEngine } from '../../../../lib/engine/news/newsEngine';
+import { ensureFreshNews } from '../../../../lib/engine/news/newsFreshness';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  ensureFreshNews();
   try {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '10', 10);

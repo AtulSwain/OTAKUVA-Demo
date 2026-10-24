@@ -1,11 +1,11 @@
 .section {
-  padding: 26px 0;
-  border-bottom: 1px solid var(--border-default, #202020);
+  padding: 0;
+  border-bottom: none;
 }
 
 @media (max-width: 768px) {
   .section {
-    padding: 16px 0;
+    padding: 0;
   }
 }
 
@@ -94,3 +94,6 @@
   font-size: 11px;
   margin-top: 2px;
 }
+
+/* Same section-title style as the rest of the anime page (2026-10-17). */
+.title { font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; }

@@ -22,7 +22,9 @@
 }
 
 .title {
-  font-size: var(--font-display);
+  font-size: clamp(32px, 5vw, 52px); /* --font-display is a font family, not a size */
+  letter-spacing: -0.035em;
+  font-weight: 800;
   font-weight: var(--weight-bold);
   color: var(--text-primary);
 }
@@ -77,9 +79,10 @@
 }
 
 .seasonTabActive {
-  background-color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: var(--accent-text);
+  /* Same active pill as Browse / Top Picks. */
+  background-color: #fff;
+  border-color: #fff;
+  color: #000;
   font-weight: var(--weight-semibold);
 }
 
@@ -148,3 +151,8 @@
     grid-template-columns: repeat(6, 1fr);
   }
 }
+
+/* Season tabs: white active pill (2026-10-17). */
+.seasonTab { min-height: 40px; padding: 0 18px; border: 0; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-weight: 600; font-size: 14px; }
+.seasonTab:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
+.seasonTabActive, .seasonTabActive:hover { background: #fff; color: #000; }

@@ -27,6 +27,43 @@ describe('sessions', () => {
     assert.equal((await getAuthUserFromRequest(request('GET', '/api/x', { as: user })))?.id, user.id);
   });
 
+  test('a cookie-authenticated mutation from a foreign origin is rejected (CSRF)', async () => {
+    const user = await createUser();
+    const { NextRequest } = await import('next/server');
+    const token = signJwtToken({ userId: user.id, username: user.username, email: user.email });
+
+    const fromEvil = new NextRequest('http://localhost:3000/api/x', {
+      method: 'POST',
+      headers: new Headers({ cookie: `anilog_token=${token}`, origin: 'https://evil.example' }),
+    });
+    assert.equal(await getAuthUserFromRequest(fromEvil), null);
+
+    const noOrigin = new NextRequest('http://localhost:3000/api/x', {
+      method: 'POST',
+      headers: new Headers({ cookie: `anilog_token=${token}` }),
+    });
+    assert.equal(await getAuthUserFromRequest(noOrigin), null);
+
+    // A GET with the cookie is unaffected — CSRF only matters for
+    // state-changing requests.
+    const getFromEvil = new NextRequest('http://localhost:3000/api/x', {
+      method: 'GET',
+      headers: new Headers({ cookie: `anilog_token=${token}`, origin: 'https://evil.example' }),
+    });
+    assert.equal((await getAuthUserFromRequest(getFromEvil))?.id, user.id);
+
+    // The Bearer path is unaffected by Origin — it can't be forged
+    // cross-site by a browser in the first place.
+    const bearerFromEvil = new NextRequest('http://localhost:3000/api/x', {
+      method: 'POST',
+      headers: new Headers({ authorization: `Bearer ${token}`, origin: 'https://evil.example' }),
+    });
+    assert.equal((await getAuthUserFromRequest(bearerFromEvil))?.id, user.id);
+
+    // A same-origin mutation (real browser request) still works.
+    assert.equal((await getAuthUserFromRequest(request('POST', '/api/x', { as: user })))?.id, user.id);
+  });
+
   test('production refuses to sign or verify without a private AUTH_SECRET', () => {
     const env = process.env as Record<string, string | undefined>;
     const saved = { NODE_ENV: env.NODE_ENV, AUTH_SECRET: env.AUTH_SECRET };
@@ -93,6 +130,16 @@ describe('timeline', () => {
         { relationType: 'Character', title: 'Not a timeline entry', year: 2025 },
       ]
     );
-    assert.deepEqual(events.map((e) => e.title), ['Premiere', 'Final episode aired', 'Sequel: Season 2']);
+    assert.deepEqual(events.map((e) => e.title), ['Premiere', 'Final episode aired', 'Season 2']);
+    assert.equal(events[2].label, 'Sequel');
+  });
+
+  test('timeline badges name the real relation and list a related title once', () => {
+    const events = buildTimelineEvents({}, [
+      { relationType: 'Prequel', title: 'Negima!', year: 2005 },
+      { relationType: 'Prequel', title: 'Negima!', year: 2005 },
+      { relationType: 'Side story', title: 'OVA', year: 2006 },
+    ]);
+    assert.deepEqual(events.map((e) => [e.label, e.title]), [['Prequel', 'Negima!'], ['Side story', 'OVA']]);
   });
 });

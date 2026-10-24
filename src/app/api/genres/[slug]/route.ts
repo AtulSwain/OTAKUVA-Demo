@@ -31,7 +31,7 @@ export async function GET(
       },
     };
 
-    let orderBy: any = [{ score: 'desc' }, { popularity: 'desc' }];
+    let orderBy: any = [{ score: { sort: 'desc', nulls: 'last' } }, { popularity: 'desc' }];
     if (sortBy === 'popularity') orderBy = { popularity: 'asc' };
     if (sortBy === 'title') orderBy = { canonicalTitle: 'asc' };
     if (sortBy === 'year') orderBy = [{ year: 'desc' }, { startYear: 'desc' }];

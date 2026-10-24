@@ -77,7 +77,7 @@ export function CreateStudioModal({ isOpen, onClose, onSuccess }: Props) {
       <div className={styles.modalCard}>
         <div className={styles.modalHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Building2 color="#8b5cf6" size={22} />
+            <Building2 color="#A1A1AA" size={22} />
             <h2 className={styles.modalTitle}>Create New Studio</h2>
           </div>
           <button aria-label="Close" className={styles.closeBtn} onClick={onClose}>

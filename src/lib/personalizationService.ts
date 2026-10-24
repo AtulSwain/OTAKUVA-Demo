@@ -151,7 +151,7 @@ export async function getPersonalizedRecommendations(
   // Fetch all canonical anime with genres & studios
   const allAnimes = await prisma.anime.findMany({
     take: 50,
-    orderBy: [{ score: 'desc' }, { popularity: 'desc' }],
+    orderBy: [{ score: { sort: 'desc', nulls: 'last' } }, { popularity: 'desc' }],
     include: {
       animeGenres: { include: { genre: true } },
       animeStudios: { include: { studio: true } },

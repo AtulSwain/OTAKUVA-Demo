@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: var(--bg-primary, #0B0B0C);
+  background-color: var(--bg-primary, #121214);
   color: var(--text-primary, #F2F2F2);
   width: 100%;
 }
@@ -24,3 +24,7 @@
     padding: var(--space-4);
   }
 }
+
+.contentBleed { width: 100%; }
+.contentInner { padding-left: clamp(20px, 4vw, 56px); padding-right: clamp(20px, 4vw, 56px); }
+.contentWide { max-width: var(--max-wide-width, 1800px); }

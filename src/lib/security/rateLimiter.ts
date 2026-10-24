@@ -12,6 +12,11 @@
  * - SEARCH: 60 queries / 60s (search DDoS mitigation)
  * - PUBLIC_READ: 120 requests / 60s (general catalog browsing)
  * - ADMIN: 120 requests / 60s (staff operations)
+ * - ACCOUNT: 5 requests / 60 minutes (self-service data export / account
+ *   deletion — infrequent, heavy, and sensitive, so this is windowed in
+ *   hours rather than seconds like every other category here)
+ * - INVITE_KEY: 8 access-key attempts / 15 minutes per user, and 30 per
+ *   invitation (members-only community invitations — anti brute-force)
  */
 
 export type RateLimitCategory =
@@ -24,7 +29,9 @@ export type RateLimitCategory =
   | 'SEARCH'
   | 'PUBLIC_READ'
   | 'ADMIN'
-  | 'MEDIA_UPLOAD';
+  | 'MEDIA_UPLOAD'
+  | 'ACCOUNT'
+  | 'INVITE_KEY';
 
 export interface RateLimitPolicy {
   maxRequests: number;
@@ -42,6 +49,8 @@ export const RATE_LIMIT_POLICIES: Record<RateLimitCategory, RateLimitPolicy> = {
   PUBLIC_READ: { maxRequests: 120, windowMs: 60 * 1000 },
   ADMIN: { maxRequests: 120, windowMs: 60 * 1000 },
   MEDIA_UPLOAD: { maxRequests: 10, windowMs: 60 * 1000 },
+  ACCOUNT: { maxRequests: 5, windowMs: 60 * 60 * 1000 },
+  INVITE_KEY: { maxRequests: 8, windowMs: 15 * 60 * 1000 },
 };
 
 export interface RateLimitStatus {

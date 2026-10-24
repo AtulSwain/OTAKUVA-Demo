@@ -1,0 +1,62 @@
+/* Route-level loading placeholders. Shown instantly on navigation while the
+   server renders the next page, so a click never looks like nothing happened. */
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1200;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, var(--accent-primary-hover), transparent);
+  animation: barSlide 1.1s ease-in-out infinite;
+}
+
+.page { display: flex; flex-direction: column; gap: 28px; padding: 8px 0 48px; }
+
+.block {
+  border-radius: 18px;
+  background: linear-gradient(100deg, var(--surface-base) 30%, var(--surface-elevated) 50%, var(--surface-base) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.title { height: 36px; width: min(420px, 70%); border-radius: 10px; }
+.line { height: 14px; width: min(640px, 90%); border-radius: 7px; }
+.row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+.card { aspect-ratio: 2 / 3; }
+
+/* Anime detail */
+.hero {
+  margin-top: calc(var(--header-offset, 64px) * -1);
+  min-height: clamp(520px, 72vh, 760px);
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(24px, 3vw, 44px);
+  padding: 96px clamp(20px, 4vw, 56px) 56px;
+  background: radial-gradient(ellipse at 70% 20%, rgba(124, 124, 134, 0.08), transparent 60%), var(--bg-primary);
+}
+
+.poster { width: clamp(150px, 15vw, 220px); aspect-ratio: 2 / 3; flex: none; }
+.heroText { flex: 1; display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
+.heroTitle { height: clamp(40px, 5vw, 64px); width: min(560px, 85%); border-radius: 12px; }
+
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes barSlide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+@media (max-width: 640px) {
+  .hero { flex-direction: column; align-items: flex-start; }
+  .poster { width: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block, .bar::after { animation: none; }
+}

@@ -1,0 +1,7 @@
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-secondary); }
+.kicker::before { content: ''; width: 18px; height: 3px; border-radius: 3px; background: var(--accent-gradient); }
+.title { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: clamp(18px, 1.6vw, 22px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
+.count { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.more { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--text-secondary); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.more:hover { color: var(--text-primary); }

@@ -36,6 +36,96 @@ export interface ScheduleQueryParams {
   limit?: number;
 }
 
+/**
+ * A character + their voice actor(s), as recorded for the anime overall
+ * (the source data — AniList/Jikan — only ever gives a series-level cast
+ * list, never a per-episode one). This is the show's main/supporting cast,
+ * not a claim about who specifically appears in this particular episode.
+ */
+export interface ScheduleCastMember {
+  characterId: string;
+  characterName: string;
+  characterImage: string | null;
+  role: string;
+  voiceActors: Array<{
+    personId: string;
+    name: string;
+    imageUrl: string | null;
+    language: string;
+  }>;
+}
+
+// Not limited/ordered at the DB level: "Main" needs to sort before
+// "Supporting"/"Background", which isn't an alphabetical order, so the
+// take+sort happens in mapCast() below instead. Capped at a generous 40 so
+// a franchise with a huge catalogued cast doesn't pull an unbounded list.
+const CAST_INCLUDE = {
+  characters: {
+    take: 40,
+    include: {
+      character: {
+        include: {
+          voiceRoles: {
+            include: { person: true },
+          },
+        },
+      },
+    },
+  },
+};
+
+// Official streaming listings ("where it streams"), one per platform. Most
+// popular platforms first so the schedule card shows the likeliest one.
+const STREAMING_INCLUDE = {
+  streamingAvailability: { select: { provider: true, url: true }, orderBy: { provider: 'asc' as const } },
+};
+
+const STREAMING_PRIORITY = ['Crunchyroll', 'Netflix', 'Amazon Prime Video', 'Prime Video', 'Disney Plus', 'Hulu', 'HIDIVE', 'Bilibili TV', 'YouTube'];
+
+export interface ScheduleStreamingLink {
+  name: string;
+  url: string;
+}
+
+function mapStreaming(rows: Array<{ provider: string; url: string | null }> | undefined): ScheduleStreamingLink[] {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  const rank = (n: string) => {
+    const i = STREAMING_PRIORITY.indexOf(n);
+    return i === -1 ? STREAMING_PRIORITY.length : i;
+  };
+  return rows
+    .filter((r) => r.url && !seen.has(r.provider) && seen.add(r.provider))
+    .map((r) => ({ name: r.provider, url: r.url as string }))
+    .sort((a, b) => rank(a.name) - rank(b.name));
+}
+
+const CAST_ROLE_PRIORITY: Record<string, number> = { Main: 0, Supporting: 1, Background: 2 };
+
+function mapCast(animeCharacters: any[] | undefined): ScheduleCastMember[] {
+  if (!Array.isArray(animeCharacters)) return [];
+  return animeCharacters
+    .filter((ac) => ac?.character?.name)
+    .map((ac) => ({
+      characterId: ac.character.id,
+      characterName: ac.character.name,
+      characterImage: ac.character.imageUrl || null,
+      role: ac.role || 'Supporting',
+      voiceActors: Array.isArray(ac.character.voiceRoles)
+        ? ac.character.voiceRoles
+            .filter((vr: any) => vr?.person?.name)
+            .map((vr: any) => ({
+              personId: vr.person.id,
+              name: vr.person.name,
+              imageUrl: vr.person.imageUrl || null,
+              language: vr.language || 'Japanese',
+            }))
+        : [],
+    }))
+    .sort((a, b) => (CAST_ROLE_PRIORITY[a.role] ?? 3) - (CAST_ROLE_PRIORITY[b.role] ?? 3))
+    .slice(0, 8);
+}
+
 export interface EnrichedScheduleItem extends FormattedScheduleItem {
   id: string;
   animeId: string;
@@ -51,7 +141,12 @@ export interface EnrichedScheduleItem extends FormattedScheduleItem {
   score: number | null;
   popularity: number | null;
   genres: string[];
-  
+  // The show's recorded main/supporting cast and their voice actors —
+  // series-level, not specific to this one episode (see ScheduleCastMember).
+  cast: ScheduleCastMember[];
+  // Where this show streams officially (series-level; empty = not recorded).
+  streaming: ScheduleStreamingLink[];
+
   // Episode Details
   episode: number;
   episodeId: string | null;
@@ -299,6 +394,8 @@ export class ScheduleEngine {
             include: {
               animeGenres: { include: { genre: true } },
               titles: true,
+              ...CAST_INCLUDE,
+              ...STREAMING_INCLUDE,
             },
           },
         },
@@ -371,6 +468,8 @@ export class ScheduleEngine {
         score: anime.score,
         popularity: anime.popularity,
         genres,
+        cast: mapCast((anime as any).characters),
+        streaming: mapStreaming((anime as any).streamingAvailability),
 
         // Episode
         episode: item.episode,
@@ -499,6 +598,8 @@ export class ScheduleEngine {
           include: {
             animeGenres: { include: { genre: true } },
             titles: true,
+            ...CAST_INCLUDE,
+            ...STREAMING_INCLUDE,
           },
         },
       },
@@ -558,6 +659,8 @@ export class ScheduleEngine {
         score: anime.score,
         popularity: anime.popularity,
         genres: anime.animeGenres.map((ag) => ag.genre.name),
+        cast: mapCast((anime as any).characters),
+        streaming: mapStreaming((anime as any).streamingAvailability),
 
         episode: item.episode,
         episodeId: item.episodeId,
@@ -772,6 +875,8 @@ export class ScheduleEngine {
               include: {
                 animeGenres: { include: { genre: true } },
                 titles: true,
+                ...CAST_INCLUDE,
+                ...STREAMING_INCLUDE,
               },
             },
           },
@@ -807,6 +912,8 @@ export class ScheduleEngine {
         score: anime.score,
         popularity: anime.popularity,
         genres: anime.animeGenres.map((ag) => ag.genre.name),
+        cast: mapCast((anime as any).characters),
+        streaming: mapStreaming((anime as any).streamingAvailability),
 
         episode: item.episode,
         episodeId: item.episodeId,
@@ -922,7 +1029,7 @@ export class ScheduleEngine {
         broadcastDay: { not: null },
         broadcastTime: { not: null },
       },
-      select: { id: true, broadcastDay: true, broadcastTime: true, broadcastTimezone: true, episodes: true },
+      select: { id: true, broadcastDay: true, broadcastTime: true, broadcastTimezone: true, episodes: true, country: true },
     });
 
     let processed = 0;
@@ -983,7 +1090,11 @@ export class ScheduleEngine {
           airingAt: nextAiringAt,
           originalTimezone: timezone,
           releaseType: 'BROADCAST',
-          region: 'JP',
+          // The title's real country of origin (AniList countryOfOrigin —
+          // JP/KR/CN/TW), not a guess. This is the broadcast's home region,
+          // not full per-territory localization (sub/dub release dates per
+          // territory aren't in the provider data this project has).
+          region: anime.country || 'JP',
           // Inferred from a weekly slot, not a source listing this episode.
           isVerified: false,
           sourceProvider: 'jikan',
@@ -1007,7 +1118,7 @@ export class ScheduleEngine {
         status: { in: ['Not yet aired', 'Not Yet Aired', 'NOT_YET_AIRED'] },
         airedFrom: { not: null, gte: referenceDate },
       },
-      select: { id: true, airedFrom: true, broadcastDay: true, broadcastTime: true, broadcastTimezone: true },
+      select: { id: true, airedFrom: true, broadcastDay: true, broadcastTime: true, broadcastTimezone: true, country: true },
     });
 
     for (const anime of upcomingAnime) {
@@ -1034,7 +1145,7 @@ export class ScheduleEngine {
           airingAt: premiereAt,
           originalTimezone: timezone,
           releaseType: 'BROADCAST',
-          region: 'JP',
+          region: anime.country || 'JP',
           isVerified: Boolean(timeMatch),
           sourceProvider: 'jikan',
           notes: timeMatch ? null : 'Premiere date confirmed; exact broadcast time not yet announced (shown at 00:00 JST).',

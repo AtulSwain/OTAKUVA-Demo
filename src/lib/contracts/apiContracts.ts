@@ -115,10 +115,17 @@ export interface AnimeCardDto {
   timeUntilAiring?: number | null;
   genres: string[];
   themes: string[];
-  studios: string[];
+  // Object shape carries the real DB slug so callers can link to
+  // /studio/[slug] without guessing one from the name; plain strings are
+  // kept as a legacy-tolerant union since some older call sites still
+  // produce name-only entries (see animeCatalogEngine.ts's catalog-list
+  // mapping, out of scope for this pass).
+  studios: (string | { id: string; name: string; slug: string | null })[];
 }
 
 export interface AnimeDetailDto extends AnimeCardDto {
+  /** Official streaming listings, one per platform. Empty when none are recorded. */
+  streaming?: Array<{ name: string; url: string }>;
   background?: string | null;
   source?: string | null;
   country?: string | null;
@@ -137,6 +144,7 @@ export interface AnimeDetailDto extends AnimeCardDto {
   directSeasons?: SeasonSummaryDto[];
   characters: {
     id: string;
+    slug?: string | null;
     name: string;
     nameKanji?: string | null;
     about?: string | null;
@@ -144,6 +152,7 @@ export interface AnimeDetailDto extends AnimeCardDto {
     role: string;
     voiceActors: {
       id: string;
+      slug?: string | null;
       name: string;
       nameKanji?: string | null;
       imageUrl?: string | null;
@@ -152,6 +161,7 @@ export interface AnimeDetailDto extends AnimeCardDto {
   }[];
   staff: {
     id: string;
+    slug?: string | null;
     name: string;
     nameKanji?: string | null;
     imageUrl?: string | null;

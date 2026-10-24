@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
-import { getAuthUserFromRequest } from '../../../lib/auth';
+import { notifyFollowersOfDiscussion } from '../../../lib/social/followService';
+import { getAuthUserFromRequest, requireVerifiedUser } from '../../../lib/auth';
 import { readableDiscussionsFilter } from '../../../lib/engine/community/communityEngine';
 
 export const dynamic = 'force-dynamic';
@@ -58,11 +59,16 @@ export async function GET(request: NextRequest) {
     if (type && type !== 'ALL') where.type = type.toUpperCase();
 
     if (query && query.trim()) {
-      // No `mode: 'insensitive'`: the SQLite connector rejects it outright.
-      // SQLite's LIKE is already case-insensitive for ASCII.
+      // `mode: 'insensitive'` needs Postgres — the SQLite connector this
+      // ran on originally rejected it outright, and SQLite's LIKE is
+      // already case-insensitive for ASCII, so this was omitted (see the
+      // 'discussion search no longer 500s on SQLite' test, which predates
+      // the Postgres migration). Without it here, "TEST" wouldn't match a
+      // discussion titled "test" on Postgres, same silent case-sensitivity
+      // regression flagged across search.ts et al.
       const q = query.trim();
       conditions.push({
-        OR: [{ title: { contains: q } }, { body: { contains: q } }],
+        OR: [{ title: { contains: q, mode: 'insensitive' } }, { body: { contains: q, mode: 'insensitive' } }],
       });
     }
 
@@ -147,10 +153,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authUser = await getAuthUserFromRequest(request);
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required to start a discussion' }, { status: 401 });
-    }
+    const authUser = await requireVerifiedUser(request);
+    if (authUser instanceof NextResponse) return authUser;
 
     const body = await request.json();
     const { title, body: content, type, spoilerLevel, animeId, episodeId, communityId, channelId } = body;
@@ -161,6 +165,14 @@ export async function POST(request: NextRequest) {
 
     if (!content || content.trim().length < 10) {
       return NextResponse.json({ error: 'Discussion body must be at least 10 characters' }, { status: 400 });
+    }
+
+    // A bad anime id used to surface as a foreign-key 500.
+    let resolvedAnimeId: string | null = null;
+    if (animeId) {
+      const anime = await prisma.anime.findFirst({ where: { OR: [{ id: String(animeId) }, { slug: String(animeId) }] }, select: { id: true } });
+      if (!anime) return NextResponse.json({ error: 'Anime not found' }, { status: 400 });
+      resolvedAnimeId = anime.id;
     }
 
     let resolvedCommunityId: string | null = null;
@@ -215,7 +227,7 @@ export async function POST(request: NextRequest) {
         body: content.trim(),
         type: (type || 'GENERAL').toUpperCase(),
         spoilerLevel: (spoilerLevel || 'NO_SPOILER').toUpperCase(),
-        animeId: animeId || null,
+        animeId: resolvedAnimeId,
         episodeId: episodeId || null,
         communityId: resolvedCommunityId,
         channelId: resolvedChannelId,
@@ -244,6 +256,9 @@ export async function POST(request: NextRequest) {
         metadata: JSON.stringify({ discussionId: discussion.id, title: discussion.title }),
       },
     });
+
+    // "Active in the community" for followers — public threads only, once a day.
+    await notifyFollowersOfDiscussion(authUser.id, discussion.id);
 
     return NextResponse.json({ success: true, discussion }, { status: 201 });
   } catch (error: any) {

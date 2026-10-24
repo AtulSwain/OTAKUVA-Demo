@@ -46,10 +46,11 @@ export interface JikanAnime {
   themes?: { mal_id: number; name: string }[];
 }
 
-const JIKAN_BASE_URL = process.env.JIKAN_BASE_URL || 'https://api.jikan.moe/v4';
-
-// Helper to delay requests to respect Jikan rate limits (3 req/sec)
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// NOTE: this file only normalizes Jikan API responses — it must never make
+// HTTP calls to the Jikan API itself. All requests to Jikan go through
+// jikanService.ts (jikanFetch), which owns pacing/retry/caching. Fetching
+// here would bypass that throttle and retry logic. See CLAUDE.md /
+// scripts/check_provider_calls.mjs.
 
 export function slugifyTitle(title: string, malId: number): string {
   const clean = title
@@ -104,51 +105,8 @@ export function normalizeJikanAnime(item: JikanAnime) {
   };
 }
 
-export async function fetchTopAnimeFromJikan(page = 1, limit = 25): Promise<ReturnType<typeof normalizeJikanAnime>[]> {
-  try {
-    const url = `${JIKAN_BASE_URL}/top/anime?page=${page}&limit=${limit}`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    if (!res.ok) {
-      console.warn(`Jikan top anime returned ${res.status}`);
-      return [];
-    }
-    const json = await res.json();
-    if (!json.data || !Array.isArray(json.data)) return [];
-    return json.data.map(normalizeJikanAnime);
-  } catch (err) {
-    console.error('Failed to fetch from Jikan:', err);
-    return [];
-  }
-}
-
-export async function fetchSeasonalAnimeFromJikan(page = 1, limit = 25): Promise<ReturnType<typeof normalizeJikanAnime>[]> {
-  try {
-    const url = `${JIKAN_BASE_URL}/seasons/now?page=${page}&limit=${limit}`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    if (!res.ok) {
-      console.warn(`Jikan seasons/now returned ${res.status}`);
-      return [];
-    }
-    const json = await res.json();
-    if (!json.data || !Array.isArray(json.data)) return [];
-    return json.data.map(normalizeJikanAnime);
-  } catch (err) {
-    console.error('Failed to fetch seasonal from Jikan:', err);
-    return [];
-  }
-}
-
-export async function searchAnimeFromJikan(query: string): Promise<ReturnType<typeof normalizeJikanAnime>[]> {
-  if (!query.trim()) return [];
-  try {
-    const url = `${JIKAN_BASE_URL}/anime?q=${encodeURIComponent(query)}&limit=15&sfw=true`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const json = await res.json();
-    if (!json.data || !Array.isArray(json.data)) return [];
-    return json.data.map(normalizeJikanAnime);
-  } catch (err) {
-    console.error('Jikan search error:', err);
-    return [];
-  }
-}
+// Fetching helpers (fetchTopAnimeFromJikan, fetchSeasonalAnimeFromJikan,
+// searchAnimeFromJikan) used to live here, calling the Jikan API directly
+// with no pacing/retry/cache. Removed 2026-09-15 — use jikanService.ts's
+// getJikanTopAnime / getJikanCurrentSeason / searchJikanAnime instead, and
+// pass their raw items through normalizeJikanAnime() above.

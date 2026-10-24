@@ -1,0 +1,140 @@
+/* Reviewer level path (2026-10-19). Colours come from tierVars (--b-*). */
+.journey { display: flex; flex-direction: column; gap: 14px; }
+
+.summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+.levelNo strong { color: var(--text-primary); font-size: 18px; font-variant-numeric: tabular-nums; }
+.nextHint { color: var(--text-secondary); }
+.nextHint strong { color: var(--b-bar-dark, var(--text-primary)); }
+.num { color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.scroller { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; margin: 0 -4px; padding: 0 4px; }
+.scroller::-webkit-scrollbar { display: none; }
+.inner { position: relative; min-width: calc(9 * 76px); }
+.track {
+  list-style: none;
+  margin: 0;
+  padding: 18px 0 6px;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+/* The rail runs through the seal centres: middle of the first column to middle of the last. */
+.rail {
+  position: absolute;
+  top: calc(18px + 30px);
+  left: calc(100% / 18);
+  right: calc(100% / 18);
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.railFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: var(--rail-gradient);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
+  transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+}
+.play .railFill { width: calc(var(--fill) * 100%); }
+
+.step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  scroll-snap-align: center;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+}
+.play .step { animation: stepIn 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) forwards; animation-delay: calc(var(--i) * 70ms); }
+
+.sealWrap { position: relative; display: grid; place-items: center; height: 60px; }
+.name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+.req { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+.earned .sealWrap { filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35)); }
+.locked .sealWrap { opacity: 0.45; }
+.locked .name { color: var(--text-muted); font-weight: 600; }
+.next .sealWrap { opacity: 0.8; }
+.next .req { color: var(--b-bar-dark, var(--text-secondary)); font-weight: 600; }
+
+.current .name { font-size: 13px; }
+.here {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--b-bar-dark, #fff);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+.halo {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--b-bar-dark, rgba(255, 255, 255, 0.5)) 0%, transparent 70%);
+  opacity: 0.45;
+  animation: halo 2.4s ease-in-out infinite;
+}
+.current .sealWrap :global(svg) { position: relative; animation: bob 3.2s ease-in-out infinite; }
+
+@keyframes stepIn { to { opacity: 1; transform: none; } }
+@keyframes halo { 0%, 100% { transform: scale(0.92); opacity: 0.35; } 50% { transform: scale(1.12); opacity: 0.6; } }
+@keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-3px) rotate(2deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .step { opacity: 1; transform: none; }
+  .play .step, .halo, .current .sealWrap :global(svg) { animation: none; }
+  .railFill { transition: none; }
+}
+
+/* ── Stamps (2026-10-23): round hanko pressed onto every level reached ── */
+.stamp { display: grid; place-items: center; }
+.stamped .stamp { transform: rotate(var(--tilt, 0deg)); }
+.play .stamped .stamp { animation: press 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; animation-delay: calc(var(--i) * 70ms + 120ms); }
+@keyframes press {
+  0% { transform: rotate(var(--tilt, 0deg)) scale(1.35); opacity: 0; }
+  60% { transform: rotate(var(--tilt, 0deg)) scale(0.94); opacity: 1; }
+  100% { transform: rotate(var(--tilt, 0deg)) scale(1); opacity: 1; }
+}
+
+/* A stamp earned since the owner last looked: a bigger press with an ink ring. */
+.play .fresh .stamp { animation: pressBig 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; animation-delay: 0.5s; }
+@keyframes pressBig {
+  0% { transform: rotate(var(--tilt, 0deg)) translateY(-18px) scale(1.9); opacity: 0; }
+  55% { transform: rotate(var(--tilt, 0deg)) scale(0.9); opacity: 1; }
+  75% { transform: rotate(var(--tilt, 0deg)) scale(1.05); }
+  100% { transform: rotate(var(--tilt, 0deg)) scale(1); opacity: 1; }
+}
+.ink {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--b-bar-dark, rgba(255, 255, 255, 0.6));
+  opacity: 0;
+  pointer-events: none;
+}
+.play .fresh .ink { animation: inkRing 0.9s ease-out 0.9s both; }
+@keyframes inkRing { 0% { transform: scale(0.7); opacity: 0.8; } 100% { transform: scale(1.8); opacity: 0; } }
+.freshNote {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+.freshNote strong { color: var(--b-bar-dark, var(--text-primary)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .play .stamped .stamp, .play .fresh .stamp, .play .fresh .ink { animation: none; }
+}

@@ -1,72 +1,106 @@
+/* Settings (rebuilt 2026-10-17): real account actions only. */
 .settingsPage {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 20px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 0 96px;
 }
 
-.header {
+.header { display: flex; flex-direction: column; gap: 8px; }
+.title { margin: 0; font-size: clamp(32px, 5vw, 52px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.subtitle { margin: 0; font-size: 15px; color: var(--text-secondary); }
+
+.card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.title {
-  font-size: var(--font-heading);
-  font-weight: var(--weight-bold);
-  color: var(--text-primary);
-}
-
-.subtitle {
-  font-size: var(--font-meta);
-  color: var(--text-secondary);
-}
-
-.settingsList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.settingCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3);
-  background-color: var(--surface-main);
+  gap: 14px;
+  padding: 20px;
   border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--surface-base);
+}
+.cardTitle { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.muted { display: block; color: var(--text-secondary); font-size: 13px; line-height: 1.45; font-weight: 400; }
+
+.accountRow { display: flex; align-items: center; gap: 14px; }
+.accountMeta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.accountName { font-size: 17px; }
+
+.facts { margin: 0; }
+.factRow { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border-subtle); font-size: 14px; }
+.factRow dt { color: var(--text-muted); }
+.factRow dd { margin: 0; text-align: right; }
+.verified, .unverified { display: inline-flex; align-items: center; gap: 6px; }
+.verified { color: var(--accent-emerald); }
+.unverified { color: var(--text-secondary); }
+
+.linkRow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px;
+  margin: 0 -14px;
+  width: calc(100% + 28px);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 15px;
+  transition: background-color var(--transition-fast);
+}
+.linkRow:hover { background: var(--surface-hover); }
+.linkRow strong { display: block; font-weight: 600; }
+.chevron { color: var(--text-muted); }
+
+.dangerCard { border-color: rgba(244, 63, 94, 0.25); }
+.deleteForm { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.field label { color: var(--text-secondary); }
+.field input {
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  gap: var(--space-2);
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.icon {
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.cardTitle {
-  font-size: var(--font-meta);
-  font-weight: var(--weight-semibold);
+  background: var(--surface-elevated);
   color: var(--text-primary);
+  font-size: 15px;
 }
+.field input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+.field input:disabled { opacity: 0.55; }
+.inline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.inline input { flex: 1 1 160px; }
 
-.cardDesc {
-  font-size: 13px;
-  color: var(--text-secondary);
+.primaryBtn, .secondaryBtn, .dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 700;
 }
+.primaryBtn { background: #fff; color: #000; }
+.primaryBtn:hover { background: rgba(255, 255, 255, 0.88); }
+.secondaryBtn { background: var(--pill-bg); color: var(--text-primary); }
+.secondaryBtn:hover { background: var(--pill-bg-hover); }
+.dangerBtn { background: rgba(244, 63, 94, 0.12); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.35); }
+.dangerBtn:hover:not(:disabled) { background: rgba(244, 63, 94, 0.2); }
+.primaryBtn:disabled, .secondaryBtn:disabled, .dangerBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.badge {
-  font-size: 11px;
-  font-weight: var(--weight-semibold);
-  color: var(--text-muted);
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border-subtle);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
+.errorBox { padding: 12px 14px; border-radius: var(--radius-md); background: rgba(244, 63, 94, 0.1); color: var(--accent-rose); font-size: 14px; }
+.errorBox ul { margin: 8px 0 0 18px; }
+.errorBox a { text-decoration: underline; }
+
+.footNote { margin: 0; color: var(--text-muted); font-size: 13px; }
+.footNote a { color: var(--text-secondary); text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .settingsPage { padding-top: 20px; }
+  .card { padding: 16px; }
 }

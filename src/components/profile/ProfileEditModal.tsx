@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { X, Upload, Camera, Trash2, Loader2 } from 'lucide-react';
+import { resolveAvatarUrl, resolveMediaUrl } from '../../lib/mediaResolver';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import styles from './ProfileEditModal.module.css';
@@ -39,10 +40,12 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const { refreshUser } = useAuth();
   const [displayName, setDisplayName] = useState(initialProfile.displayName || '');
   const [bio, setBio] = useState(initialProfile.bio || '');
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(initialProfile.avatarUrl || null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(resolveAvatarUrl(initialProfile.avatarUrl));
   const [bannerPreview, setBannerPreview] = useState<string | null>(initialProfile.bannerUrl || null);
   const [isLibraryPublic, setIsLibraryPublic] = useState(initialProfile.isLibraryPublic ?? true);
   const [isActivityPublic, setIsActivityPublic] = useState(initialProfile.isActivityPublic ?? true);
+  // Persisted server-side (User.showJoinedCommunities); null until the current value has loaded.
+  const [showJoinedCommunities, setShowJoinedCommunities] = useState<boolean | null>(null);
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
@@ -50,6 +53,20 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    fetch(`/api/users/${encodeURIComponent(initialProfile.username)}/badges`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && typeof d?.showJoinedCommunities === 'boolean') setShowJoinedCommunities(d.showJoinedCommunities);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, initialProfile.username]);
 
   if (!isOpen) return null;
 
@@ -185,7 +202,10 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Blank (or the bare username) clears it, so the @handle shows alone.
+          displayName: displayName.trim() && displayName.trim() !== initialProfile.username ? displayName.trim() : '',
           bio: bio.trim(),
+          ...(showJoinedCommunities !== null ? { showJoinedCommunities } : {}),
         }),
       });
 
@@ -195,7 +215,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       }
 
       const updated = {
-        displayName: displayName.trim() || initialProfile.username,
+        displayName: data.user?.displayName || displayName.trim() || initialProfile.username,
         bio: bio.trim(),
         avatarUrl: avatarPreview,
         bannerUrl: bannerPreview,
@@ -232,7 +252,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <label className={styles.label}>Profile Banner</label>
             <div className={styles.bannerPreview}>
               {bannerPreview ? (
-                <Image src={bannerPreview} alt="Banner Preview" fill className={styles.previewImg} unoptimized />
+                <Image src={resolveMediaUrl(bannerPreview) || bannerPreview} alt="Banner Preview" fill className={styles.previewImg} unoptimized />
               ) : (
                 <span>No custom banner set</span>
               )}
@@ -280,7 +300,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             <div className={styles.uploadRow}>
               <div className={styles.avatarPreview}>
                 {avatarPreview ? (
-                  <Image src={avatarPreview} alt="Avatar Preview" fill className={styles.previewImg} unoptimized />
+                  <Image src={resolveMediaUrl(avatarPreview) || avatarPreview} alt="Avatar Preview" fill className={styles.previewImg} unoptimized />
                 ) : (
                   <span>{initialProfile.username.slice(0, 2).toUpperCase()}</span>
                 )}
@@ -344,7 +364,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Tell other anime archivists about your favorite genres and taste..."
-              maxLength={240}
+              maxLength={500}
             />
           </div>
 
@@ -371,6 +391,20 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                   type="checkbox"
                   checked={isActivityPublic}
                   onChange={(e) => setIsActivityPublic(e.target.checked)}
+                />
+                <span className={styles.slider} />
+              </label>
+            </div>
+
+            <div className={styles.privacyRow}>
+              <span className={styles.privacyLabel}>Show communities I have joined</span>
+              <label className={styles.switch}>
+                <input
+                  type="checkbox"
+                  checked={showJoinedCommunities ?? true}
+                  disabled={showJoinedCommunities === null}
+                  onChange={(e) => setShowJoinedCommunities(e.target.checked)}
+                  aria-label="Show communities I have joined on my profile"
                 />
                 <span className={styles.slider} />
               </label>

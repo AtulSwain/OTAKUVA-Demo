@@ -116,6 +116,12 @@ async function runForwardCrawl(startId: number, endId: number, jobType: string, 
 }
 
 async function runDeadLetterRetry() {
+  // Superseded by scripts/retry_dead_letters.ts, which does the same
+  // ingestAnimeByMalId retry plus the MAX_RETRIES/RETENTION_DAYS archival
+  // policy in src/lib/deadLetter.ts (this mode never archives, so
+  // repeatedly-failing rows accumulate here forever). Kept for now so
+  // `RETRY_FAILED=1` doesn't silently change behavior; prefer the other
+  // script going forward.
   console.log('[full_catalog_sync] RETRY_FAILED=1 — sweeping DeadLetterQueue for provider=jikan, entityType=ANIME\n');
   const pending = await prisma.deadLetterQueue.findMany({
     where: { provider: 'jikan', entityType: 'ANIME', resolvedAt: null },

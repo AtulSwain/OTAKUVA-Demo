@@ -1,16 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { CommunityScoreBadge } from '../../components/rating/CommunityScoreBadge';
 import Link from 'next/link';
-import { Trophy, Star, TrendingUp, Flame, Plus, Check, Film, Tv, Sparkles, Calendar } from 'lucide-react';
+import { Trophy, TrendingUp, Flame, Plus, Check, Film, Tv, Sparkles, Calendar } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { useLibrary } from '../../context/LibraryContext';
 import { AnimePoster } from '../../components/ui/AnimePoster';
 import { getAnimeDisplayTitle } from '../../lib/animeTitleResolver';
 import { sanitizePublicEntityName } from '../../lib/normalizers';
 import styles from './rankings.module.css';
+import { PageHead } from '../../components/ui/PageHead';
 
 type RankingFilter = 'all' | 'year' | 'season' | 'tv' | 'movies' | 'upcoming' | 'popular';
+
+// "This year" / "this season" follow today's date — they were hardcoded to
+// 2024 / Winter 2024.
+const NOW = new Date();
+const CURRENT_YEAR = NOW.getFullYear();
+const CURRENT_SEASON = (['Winter', 'Spring', 'Summer', 'Fall'] as const)[Math.floor(NOW.getMonth() / 3)];
 
 export default function RankingsPage() {
   const { library, updateStatus } = useLibrary();
@@ -25,16 +33,17 @@ export default function RankingsPage() {
         const params = new URLSearchParams();
         params.set('limit', '50');
 
-        if (rankingType === 'popular') {
+        if (rankingType === 'popular' || rankingType === 'upcoming') {
+          // Nothing unaired has a score yet, so upcoming ranks by popularity.
           params.set('sortBy', 'popularity');
         } else {
           params.set('sortBy', 'score');
         }
 
-        if (rankingType === 'year') params.set('year', '2024');
+        if (rankingType === 'year') params.set('year', String(CURRENT_YEAR));
         if (rankingType === 'season') {
-          params.set('season', 'Winter');
-          params.set('year', '2024');
+          params.set('season', CURRENT_SEASON);
+          params.set('year', String(CURRENT_YEAR));
         }
         if (rankingType === 'tv') params.set('type', 'TV');
         if (rankingType === 'movies') params.set('type', 'Movie');
@@ -43,11 +52,9 @@ export default function RankingsPage() {
         const res = await fetch(`/api/anime?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.animes && data.animes.length > 0) {
-            setAnimes(data.animes);
-          } else if (data.data && data.data.length > 0) {
-            setAnimes(data.data);
-          }
+          // Always replace the list: an empty result must not leave the
+          // previous tab's rows on screen.
+          setAnimes(data.animes || data.data || []);
         }
       } catch (e) {
         console.error('Error fetching rankings:', e);
@@ -60,35 +67,21 @@ export default function RankingsPage() {
 
   const tabs: { key: RankingFilter; label: string; icon: any }[] = [
     { key: 'all', label: 'All-Time Top Rated', icon: Trophy },
-    { key: 'year', label: 'This Year (2024)', icon: Calendar },
-    { key: 'season', label: 'This Season', icon: Flame },
+    { key: 'year', label: `This Year (${CURRENT_YEAR})`, icon: Calendar },
+    { key: 'season', label: `This Season (${CURRENT_SEASON})`, icon: Flame },
     { key: 'popular', label: 'Most Popular', icon: TrendingUp },
     { key: 'tv', label: 'TV Series', icon: Tv },
     { key: 'movies', label: 'Feature Films', icon: Film },
     { key: 'upcoming', label: 'Upcoming', icon: Sparkles },
   ];
 
-  // Helper for deterministic movement indicators based on index
-  const getMovement = (idx: number) => {
-    if (idx === 0) return { type: 'same', label: '—' };
-    if (idx % 4 === 1) return { type: 'up', label: '↑ 1' };
-    if (idx % 4 === 2) return { type: 'up', label: '↑ 2' };
-    if (idx % 4 === 3) return { type: 'down', label: '↓ 1' };
-    if (idx === 5) return { type: 'new', label: 'NEW' };
-    return { type: 'same', label: '—' };
-  };
-
   return (
     <div className={styles.rankingsPage}>
       {/* Header */}
       <div className={styles.header}>
-        <div className={styles.titleRow}>
-          <Trophy size={24} className={styles.headerIcon} />
-          <h1 className={styles.title}>Global Anime Rankings</h1>
-        </div>
-        <p className={styles.subtitle}>
-          Analytical leaderboards and Bayesian adjusted scores computed across millions of verified ratings.
-        </p>
+        <PageHead kicker="Leaderboards" title="Rankings">
+          Ranked by each title&apos;s provider score (MyAnimeList / AniList).
+        </PageHead>
       </div>
 
       {/* Filter Tabs */}
@@ -115,10 +108,9 @@ export default function RankingsPage() {
       {/* Table Column Headers */}
       <div className={styles.tableHeader}>
         <span>Rank</span>
-        <span>Poster</span>
-        <span>Anime &amp; Production</span>
-        <span className={styles.hideMobile}>OTAKUVA Score</span>
-        <span className={styles.hideMobile}>Community</span>
+        <span aria-hidden="true" />
+        <span>Anime</span>
+        <span className={styles.hideMobile}>Score</span>
         <span style={{ textAlign: 'right' }}>Library</span>
       </div>
 
@@ -126,7 +118,7 @@ export default function RankingsPage() {
       <div className={styles.listContainer}>
         {isLoading ? (
           <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
-            Computing analytical rankings...
+            Loading rankings…
           </div>
         ) : animes.length === 0 ? (
           <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
@@ -138,12 +130,11 @@ export default function RankingsPage() {
             const cleanTitle = sanitizePublicEntityName(rawTitle);
             const rank = idx + 1;
             const rankStr = String(rank).padStart(2, '0');
-            const movement = getMovement(idx);
             const animeId = anime.slug || anime.id;
             const inLibrary = Boolean(library[animeId]);
-            const score = anime.score ? anime.score.toFixed(2) : '9.00';
-            const communityScore = (Number(score) * 10).toFixed(0) + '%';
-            const animeYear = anime.year || (anime as any).startYear || 2024;
+            // Missing stays missing: no placeholder year or type.
+            const animeYear = anime.year || (anime as any).startYear || null;
+            const metaParts = [animeYear ? String(animeYear) : null, anime.type || null].filter(Boolean) as string[];
             const studioName = Array.isArray(anime.studios) && anime.studios.length > 0
               ? (typeof anime.studios[0] === 'string' ? anime.studios[0] : (anime.studios[0] as any)?.name)
               : null;
@@ -157,10 +148,6 @@ export default function RankingsPage() {
                 {/* Rank & Movement */}
                 <div className={styles.rankCol}>
                   <span className={styles.rankNumber}>{rankStr}</span>
-                  {movement.type === 'up' && <span className={styles.movementUp}>{movement.label}</span>}
-                  {movement.type === 'down' && <span className={styles.movementDown}>{movement.label}</span>}
-                  {movement.type === 'new' && <span className={styles.movementNew}>{movement.label}</span>}
-                  {movement.type === 'same' && <span className={styles.movementSame}>{movement.label}</span>}
                 </div>
 
                 {/* Poster */}
@@ -177,27 +164,22 @@ export default function RankingsPage() {
                 <div className={styles.titleCol}>
                   <span className={styles.animeTitle}>{cleanTitle}</span>
                   <div className={styles.animeMeta}>
-                    <span>{animeYear}</span>
-                    <span>·</span>
-                    <span>{anime.type || 'TV'}</span>
-                    {studioName && (
-                      <>
-                        <span>·</span>
-                        <span>{studioName}</span>
-                      </>
-                    )}
+                    {[...metaParts, studioName].filter(Boolean).map((part, i) => (
+                      <React.Fragment key={i}>
+                        {i > 0 && <span>·</span>}
+                        <span>{part}</span>
+                      </React.Fragment>
+                    ))}
                   </div>
+                  {/* Members' OTAKUVA score + retention (not the provider score). */}
+                  <span className={styles.scoreMobile}>
+                    <CommunityScoreBadge animeId={anime.id} />
+                  </span>
                 </div>
 
-                {/* OTAKUVA Score */}
+                {/* Members' OTAKUVA score + retention (blank until someone rates) */}
                 <div className={`${styles.scoreCol} ${styles.hideMobile}`}>
-                  <Star size={13} fill="currentColor" />
-                  <span>{score}</span>
-                </div>
-
-                {/* Community Score */}
-                <div className={`${styles.communityScoreCol} ${styles.hideMobile}`}>
-                  <span>{communityScore} Positive</span>
+                  <CommunityScoreBadge animeId={anime.id} />
                 </div>
 
                 {/* Quick Add Action */}

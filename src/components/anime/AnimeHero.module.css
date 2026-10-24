@@ -142,6 +142,21 @@
   opacity: 0.6;
 }
 
+.ratingBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong, #333842);
+  border-radius: 3px;
+  color: var(--text-primary, #F4F4F2);
+  letter-spacing: 0.3px;
+}
+
+.ratingBadgeMature {
+  border-color: var(--accent-rose, #F43F5E);
+  color: var(--accent-rose, #F43F5E);
+}
+
 .kickerLink {
   color: var(--text-primary, #F4F4F2);
   text-decoration: none;
@@ -149,7 +164,7 @@
 }
 
 .kickerLink:hover {
-  color: var(--accent-primary-hover, #818CF8);
+  color: var(--accent-primary-hover);
 }
 
 @media (max-width: 767px) {
@@ -168,11 +183,12 @@
 }
 
 .mainTitle {
-  font-size: 28px;
+  font-family: var(--font-sans, 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: clamp(26px, 3.5vw, 36px);
   font-weight: 800;
   line-height: 1.15;
-  letter-spacing: -1px;
-  color: var(--text-primary, #F4F4F2);
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
   margin: 0;
   word-break: break-word;
 }
@@ -463,3 +479,267 @@
 .progressBottom strong {
   color: var(--text-primary, #DDDDDD);
 }
+
+
+/* ===== Apple TV+ detail hero: full-bleed art under the frosted header ===== */
+.heroSection { margin-top: calc(var(--header-offset, 64px) * -1); min-height: clamp(520px, 72vh, 760px); margin-bottom: 0; border-bottom: 0; background-color: var(--bg-primary); }
+.backdropImg { filter: none; object-position: center 20%; }
+.backdropOverlay {
+  background:
+    linear-gradient(90deg, rgba(20, 20, 22, 0.88) 0%, rgba(20, 20, 22, 0.45) 45%, rgba(20, 20, 22, 0.1) 100%),
+    linear-gradient(180deg, rgba(20, 20, 22, 0.5) 0%, rgba(20, 20, 22, 0) 24%, rgba(20, 20, 22, 0.25) 55%, var(--bg-primary) 100%);
+}
+.heroInner { max-width: none; padding: 96px clamp(20px, 4vw, 56px) 56px; grid-template-columns: clamp(150px, 15vw, 220px) minmax(0, 1fr); gap: 16px clamp(24px, 3vw, 44px); }
+.poster { width: 100%; height: auto; aspect-ratio: 2 / 3; border: 0; border-radius: 18px; box-shadow: 0 28px 60px -18px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.mainTitle { font-size: clamp(30px, 4.2vw, 54px); font-weight: 800; line-height: 0.98; letter-spacing: -0.045em; text-wrap: balance; }
+.kicker { font-size: 13px; letter-spacing: 0.02em; text-transform: none; color: rgba(245, 245, 247, 0.8); }
+.chip { border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.12); padding: 6px 14px; font-size: 13px; }
+.actionBtn { height: 46px; padding: 0 22px; border: 0; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.14); backdrop-filter: blur(20px); color: #fff; font-size: 15px; font-weight: 600; }
+.actionBtn:hover { background: rgba(255, 255, 255, 0.24); }
+.primaryBtn { background: #fff; color: #000; }
+.primaryBtn:hover { background: rgba(255, 255, 255, 0.88); }
+.inLibraryBtn { background: rgba(255, 255, 255, 0.22); color: #fff; }
+@media (max-width: 767px) { .heroInner { padding-top: 88px; grid-template-columns: 110px minmax(0, 1fr); } .heroSection { min-height: 560px; } }
+
+
+/* Add to Library status menu */
+.libraryMenuWrap { position: relative; }
+.libraryMenu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 18px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-elevated);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.libraryMenuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.libraryMenuItem:hover { background: var(--surface-active); }
+.libraryMenuItem:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: -2px; }
+.libraryMenuItemOn { font-weight: 700; }
+.libraryMenuDanger { color: var(--accent-rose); border-top: 1px solid var(--border-subtle); border-radius: 0 0 12px 12px; margin-top: 4px; }
+/* The mobile action row scrolls sideways; let the menu escape it. */
+@media (max-width: 767px) {
+  .actionsRow { overflow: visible; flex-wrap: wrap; }
+  .libraryMenu { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; }
+}
+
+/* No real banner: the poster becomes an intentionally soft colour field
+   (heavy blur, slight zoom so blurred edges never show) rather than a
+   stretched, pixelated full-bleed image. The sharp poster card carries the art. */
+.backdropAmbient {
+  /* Desaturated + heavier blur: boosting saturation on a JPEG poster made
+     muddy colour bands that read as noise. */
+  filter: blur(64px) saturate(0.85) brightness(0.5) !important;
+  transform: scale(1.18);
+}
+
+/* ===== Reference-led polish (2026-10-17) =====
+   Same tokens/colours; layout only. Labelled pills for the main actions,
+   round icon buttons for the secondary ones, a star-led score pill, and a
+   centred poster-card layout on phones. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.iconBtn { width: 46px; padding: 0; justify-content: center; }
+
+/* Score: one glass pill — star, value, then label + count stacked. */
+.scoreInline {
+  gap: 10px;
+  padding: 7px 16px 7px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.scoreStar { color: var(--accent-score); }
+.scoreVal { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.scoreMeta { display: flex; flex-direction: column; gap: 3px; }
+.scoreLabel { font-size: 10px; letter-spacing: 0.08em; font-weight: 700; color: var(--text-secondary); }
+.scoreRatingsCount { font-size: 11px; line-height: 1; white-space: nowrap; }
+
+.progressBox {
+  border-radius: var(--radius-lg);
+  border-color: var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 12px 16px;
+}
+
+@media (max-width: 767px) {
+  /* Centred stack: poster card → title → meta → chips → actions. */
+  .heroSection { min-height: 0; }
+  .backdropOverlay {
+    background: linear-gradient(180deg, rgba(20, 20, 22, 0.45) 0%, rgba(20, 20, 22, 0.6) 45%, var(--bg-primary) 92%);
+  }
+  .heroInner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    justify-items: center;
+    gap: 18px;
+    padding: calc(var(--header-offset, 64px) + 20px) 16px 28px;
+    text-align: center;
+  }
+  .poster {
+    grid-column: 1;
+    grid-row: auto;
+    width: min(56vw, 210px);
+    height: auto;
+    border-radius: 20px;
+  }
+  .titleArea { grid-column: 1; grid-row: auto; align-items: center; gap: 10px; width: 100%; }
+  .kicker { justify-content: center; font-size: 12px; gap: 4px 6px; row-gap: 2px; }
+  .titleLine { align-items: center; gap: 12px; }
+  .mainTitle { font-size: clamp(26px, 7.4vw, 34px); line-height: 1.04; letter-spacing: -0.035em; }
+  .chipsRow { justify-content: center; gap: 6px; }
+  .chip { padding: 5px 12px; font-size: 12px; }
+
+  .actionsRow {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0;
+  }
+  .libraryMenuWrap { flex: 1 1 100%; }
+  .libraryMenuWrap > .actionBtn { width: 100%; justify-content: center; height: 50px; font-size: 16px; }
+  .actionBtn { height: 46px; font-size: 14px; padding: 0 16px; gap: 6px; }
+  .pairBtn { flex: 1 1 0; justify-content: center; min-width: 0; }
+  .iconBtn, .trailerBtn { width: 46px; flex: 0 0 46px; padding: 0; justify-content: center; }
+  .trailerLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .progressBox { grid-column: 1; grid-row: auto; width: 100%; text-align: left; }
+}
+
+/* "Your lists" inside the Add to Library menu (2026-10-17). */
+.libraryMenu { min-width: 280px; max-width: min(340px, calc(100vw - 32px)); }
+.listsSection { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
+.listsHeading { padding: 4px 14px 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.listsNote { padding: 8px 14px; color: var(--text-muted); font-size: 13px; }
+.listsScroll { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; overscroll-behavior: contain; }
+.listName { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.listCount { color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.listTick { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; border: 2px solid var(--border-hover); border-radius: 50%; }
+.listTickOn { border-color: #fff; background: #fff; color: #000; }
+.newListItem { color: var(--text-primary); font-weight: 600; }
+.newListForm { display: flex; gap: 6px; padding: 6px 8px; }
+.newListInput { flex: 1; min-width: 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--surface-elevated); color: var(--text-primary); font-size: 14px; }
+.newListInput:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-primary-subtle); }
+.newListBtn { min-height: 40px; padding: 0 14px; border-radius: 10px; background: #fff; color: #000; font-size: 13px; font-weight: 700; }
+.newListBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.manageLists { padding: 8px 14px 4px; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+.manageLists:hover { color: var(--text-primary); }
+@media (max-width: 767px) {
+  /* Phones: the menu is a bottom sheet; give the lists room and keep it scrollable. */
+  .libraryMenu { max-width: none; max-height: 80vh; overflow-y: auto; }
+}
+@media (max-width: 767px) {
+  /* Sit above the fixed bottom nav instead of underneath it. */
+  .libraryMenu {
+    bottom: calc(var(--mobile-nav-height, 54px) + env(safe-area-inset-bottom, 0px) + 12px);
+    z-index: 60;
+    max-height: calc(100vh - var(--header-offset, 64px) - var(--mobile-nav-height, 54px) - 40px);
+  }
+}
+
+.menuHeading { padding: 6px 14px 4px; color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* The Add to Library menu must be able to extend past the hero's bottom
+   edge — clipping the whole section cut it off. Only the backdrop art (which
+   is scaled/blurred and must not spill) is clipped now. 2026-10-17 */
+.heroSection { overflow: visible; }
+.backdropWrapper { overflow: hidden; }
+.heroInner { z-index: 5; }
+
+/* The viewer's own rating on the poster (2026-10-18): appears as soon as
+   they rate; tapping it reopens the rating window. */
+.posterRating {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(10, 10, 12, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: posterRatingIn 260ms var(--ease-out-cubic, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.posterRating:disabled { cursor: default; }
+.posterRating svg { flex-shrink: 0; color: var(--accent-score, #F59E0B); }
+.posterRating strong { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.posterRating span { margin-left: auto; font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.72); white-space: nowrap; }
+.posterRating:not(:disabled):hover { background: rgba(10, 10, 12, 0.86); }
+@keyframes posterRatingIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 767px) {
+  .posterRating { left: 6px; right: 6px; bottom: 6px; min-height: 28px; padding: 4px 8px; gap: 4px; border-radius: 9px; }
+  .posterRating strong { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .posterRating { animation: none; } }
+
+/* Collections footer in the Add to Library menu (2026-10-22): Manage on the
+   left, "Make a collection" on the right. */
+.listsFooter { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 2px 0; }
+.listsFooter .manageLists { padding: 8px 14px; }
+.makeCollection {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 999px;
+  background: #fff; color: #111113; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap;
+  transition: transform 0.15s ease;
+}
+.makeCollection:hover { transform: translateY(-1px); }

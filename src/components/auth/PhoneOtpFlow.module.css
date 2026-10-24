@@ -1,0 +1,159 @@
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.phoneRow {
+  display: flex;
+  gap: 8px;
+}
+
+.input,
+.country {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+}
+
+.country {
+  flex-shrink: 0;
+  padding-right: 6px;
+  cursor: pointer;
+}
+
+.input:focus,
+.country:focus {
+  border-color: var(--border-elevated);
+  background-color: var(--surface-main);
+}
+
+.codeInput {
+  font-size: 18px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint,
+.devNote {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.devNote {
+  color: var(--text-secondary);
+}
+
+.sentRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sentTo strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 2px 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.linkBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.linkBtn:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.error {
+  padding: 10px 12px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.submit {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-elevated);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.submit:hover:not(:disabled) {
+  background-color: var(--metallic-dark);
+  border-color: var(--border-strong);
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Development-only provider error under the user-facing message. */
+.devDetail {
+  display: block;
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}

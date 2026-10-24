@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { AnimeImage } from './AnimeImage';
 import styles from './AnimeCard.module.css';
-import { Star } from 'lucide-react';
+import { CommunityScoreBadge } from '../rating/CommunityScoreBadge';
+import { classifyAnimeStatus, formatAnimeStatus } from '../../lib/anime/animeStatus';
 
 export interface AnimeCardItem {
   id: string;
@@ -28,19 +29,16 @@ interface AnimeCardProps {
 
 export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }) => {
   const displayTitle = anime.title || 'Untitled Anime';
-  const displayScore =
-    anime.score !== null && anime.score !== undefined && !isNaN(anime.score)
-      ? anime.score > 10
-        ? (anime.score / 10).toFixed(1)
-        : Number(anime.score).toFixed(1)
-      : null;
 
+  // One vocabulary for both providers ("Finished Airing" used to count as
+  // airing because it contains "air"); unknown status shows nothing.
+  const statusKind = classifyAnimeStatus(anime.status);
+  const statusLabel = formatAnimeStatus(anime.status);
   const statusClass =
-    anime.status?.toLowerCase().includes('air')
-      ? styles.statusAiring
-      : anime.status?.toLowerCase().includes('upcom') || anime.status?.toLowerCase().includes('not')
-      ? styles.statusUpcoming
-      : styles.statusFinished;
+    statusKind === 'airing' ? styles.statusAiring : statusKind === 'upcoming' ? styles.statusUpcoming : styles.statusFinished;
+  const listMeta = [anime.type || null, anime.year ? String(anime.year) : null, anime.episodes ? `${anime.episodes} eps` : null].filter(
+    Boolean
+  ) as string[];
 
   if (viewMode === 'list') {
     return (
@@ -53,13 +51,11 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
             <span className={styles.listTitle}>{displayTitle}</span>
           </div>
           <div className={styles.listMeta}>
-            <span>{anime.type || 'TV'}</span>
-            {anime.year && <span>• {anime.year}</span>}
-            {anime.episodes && <span>• {anime.episodes} eps</span>}
-            {anime.status && (
-              <span>
-                • <span className={`${styles.statusDot} ${statusClass}`} />
-                {anime.status}
+            {listMeta.length > 0 && <span>{listMeta.join(' · ')}</span>}
+            {statusLabel && (
+              <span className={styles.statusItem}>
+                <span className={`${styles.statusDot} ${statusClass}`} aria-hidden="true" />
+                {statusLabel}
               </span>
             )}
           </div>
@@ -73,12 +69,10 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
             </div>
           )}
         </div>
-        {displayScore && (
-          <div className={styles.listScore}>
-            <Star size={11} fill="currentColor" aria-hidden="true" />
-            <span>{displayScore}</span>
-          </div>
-        )}
+        {/* Members' OTAKUVA score + retention (not the provider score). */}
+        <div className={styles.listScore}>
+          <CommunityScoreBadge animeId={anime.id} />
+        </div>
       </Link>
     );
   }
@@ -88,12 +82,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
       <Link href={`/anime/${anime.slug || anime.id}`} className={styles.cardCompact}>
         <div className={styles.posterWrapper}>
           <AnimeImage src={anime.posterImage} alt={displayTitle} fill />
-          {displayScore && (
-            <div className={styles.scoreBadge}>
-              <Star size={11} fill="currentColor" aria-hidden="true" />
-              <span>{displayScore}</span>
-            </div>
-          )}
+          <CommunityScoreBadge animeId={anime.id} variant="overlay" />
         </div>
         <div className={styles.infoBlock}>
           <span className={styles.title}>{displayTitle}</span>
@@ -111,13 +100,8 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
     <Link href={`/anime/${anime.slug || anime.id}`} className={styles.cardGrid}>
       <div className={styles.posterWrapper}>
         <AnimeImage src={anime.posterImage} alt={displayTitle} fill />
-        {displayScore && (
-          <div className={styles.scoreBadge}>
-            <Star size={11} fill="currentColor" aria-hidden="true" />
-            <span>{displayScore}</span>
-          </div>
-        )}
-        <div className={styles.typeBadge}>{anime.type || 'TV'}</div>
+        <CommunityScoreBadge animeId={anime.id} variant="overlay" />
+        {anime.type && <div className={styles.typeBadge}>{anime.type}</div>}
       </div>
       <div className={styles.infoBlock}>
         <span className={styles.title}>{displayTitle}</span>
@@ -125,10 +109,14 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({ anime, viewMode = 'grid' }
           <span className={styles.englishTitle}>{anime.englishTitle}</span>
         )}
         <div className={styles.metaRow}>
-          <span>
-            <span className={`${styles.statusDot} ${statusClass}`} />
-            {anime.status || 'Finished'}
-          </span>
+          {statusLabel ? (
+            <span>
+              <span className={`${styles.statusDot} ${statusClass}`} aria-hidden="true" />
+              {statusLabel}
+            </span>
+          ) : (
+            <span />
+          )}
           <span>{anime.year ? `${anime.year}` : anime.episodes ? `${anime.episodes} eps` : ''}</span>
         </div>
       </div>

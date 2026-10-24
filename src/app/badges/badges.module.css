@@ -3,7 +3,7 @@
 .intro { color: var(--text-secondary); max-width: 60ch; margin: 8px 0 0; line-height: 1.5; }
 .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-4); }
 .panel { border-radius: 16px; padding: 20px; border: 1px solid var(--border-default); display: flex; flex-direction: column; gap: 16px; }
-.panelDark { background: #14141a; color: #f5f5f7; --text-muted: #71717a; --text-secondary: #a1a1aa; --border-default: #26262f; }
+.panelDark { background: #1B1B1E; color: #f5f5f7; --text-muted: #71717a; --text-secondary: #a1a1aa; --border-default: #26262f; }
 .panelLight { background: #f6f5f1; color: #1d1d1f; --text-muted: #6b6b73; --text-secondary: #55555c; --border-default: #d9d7cf; }
 .panelTitle { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: 0; }
 .row { display: flex; align-items: center; gap: 14px; }
@@ -17,3 +17,8 @@
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .section { display: flex; flex-direction: column; gap: 12px; }
 .h2 { font-size: 18px; font-weight: 600; margin: 0; color: inherit; }
+
+/* Page title on the shared scale (2026-10-17). */
+.title { font-size: clamp(30px, 4.6vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+
+.title { text-transform: none; } /* page titles in normal case (2026-10-17) */

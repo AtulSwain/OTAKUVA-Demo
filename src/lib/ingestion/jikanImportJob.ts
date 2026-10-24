@@ -1,6 +1,22 @@
 /**
  * OTAKUVA — JIKAN V4 RESUMABLE CATALOG IMPORT JOB RUNNER
- * 
+ *
+ * DEPRECATED — no longer wired to anything live. `POST /api/admin/anime/
+ * import` and `GET /api/admin/data` both moved to the BullMQ-backed
+ * 'anime-import' queue job (src/lib/queue/handlers.ts's handleAnimeImport,
+ * tracked on a SyncJob row via src/lib/queue/importJobState.ts) so the
+ * work survives the Next.js process restarting and isn't lost if nobody
+ * happens to be polling it. This file's `activeJob` was always in-memory
+ * only (never actually persisted to the SyncJob table despite the comment
+ * below), so nothing here needs migrating, only replacing.
+ *
+ * Kept only because src/lib/test_master_backend_and_jikan_architecture.ts
+ * (a legacy `src/lib/test_*.ts` script — see CLAUDE.md on why those are
+ * deprecated in favor of `tests/**`) still imports it. Do not add new
+ * callers; use enqueueSyncJob({name: 'anime-import', ...}) instead (see
+ * src/app/api/admin/anime/import/route.ts for the pattern).
+ *
+ * Original doc, for history:
  * Features:
  * - Persistent DB/in-memory import job state
  * - Checkpoint tracking (resumes from last processed page without duplicate fetches)

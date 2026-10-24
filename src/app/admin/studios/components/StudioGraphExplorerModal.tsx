@@ -91,7 +91,7 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
   const getEntityIcon = (type: string) => {
     switch (type) {
       case 'STUDIO':
-        return <Building2 size={14} color="#8b5cf6" />;
+        return <Building2 size={14} color="#A1A1AA" />;
       case 'ANIME':
         return <Film size={14} color="#60a5fa" />;
       case 'PERSON':
@@ -117,7 +117,7 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
         {/* Header */}
         <div className={styles.modalHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Network size={20} color="#8b5cf6" />
+            <Network size={20} color="#A1A1AA" />
             <div>
               <h3 className={styles.modalTitle}>
                 Knowledge Graph Explorer: {studioName || 'Studio'}
@@ -159,9 +159,9 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  background: depth === d ? '#8b5cf6' : 'rgba(255, 255, 255, 0.05)',
+                  background: depth === d ? '#A1A1AA' : 'rgba(255, 255, 255, 0.05)',
                   color: depth === d ? '#ffffff' : '#94a3b8',
-                  border: depth === d ? '1px solid #8b5cf6' : '1px solid rgba(255, 255, 255, 0.08)',
+                  border: depth === d ? '1px solid #A1A1AA' : '1px solid rgba(255, 255, 255, 0.08)',
                 }}
               >
                 {d} {d === 1 ? 'Hop (Direct)' : 'Hops'}
@@ -183,9 +183,9 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  background: filterType === ft ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                  background: filterType === ft ? 'rgba(161, 161, 170, 0.2)' : 'rgba(255, 255, 255, 0.03)',
                   color: filterType === ft ? '#c4b5fd' : '#94a3b8',
-                  border: filterType === ft ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
+                  border: filterType === ft ? '1px solid rgba(161, 161, 170, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
                 }}
               >
                 {ft}
@@ -205,7 +205,7 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
             gap: '10px',
           }}
         >
-          <Search size={14} color="#8b5cf6" />
+          <Search size={14} color="#A1A1AA" />
           <input
             type="text"
             placeholder="Find shortest graph path to Target Entity ID (e.g. animeId, personId, other studioId)..."
@@ -228,7 +228,7 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
             style={{
               padding: '5px 12px',
               borderRadius: '6px',
-              background: '#8b5cf6',
+              background: '#A1A1AA',
               color: '#ffffff',
               border: 'none',
               fontSize: '12px',
@@ -299,8 +299,8 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
                     onClick={() => setSelectedNode(node)}
                     style={{
                       padding: '10px 12px',
-                      background: selectedNode?.id === node.id ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                      border: selectedNode?.id === node.id ? '1px solid #8b5cf6' : '1px solid rgba(255, 255, 255, 0.06)',
+                      background: selectedNode?.id === node.id ? 'rgba(161, 161, 170, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                      border: selectedNode?.id === node.id ? '1px solid #A1A1AA' : '1px solid rgba(255, 255, 255, 0.06)',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -362,7 +362,7 @@ export function StudioGraphExplorerModal({ studioId, studioName, isOpen, onClose
                             borderRadius: '4px',
                           }}
                         >
-                          <span style={{ color: '#8b5cf6', fontWeight: 600 }}>{edge.label}</span>
+                          <span style={{ color: '#A1A1AA', fontWeight: 600 }}>{edge.label}</span>
                           <span style={{ color: '#64748b' }}>({edge.edgeType})</span>
                           <span style={{ marginLeft: 'auto', fontSize: '10.5px', color: '#4ade80' }}>
                             {edge.confidence} Confidence

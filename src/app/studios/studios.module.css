@@ -1,5 +1,4 @@
 .container {
-  max-width: 1200px;
   margin: 0 auto;
   padding: 24px 16px 80px;
   display: flex;
@@ -222,3 +221,15 @@
   border-radius: 6px;
   color: var(--text-muted, #8b8d98);
 }
+
+/* ===== Reference-led polish (2026-10-17) ===== */
+.pageTitle { font-size: clamp(32px, 5vw, 52px); letter-spacing: -0.035em; line-height: 1.05; }
+.pageSubtitle { font-size: 15px; color: var(--text-secondary); }
+/* The icon was painted under the input's background — invisible. */
+.searchIcon { z-index: 1; pointer-events: none; left: 16px; }
+.searchInput { min-height: 46px; padding-left: 42px; border-radius: var(--radius-pill); background: var(--surface-elevated); border-color: transparent; font-size: 14px; }
+.searchInput:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px var(--accent-primary-subtle); }
+/* .searchWrap had no rule, so the absolutely-positioned icon anchored to a
+   distant ancestor instead of the input. */
+.searchWrap { position: relative; width: 100%; }
+.searchIcon { top: 50%; }

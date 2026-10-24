@@ -71,3 +71,16 @@
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* Page title on the shared scale (2026-10-17). */
+.title { font-size: clamp(30px, 4.6vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+
+/* Signed-out prompt + filter pills (2026-10-17). */
+.signInBtn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 22px; border-radius: var(--radius-pill); background: #fff; color: #000; font-size: 14px; font-weight: 700; }
+.signInBtn:hover { background: rgba(255, 255, 255, 0.88); }
+.title { text-transform: none; }
+.filterRow { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.filterRow::-webkit-scrollbar { display: none; }
+.filterBtn { flex: 0 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.filterBtn:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
+.filterBtnActive, .filterBtnActive:hover { background: #fff; color: #000; }

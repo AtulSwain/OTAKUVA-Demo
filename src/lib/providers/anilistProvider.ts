@@ -11,8 +11,21 @@ import {
   ProviderAnimeTitle,
   ProviderDate,
   ProviderTag,
+  ProviderStreamingLink,
 } from './animeProvider.interface';
 
+// [FLAGGED 2026-09-16 — see docs/production/THIRD_PARTY_DATA_COMPLIANCE.md
+// §2] AniList's terms of use prohibit "using the AniList API as a backup
+// or data storage service" and "hoarding or mass collection of data",
+// and separately prohibit use within "competing noncomplementary
+// services... including... Anime/Manga list/tracker services" unless the
+// app provides "significant sustained integration/syncing with... AniList
+// user accounts" — which this app doesn't have. OTAKUVA's whole
+// architecture permanently ingests this data into its own canonical DB
+// and is itself an anime tracking platform, which is in obvious tension
+// with both clauses. This is a business/legal question, not something
+// fixable in this file — see the linked doc before treating AniList as
+// this app's default/primary catalog source at real scale.
 const ANILIST_GRAPHQL = process.env.ANILIST_BASE_URL || 'https://graphql.anilist.co';
 const ANILIST_TOKEN = process.env.ANILIST_TOKEN || '';
 
@@ -37,14 +50,28 @@ export interface AniListAiringItem {
       extraLarge?: string;
     };
     bannerImage?: string;
+    isAdult?: boolean;
     genres?: string[];
     averageScore?: number;
   };
 }
 
+// [FLAGGED 2026-09-16 — see docs/production/THIRD_PARTY_DATA_COMPLIANCE.md
+// §1/§3] This 700ms interval is sized against AniList's *normal* 90
+// req/min cap only. AniList's own docs have at times stated a temporary
+// reduction to 30 req/min during a "degraded" period — this class has no
+// way to know which cap is currently live, since it never reads the
+// X-RateLimit-Limit/X-RateLimit-Remaining response headers AniList sends;
+// it only reacts to Retry-After after already getting a 429 (see
+// graphql() below). It's also a plain read-then-write timestamp check,
+// not serialized across concurrent callers — jikanService.ts's throttle()
+// had the identical race and had to move to a chained-promise queue for
+// exactly this reason (see that file's header comment). Neither fixed
+// here — flagging so whoever tunes this reads the linked doc first rather
+// than just bumping the constant.
 class RateLimiter {
   private lastRequest = 0;
-  private minIntervalMs = 700; // ~85 req/min, safe under 90 req/min limit
+  private minIntervalMs = 700; // ~85 req/min, safe under 90 req/min limit — NOT safe under a 30 req/min degraded cap, see comment above
 
   async throttle(): Promise<void> {
     const now = Date.now();
@@ -58,6 +85,11 @@ class RateLimiter {
 
 const rateLimiter = new RateLimiter();
 
+// Unlike src/lib/jikanService.ts's jikanFetch() (24h in-memory response
+// cache), every call here is always live — no local caching in front of
+// this. Flagged in docs/production/THIRD_PARTY_DATA_COMPLIANCE.md §1/§3
+// as one of the things that would help both the rate-limit margin and
+// AniList's own "don't hammer us" expectations.
 async function graphql(query: string, variables: any = {}, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -240,6 +272,86 @@ function mapTags(media: any): ProviderTag[] {
   }));
 }
 
+export interface ProviderStaffDetails {
+  anilistId: number;
+  name: string | null;
+  nameNative: string | null;
+  imageUrl: string | null;
+  about: string | null;
+  occupations: string[];
+  /** "YYYY-MM-DD", "YYYY-MM", "YYYY" or "--MM-DD" (no year), else null. */
+  dateOfBirth: string | null;
+  dateOfDeath: string | null;
+  homeTown: string | null;
+  yearsActive: string | null;
+  /** Other names they're credited under (AniList name.alternative). */
+  alternativeNames: string[];
+  gender: string | null;
+  bloodType: string | null;
+  /** Primary language, e.g. "Japanese". */
+  language: string | null;
+  /** AniList members who favourited them. */
+  favourites: number | null;
+}
+
+function fuzzyDateString(d: { year?: number | null; month?: number | null; day?: number | null } | null | undefined): string | null {
+  if (!d) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (d.year && d.month && d.day) return `${d.year}-${pad(d.month)}-${pad(d.day)}`;
+  if (d.year && d.month) return `${d.year}-${pad(d.month)}`;
+  if (d.year) return String(d.year);
+  if (d.month && d.day) return `--${pad(d.month)}-${pad(d.day)}`;
+  return null;
+}
+
+// A markdown link; its label may hold one level of brackets ("[YouTube [ano]](…)").
+const MD_LINK = /\[(?:[^[\]]|\[[^\]]*\])*\]\([^)]*\)/g;
+const SITE_WORDS = /\b(?:official|website|site|homepage|blog|wiki|wikipedia|twitter|x|instagram|tiktok|youtube|facebook|pixiv|bluesky|threads|weibo|spotify|line|jp|en|ja)\b/gi;
+
+/**
+ * "[Wiki (jp)](…) | [Twitter](…)" or "Website | Twitter | [YouTube [ano]](…)":
+ * a reference list, not prose. True only when the line has a link and,
+ * once links, site names and separators are removed, nothing is left.
+ */
+function isLinkListLine(raw: string): boolean {
+  const line = raw.replace(/\*\*|__|(?<![\w])[*_]|[*_](?![\w])/g, ''); // "__[Website](…)__" bold/italic wrappers
+  const hasLink = MD_LINK.test(line);
+  MD_LINK.lastIndex = 0;
+  if (hasLink) {
+    const rest = line.replace(MD_LINK, '').replace(/\([^)]*\)/g, '').replace(SITE_WORDS, '').replace(/[|,·•/\-\s]/g, '');
+    if (rest.length === 0) return true;
+  }
+  // HTML links arrive as bare labels once tags are stripped:
+  // "Website | Twitter | Instagram (run by staff)". Short pieces separated
+  // by "|", at least one a site name or link — prose rarely looks like that.
+  const pieces = line.replace(MD_LINK, 'link').split(/\s*[|·•]\s*/).map((p) => p.replace(/\([^)]*\)/g, '').trim()).filter(Boolean);
+  if (pieces.length < 2 || !pieces.every((p) => p.split(/\s+/).length <= 4)) return false;
+  return pieces.some((p) => p === 'link' || new RegExp(`^(?:${SITE_WORDS.source.replace(/\\b/g, '')})$`, 'i').test(p));
+}
+
+/** AniList staff descriptions are markdown with HTML bits; keep plain text, drop spoilers. */
+export function plainTextBio(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const text = raw
+    .replace(/~!([\s\S]*?)!~/g, '') // spoiler blocks
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // images
+    .split('\n').filter((line) => !isLinkListLine(line)).join('\n')
+    .replace(/\[((?:[^[\]]|\[[^\]]*\])+)\]\([^)]*\)/g, '$1') // links -> text
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(\S(?:.*?\S)?)\1/g, '$2')
+    .replace(/^#+\s*/gm, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text || null;
+}
+
 function mapAniListAnime(media: any): ProviderAnime {
   const titles = mapTitles(media);
   const canonicalTitle = media.title?.english || media.title?.romaji || media.title?.native || 'Untitled Anime';
@@ -269,7 +381,9 @@ function mapAniListAnime(media: any): ProviderAnime {
     score: typeof media.averageScore === 'number' ? media.averageScore / 10 : null,
     popularity: media.popularity || null,
     favorites: media.favourites || null,
-    posterUrl: media.coverImage?.large || media.coverImage?.extraLarge || media.coverImage?.medium || '',
+    // extraLarge (~460px wide) first: `large` is ~230px and looked soft and
+    // grainy once scaled to card/hero sizes on high-density screens.
+    posterUrl: media.coverImage?.extraLarge || media.coverImage?.large || media.coverImage?.medium || '',
     largePosterUrl: media.coverImage?.extraLarge || media.coverImage?.large || null,
     bannerUrl: media.bannerImage || null,
     trailerUrl: media.trailer?.id && media.trailer?.site === 'youtube'
@@ -430,6 +544,38 @@ export class AniListProvider implements AnimeProvider {
     };
   }
 
+  /** Most popular non-adult anime in one AniList genre (e.g. "Thriller"). */
+  async getAnimeByGenre(genre: string, page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
+    const gql = `
+      query ($genre: String, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo {
+            currentPage
+            lastPage
+            hasNextPage
+            total
+          }
+          media(genre: $genre, type: ANIME, isAdult: false, sort: POPULARITY_DESC) {
+            ${MEDIA_FIELDS}
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { genre, page, perPage: limit });
+    const pageInfo = data?.Page?.pageInfo || {};
+    const media = data?.Page?.media || [];
+
+    return {
+      items: media.map(mapAniListAnime),
+      pagination: {
+        currentPage: pageInfo.currentPage || page,
+        lastVisiblePage: pageInfo.lastPage || page,
+        hasNextPage: Boolean(pageInfo.hasNextPage),
+        totalItems: pageInfo.total || 0,
+      },
+    };
+  }
+
   async getTopAnime(page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
     return this.getAnimeList(page, limit);
   }
@@ -522,6 +668,61 @@ export class AniListProvider implements AnimeProvider {
 
     return {
       items: media.map(mapAniListAnime),
+      pagination: {
+        currentPage: pageInfo.currentPage || page,
+        lastVisiblePage: pageInfo.lastPage || page,
+        hasNextPage: Boolean(pageInfo.hasNextPage),
+        totalItems: pageInfo.total || 0,
+      },
+    };
+  }
+
+  /**
+   * Every anime whose start date falls in one calendar year, in stable id
+   * order (so paging through a whole year never skips or repeats a title).
+   * Year-only dates are stored as YYYY0000, hence the `- 1` on the lower
+   * bound — getHistoricalAnime's `> YYYY0000` misses exactly those.
+   */
+  async getAnimeByStartYear(year: number, page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
+    const gql = `
+      query ($gt: FuzzyDateInt, $lt: FuzzyDateInt, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo { currentPage lastPage hasNextPage total }
+          media(startDate_greater: $gt, startDate_lesser: $lt, type: ANIME, sort: ID) {
+            ${MEDIA_FIELDS}
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { gt: year * 10000 - 1, lt: (year + 1) * 10000, page, perPage: limit });
+    const pageInfo = data?.Page?.pageInfo || {};
+    return {
+      items: (data?.Page?.media || []).map(mapAniListAnime),
+      pagination: {
+        currentPage: pageInfo.currentPage || page,
+        lastVisiblePage: pageInfo.lastPage || page,
+        hasNextPage: Boolean(pageInfo.hasNextPage),
+        totalItems: pageInfo.total || 0,
+      },
+    };
+  }
+
+  /** Not-yet-released anime (many have no start date at all), stable id order. */
+  async getUnreleasedAnime(page = 1, limit = 50): Promise<{ items: ProviderAnime[]; pagination: ProviderPagination }> {
+    const gql = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          pageInfo { currentPage lastPage hasNextPage total }
+          media(status: NOT_YET_RELEASED, type: ANIME, sort: ID) {
+            ${MEDIA_FIELDS}
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { page, perPage: limit });
+    const pageInfo = data?.Page?.pageInfo || {};
+    return {
+      items: (data?.Page?.media || []).map(mapAniListAnime),
       pagination: {
         currentPage: pageInfo.currentPage || page,
         lastVisiblePage: pageInfo.lastPage || page,
@@ -726,6 +927,233 @@ export class AniListProvider implements AnimeProvider {
     }
   }
 
+  /**
+   * Anime-to-anime relations for up to 50 anime at once, looked up by MAL
+   * id. relationType is AniList's enum (SEQUEL, PREQUEL, SIDE_STORY, ...).
+   */
+  /** Staff credits for up to 25 anime per request, keyed by AniList anime id. */
+  async getStaffByAnilistIds(anilistIds: number[]): Promise<Map<number, ProviderStaff[]>> {
+    const out = new Map<number, ProviderStaff[]>();
+    const ids = anilistIds.slice(0, 25);
+    if (ids.length === 0) return out;
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            staff(perPage: 25, sort: [RELEVANCE, ID]) {
+              edges { role node { id name { full native } image { large } } }
+            }
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids, perPage: ids.length });
+    for (const m of data?.Page?.media || []) {
+      if (!m?.id) continue;
+      out.set(
+        m.id,
+        (m.staff?.edges || [])
+          .filter((e: any) => e?.node?.id && e.node.name?.full)
+          .map((e: any) => ({
+            personExternalId: String(e.node.id),
+            personName: e.node.name.full,
+            personKanji: e.node.name.native || null,
+            personImage: e.node.image?.large || null,
+            positions: e.role ? [e.role] : ['Staff'],
+          }))
+      );
+    }
+    return out;
+  }
+
+  /**
+   * Profile details for up to 50 AniList staff (people) per request. The
+   * bio is reduced to plain text: AniList markdown/HTML is stripped and
+   * spoiler blocks are dropped entirely. Missing fields stay null.
+   */
+  async getStaffDetails(staffIds: number[]): Promise<Map<number, ProviderStaffDetails>> {
+    const out = new Map<number, ProviderStaffDetails>();
+    const ids = staffIds.slice(0, 50);
+    if (ids.length === 0) return out;
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          staff(id_in: $ids) {
+            id
+            name { full native alternative }
+            image { large }
+            description(asHtml: false)
+            primaryOccupations
+            gender
+            bloodType
+            languageV2
+            favourites
+            dateOfBirth { year month day }
+            dateOfDeath { year month day }
+            homeTown
+            yearsActive
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids, perPage: ids.length });
+    for (const s of data?.Page?.staff || []) {
+      if (!s?.id) continue;
+      const years: number[] = Array.isArray(s.yearsActive) ? s.yearsActive.filter((y: any) => Number.isInteger(y)) : [];
+      out.set(s.id, {
+        anilistId: s.id,
+        name: s.name?.full || null,
+        nameNative: s.name?.native || null,
+        imageUrl: s.image?.large && !/\/default\.jpg$/.test(s.image.large) ? s.image.large : null,
+        about: plainTextBio(s.description),
+        occupations: Array.isArray(s.primaryOccupations) ? s.primaryOccupations.filter(Boolean) : [],
+        dateOfBirth: fuzzyDateString(s.dateOfBirth),
+        dateOfDeath: fuzzyDateString(s.dateOfDeath),
+        homeTown: typeof s.homeTown === 'string' && s.homeTown.trim() ? s.homeTown.trim() : null,
+        // [start] = still active; [start, end] = active range.
+        yearsActive: years.length === 0 ? null : years.length === 1 ? `${years[0]}–present` : `${years[0]}–${years[1]}`,
+        alternativeNames: Array.isArray(s.name?.alternative)
+          ? Array.from(new Set<string>(s.name.alternative.filter((n: unknown): n is string => typeof n === 'string' && n.trim() !== '').map((n: string) => n.trim()))).slice(0, 8)
+          : [],
+        gender: typeof s.gender === 'string' && s.gender.trim() ? s.gender.trim() : null,
+        bloodType: typeof s.bloodType === 'string' && s.bloodType.trim() ? s.bloodType.trim() : null,
+        language: typeof s.languageV2 === 'string' && s.languageV2.trim() ? s.languageV2.trim() : null,
+        favourites: Number.isInteger(s.favourites) ? s.favourites : null,
+      });
+    }
+    return out;
+  }
+
+  async getRelationsByMalIds(malIds: number[]) {
+    return this.getRelationsByIds(malIds, 'mal');
+  }
+
+  /** Relations for up to 50 anime, keyed by the id kind asked for (AniList id or MAL id). */
+  async getRelationsByIds(ids: number[], by: 'anilist' | 'mal'): Promise<
+    Map<number, Array<{ relationType: string; anilistId: number; malId: number | null; format: string | null; isAdult: boolean }>>
+  > {
+    const out = new Map<number, Array<{ relationType: string; anilistId: number; malId: number | null; format: string | null; isAdult: boolean }>>();
+    if (ids.length === 0) return out;
+    const filter = by === 'anilist' ? 'id_in' : 'idMal_in';
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(${filter}: $ids, type: ANIME) {
+            id
+            idMal
+            relations { edges { relationType node { id idMal type format isAdult } } }
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids: ids.slice(0, 50), perPage: 50 });
+    for (const m of data?.Page?.media || []) {
+      const key = by === 'anilist' ? m?.id : m?.idMal;
+      if (!key) continue;
+      const edges = (m.relations?.edges || [])
+        .filter((e: any) => e?.node?.type === 'ANIME' && e.relationType)
+        .map((e: any) => ({
+          relationType: String(e.relationType),
+          anilistId: e.node.id,
+          malId: e.node.idMal ?? null,
+          format: e.node.format ?? null,
+          isAdult: Boolean(e.node.isAdult),
+        }));
+      out.set(key, edges);
+    }
+    return out;
+  }
+
+  /**
+   * Banner images for up to 50 anime at once, looked up by MAL id. Only
+   * entries AniList actually has a banner for are returned.
+   */
+  async getBannersByMalIds(malIds: number[]): Promise<Map<number, { bannerUrl: string; anilistId: number }>> {
+    const out = new Map<number, { bannerUrl: string; anilistId: number }>();
+    if (malIds.length === 0) return out;
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(idMal_in: $ids, type: ANIME) { id idMal bannerImage }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids: malIds.slice(0, 50), perPage: 50 });
+    for (const m of data?.Page?.media || []) {
+      if (m?.idMal && typeof m.bannerImage === 'string' && m.bannerImage) {
+        out.set(m.idMal, { bannerUrl: m.bannerImage, anilistId: m.id });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Largest cover art (`coverImage.extraLarge`, ~460px wide) for up to 50
+   * anime, by AniList id or MAL id. Keyed by the id kind asked for; a missing
+   * key means AniList returned nothing for it.
+   */
+  async getCoversByIds(
+    ids: number[],
+    by: 'anilist' | 'mal'
+  ): Promise<Map<number, { anilistId: number; extraLarge: string; large: string | null }>> {
+    const out = new Map<number, { anilistId: number; extraLarge: string; large: string | null }>();
+    if (ids.length === 0) return out;
+    const filter = by === 'anilist' ? 'id_in' : 'idMal_in';
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(${filter}: $ids, type: ANIME) { id idMal coverImage { extraLarge large } }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids: ids.slice(0, 50), perPage: 50 });
+    for (const m of data?.Page?.media || []) {
+      const key = by === 'anilist' ? m?.id : m?.idMal;
+      const xl = m?.coverImage?.extraLarge;
+      if (key && typeof xl === 'string' && xl && !/\/default\.(?:jpg|png)$/i.test(xl)) {
+        out.set(key, { anilistId: m.id, extraLarge: xl, large: m.coverImage?.large || null });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Official streaming links (AniList `externalLinks` of type STREAMING —
+   * Crunchyroll, Netflix, …) for up to 50 anime, looked up by AniList id or
+   * by MAL id. Only media AniList actually returned appear in the map, so a
+   * missing key means "no answer", never "no streaming".
+   */
+  async getStreamingLinks(
+    ids: number[],
+    by: 'anilist' | 'mal'
+  ): Promise<Map<number, { anilistId: number; links: ProviderStreamingLink[] }>> {
+    const out = new Map<number, { anilistId: number; links: ProviderStreamingLink[] }>();
+    if (ids.length === 0) return out;
+    const filter = by === 'anilist' ? 'id_in' : 'idMal_in';
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(${filter}: $ids, type: ANIME) {
+            id
+            idMal
+            externalLinks { site url type language }
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids: ids.slice(0, 50), perPage: 50 });
+    for (const m of data?.Page?.media || []) {
+      const key = by === 'anilist' ? m?.id : m?.idMal;
+      if (!key) continue;
+      const links: ProviderStreamingLink[] = (m.externalLinks || [])
+        .filter((l: any) => l?.type === 'STREAMING' && typeof l.site === 'string' && typeof l.url === 'string' && /^https?:\/\//.test(l.url))
+        .map((l: any) => ({ name: l.site, url: l.url, language: l.language || null }));
+      out.set(key, { anilistId: m.id, links });
+    }
+    return out;
+  }
+
   async getAiringSchedule(
     airingAtGreater: number,
     airingAtLesser: number,
@@ -768,6 +1196,7 @@ export class AniListProvider implements AnimeProvider {
               bannerImage
               genres
               averageScore
+              isAdult
             }
           }
         }

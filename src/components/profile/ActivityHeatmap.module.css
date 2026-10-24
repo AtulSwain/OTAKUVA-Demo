@@ -215,3 +215,6 @@
   z-index: 1000;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
+
+/* Shelf language: soft panel, no border. */
+.heatmapCard { border: 0; border-radius: 22px; padding: 22px 24px; background: var(--surface-base); }

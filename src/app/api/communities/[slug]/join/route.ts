@@ -30,11 +30,11 @@ export async function POST(
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Join community error:', error);
-    const status = error.message?.includes('banned') || error.message?.includes('creator-exclusive')
+    const status = error.message?.includes('banned') || error.message?.startsWith('Forbidden')
       ? 403
       : error.message?.includes('not found')
       ? 404
       : 500;
-    return NextResponse.json({ error: error.message || 'Failed to join community' }, { status });
+    return NextResponse.json({ error: (error.message || 'Failed to join community').replace(/^Forbidden: /, '') }, { status });
   }
 }
