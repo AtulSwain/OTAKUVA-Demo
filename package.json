@@ -8,7 +8,7 @@
     "dev": "next dev",
     "predev:turbo": "npm run clean",
     "dev:turbo": "next dev --turbo",
-    "prebuild": "npm run clean && npm run check:providers",
+    "prebuild": "npm run clean && npm run check:providers && prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
