@@ -6,51 +6,38 @@ import {
   ThumbsUp,
   Flag,
   Edit3,
-  ShieldCheck,
-  Clapperboard,
-  ShieldAlert,
   AlertTriangle,
   Eye,
-  EyeOff,
   ArrowUpDown,
-  PenTool,
-  CheckCircle2,
   MessageCircle,
   Trash2,
   Pin,
   PinOff,
+  BadgeCheck,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { promptPhoneVerification } from '../auth/VerifyPhonePrompt';
 import { ReportReviewModal } from '../review/ReportReviewModal';
 import { UserAvatar } from '../ui/UserAvatar';
 import BadgeChip from '../badges/BadgeChip';
 import { isTierKey } from '../../lib/badges/tiers';
 import { reviewTagLabel } from '../../lib/reviews/reviewTags';
 import type { CommunityTag, ReplyItem } from '../../lib/reviews/reviewSocial';
-import { getScoreColor, getScoreSoftColor } from '../../lib/rating/ratingTiers';
+import { retentionColor, retentionLabel, retentionSoftColor } from '../../lib/rating/retentionTone';
 import styles from './AnimeReviewsCard.module.css';
 import { Composer } from '../ui/Composer';
-
-/** The reviewer's own rating from the rating section, read-only. Nothing when they haven't rated. */
-function ReviewerScore({ score }: { score?: number | null }) {
-  if (typeof score !== 'number') return null;
-  return (
-    <span
-      className={styles.reviewerScore}
-      style={{ color: getScoreColor(score), background: getScoreSoftColor(score, 0.14) }}
-      title="This reviewer's rating of the anime"
-    >
-      ★ {score.toFixed(1)}
-    </span>
-  );
-}
 
 export interface ReviewItem {
   id: string;
   title?: string;
   body: string;
   rating?: number | null;
+  /** The reviewer's own retention for this anime (their episode average). */
+  retention?: number | null;
   spoilerLevel?: 'SPOILER_FREE' | 'MILD_SPOILERS' | 'SPOILERS' | 'FULL_SPOILERS';
   containsSpoiler?: boolean;
   watchStatusAtReview?: string | null;
@@ -83,12 +70,7 @@ export interface ReviewItem {
     canonicalTitle?: string;
     posterImage?: string | null;
   };
-  aspects?: Array<{
-    aspect: string;
-    sentiment: string;
-    sentimentScore: number;
-    confidence: number;
-  }>;
+  aspects?: Array<{ aspect: string; sentiment: string; sentimentScore: number; confidence: number }>;
 }
 
 interface AnimeReviewsCardProps {
@@ -101,15 +83,171 @@ interface AnimeReviewsCardProps {
   /** The viewer may pin/unpin (moderators and admins). */
   canPin?: boolean;
   communityTags?: CommunityTag[];
+  /** Opens the full review window (headline, tags, spoiler level). */
   onWriteReview?: () => void;
   onEditReview?: (review: ReviewItem) => void;
   onReviewsChanged?: () => void;
 }
 
-// Reviews show what people wrote, their tags and the conversation under it,
-// plus the reviewer's own rating (read-only — it's entered in the rating
-// section, never in the review).
+const REVIEW_MIN = 20;
+const REVIEW_MAX = 5000;
+
+/** "2 days ago" / "Oct 12, 2026" — fixed locale so server and browser agree. */
+function timeAgo(raw?: string) {
+  if (!raw) return '';
+  const t = new Date(raw).getTime();
+  if (Number.isNaN(t)) return '';
+  const mins = Math.round((Date.now() - t) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const h = Math.round(mins / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `${d} ${d === 1 ? 'day' : 'days'} ago`;
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** The reviewer's verdict: their own retention band ("Hooked", "Peaking"…), as a pill. */
+function Verdict({ retention }: { retention?: number | null }) {
+  if (typeof retention !== 'number') return null;
+  return (
+    <span
+      className={styles.verdict}
+      style={{ color: retentionColor(retention), background: retentionSoftColor(retention) }}
+      title={`This reviewer's retention for the anime: ${retention}%`}
+    >
+      {retentionLabel(retention)}
+    </span>
+  );
+}
+
+/** Small spoiler tag that sits right after the name. */
+function SpoilerTag({ level }: { level?: string }) {
+  if (!level || level === 'SPOILER_FREE') return <span className={`${styles.tag} ${styles.tagSafe}`}>Spoiler-free</span>;
+  const label = level === 'FULL_SPOILERS' ? 'Major spoilers' : level === 'MILD_SPOILERS' ? 'Mild spoilers' : 'Spoilers';
+  return <span className={`${styles.tag} ${styles.tagSpoiler}`}>{label}</span>;
+}
+
+/**
+ * The "Write a Review" card — used for a new review and, in place of the
+ * review itself, for editing your own (owner, 2026-10-25: the edit window is
+ * the same design as writing). Plain text box with the browser's spelling
+ * correction, character count, "Contains spoilers", Post / Save.
+ */
+function ReviewWriteCard({
+  mode,
+  user,
+  animeTitle,
+  initialBody = '',
+  initialSpoiler = false,
+  submitting,
+  onSubmit,
+  onCancel,
+  onDelete,
+  onMoreOptions,
+  onNeedLogin,
+}: {
+  mode: 'new' | 'edit';
+  user: { username: string; avatarUrl?: string | null } | null;
+  animeTitle: string;
+  initialBody?: string;
+  initialSpoiler?: boolean;
+  submitting: boolean;
+  onSubmit: (body: string, hasSpoilers: boolean) => Promise<boolean>;
+  onCancel?: () => void;
+  onDelete?: () => void;
+  onMoreOptions?: () => void;
+  onNeedLogin: () => void;
+}) {
+  const [draft, setDraft] = useState(initialBody);
+  const [hasSpoilers, setHasSpoilers] = useState(initialSpoiler);
+  const tooShort = draft.trim().length < REVIEW_MIN;
+  const unchanged = mode === 'edit' && draft.trim() === initialBody.trim() && hasSpoilers === initialSpoiler;
+
+  const submit = async () => {
+    if (!user) return onNeedLogin();
+    if (tooShort || submitting || unchanged) return;
+    const ok = await onSubmit(draft.trim(), hasSpoilers);
+    if (ok && mode === 'new') {
+      setDraft('');
+      setHasSpoilers(false);
+    }
+  };
+
+  return (
+    <div className={`${styles.writeCard} ${mode === 'edit' ? styles.writeCardEdit : ''}`}>
+      <div className={styles.writeWho}>
+        {user ? <UserAvatar username={user.username} avatarUrl={user.avatarUrl} size={44} /> : <span className={styles.writeAnon} aria-hidden="true" />}
+        <span className={styles.writeName}>{user ? `@${user.username}` : 'Sign in to write a review'}</span>
+        {mode === 'edit' && <span className={styles.editingMark}>Editing your review</span>}
+      </div>
+      <div className={styles.writeBox}>
+        <textarea
+          className={styles.writeInput}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value.slice(0, REVIEW_MAX))}
+          onFocus={() => {
+            if (!user) onNeedLogin();
+          }}
+          placeholder={`What did you think of ${animeTitle}?`}
+          rows={mode === 'edit' ? 5 : 3}
+          maxLength={REVIEW_MAX}
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="sentences"
+          lang="en"
+          aria-label={mode === 'edit' ? 'Edit your review' : 'Your review'}
+          autoFocus={mode === 'edit'}
+        />
+        <span className={styles.writeCount}>
+          {draft.length}/{REVIEW_MAX}
+        </span>
+      </div>
+      <div className={styles.writeFoot}>
+        <label className={styles.check}>
+          <input type="checkbox" checked={hasSpoilers} onChange={(e) => setHasSpoilers(e.target.checked)} />
+          <span className={styles.checkBox} aria-hidden="true" />
+          Contains spoilers
+        </label>
+        <div className={styles.writeActions}>
+          {onDelete && (
+            <button type="button" className={styles.deleteLink} onClick={onDelete} disabled={submitting}>
+              <Trash2 size={13} aria-hidden="true" /> Delete
+            </button>
+          )}
+          {onMoreOptions && user && (
+            <button type="button" className={styles.moreOptions} onClick={onMoreOptions}>
+              <SlidersHorizontal size={13} aria-hidden="true" /> More options
+            </button>
+          )}
+          {onCancel && (
+            <button type="button" className={styles.cancel} onClick={onCancel} disabled={submitting}>
+              Cancel
+            </button>
+          )}
+          <button type="button" className={styles.post} onClick={submit} disabled={submitting || (Boolean(user) && (tooShort || unchanged))}>
+            {submitting ? (mode === 'edit' ? 'Saving…' : 'Posting…') : mode === 'edit' ? 'Save' : 'Post'}
+          </button>
+        </div>
+      </div>
+      {user && draft.length > 0 && tooShort && <p className={styles.writeHint}>{REVIEW_MIN - draft.trim().length} more characters to post</p>}
+    </div>
+  );
+}
+
+/**
+ * Reviews on the anime page (redesigned 2026-10-25, owner; modelled on a
+ * reference app): a "Write a Review" card (avatar, @username, a plain text
+ * box with the browser's spelling correction, spoiler switch, Post), then
+ * "User Reviews" with sort + Show spoilers + Creators only. Each review:
+ * avatar, name, then the Spoiler-free/Spoilers tag and the reviewer's
+ * verdict pill (their retention band) — no spoiler line above the name any
+ * more. Replies are collapsed behind "View N replies"; a reply's author sees
+ * "You" and can delete it. The full review window (headline, tags) is one
+ * tap away ("More options").
+ */
 export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
+  animeId,
   animeTitle = 'this anime',
   reviews = [],
   userReview = null,
@@ -123,14 +261,22 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
   const { user, openAuthModal } = useAuth();
   const { showToast } = useToast();
 
+  // Write a Review / edit your own in place
+  const [posting, setPosting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // List controls
+  const [sortBy, setSortBy] = useState<'RECOMMENDED' | 'HELPFUL' | 'NEWEST'>('RECOMMENDED');
+  const [showSpoilers, setShowSpoilers] = useState(false);
+  const [creatorsOnly, setCreatorsOnly] = useState(false);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+
   const [likeStates, setLikeStates] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [reportingReview, setReportingReview] = useState<{ id: string; title: string } | null>(null);
-  const [spoilerFilter, setSpoilerFilter] = useState<'ALL' | 'SPOILER_FREE' | 'CREATORS'>('ALL');
-  const [sortBy, setSortBy] = useState<'RECOMMENDED' | 'HELPFUL' | 'NEWEST'>('RECOMMENDED');
 
-  // Replies loaded per review (starts with the API's inline first page).
+  // Replies, per review
   const [replyState, setReplyState] = useState<Record<string, { replies: ReplyItem[]; count: number }>>({});
+  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
   const [openComposer, setOpenComposer] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
   const [postingReply, setPostingReply] = useState(false);
@@ -138,62 +284,97 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
 
   const repliesFor = (r: ReviewItem) => replyState[r.id] ?? { replies: r.replies ?? [], count: r.replyCount ?? 0 };
 
-  const toggleReveal = (id: string) => {
-    setRevealedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+  /* ── Write a Review ── */
+  const postReview = async (body: string, hasSpoilers: boolean): Promise<boolean> => {
+    if (!animeId || posting) return false;
+    setPosting(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ animeId, body, spoilerLevel: hasSpoilers ? 'SPOILERS' : 'SPOILER_FREE' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.code === 'PHONE_NOT_VERIFIED') {
+          promptPhoneVerification('review');
+          return false;
+        }
+        throw new Error(data.error || 'Could not post your review.');
       }
-      return next;
-    });
+      showToast('Your review is posted', 'success');
+      onReviewsChanged?.();
+      return true;
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+      return false;
+    } finally {
+      setPosting(false);
+    }
   };
 
-  const handleHelpfulToggle = async (rev: ReviewItem) => {
-    if (!user) {
-      showToast('Please sign in to vote on reviews', 'info');
-      return;
-    }
-
-    const current = likeStates[rev.id] ?? {
-      count: rev.likesCount || 0,
-      liked: Boolean(rev.userLiked),
-    };
-
-    const nextLiked = !current.liked;
-    const nextCount = Math.max(0, current.count + (nextLiked ? 1 : -1));
-
-    // Optimistic update
-    setLikeStates((prev) => ({
-      ...prev,
-      [rev.id]: { count: nextCount, liked: nextLiked },
-    }));
-
+  /* ── Edit / delete your own review, in place ── */
+  const saveEdit = async (rev: ReviewItem, body: string, hasSpoilers: boolean): Promise<boolean> => {
+    if (posting) return false;
+    setPosting(true);
     try {
-      const res = await fetch(`/api/reviews/${rev.id}/helpful`, {
-        method: 'POST',
+      // Keep a stronger spoiler level the review already had.
+      const keepLevel = rev.spoilerLevel && rev.spoilerLevel !== 'SPOILER_FREE' ? rev.spoilerLevel : 'SPOILERS';
+      const res = await fetch(`/api/reviews/${rev.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body, spoilerLevel: hasSpoilers ? keepLevel : 'SPOILER_FREE' }),
       });
-      if (!res.ok) {
-        throw new Error('Failed to toggle vote');
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not save your review.');
+      showToast('Review updated', 'success');
+      setEditingId(null);
+      onReviewsChanged?.();
+      return true;
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+      return false;
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const deleteOwn = async (rev: ReviewItem) => {
+    if (!confirm("Delete your review? This can't be undone.")) return;
+    setPosting(true);
+    try {
+      const res = await fetch(`/api/reviews/${rev.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not delete your review.');
+      showToast('Review deleted', 'info');
+      setEditingId(null);
+      onReviewsChanged?.();
+    } catch (err) {
+      showToast((err as Error).message, 'error');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  /* ── Helpful ── */
+  const handleHelpfulToggle = async (rev: ReviewItem) => {
+    if (!user) return showToast('Please sign in to vote on reviews', 'info');
+    const current = likeStates[rev.id] ?? { count: rev.likesCount || 0, liked: Boolean(rev.userLiked) };
+    const next = { count: Math.max(0, current.count + (current.liked ? -1 : 1)), liked: !current.liked };
+    setLikeStates((prev) => ({ ...prev, [rev.id]: next }));
+    try {
+      const res = await fetch(`/api/reviews/${rev.id}/helpful`, { method: 'POST' });
+      if (!res.ok) throw new Error();
       const data = await res.json();
       if (typeof data.likesCount === 'number') {
-        setLikeStates((prev) => ({
-          ...prev,
-          [rev.id]: { count: data.likesCount, liked: data.userLiked ?? nextLiked },
-        }));
+        setLikeStates((prev) => ({ ...prev, [rev.id]: { count: data.likesCount, liked: data.userLiked ?? next.liked } }));
       }
     } catch {
-      // Rollback on failure
-      setLikeStates((prev) => ({
-        ...prev,
-        [rev.id]: current,
-      }));
+      setLikeStates((prev) => ({ ...prev, [rev.id]: current }));
       showToast('Failed to update vote', 'error');
     }
   };
 
+  /* ── Replies ── */
   const loadAllReplies = async (reviewId: string) => {
     setLoadingAll(reviewId);
     try {
@@ -208,12 +389,24 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
     }
   };
 
-  const startReply = (reviewId: string) => {
-    if (!user) {
-      openAuthModal('login');
-      return;
+  const toggleThread = (rev: ReviewItem) => {
+    const open = openThreads.has(rev.id);
+    setOpenThreads((prev) => {
+      const next = new Set(prev);
+      if (open) next.delete(rev.id);
+      else next.add(rev.id);
+      return next;
+    });
+    if (!open) {
+      const { replies, count } = repliesFor(rev);
+      if (count > replies.length) loadAllReplies(rev.id);
     }
-    setOpenComposer((cur) => (cur === reviewId ? null : reviewId));
+  };
+
+  const startReply = (rev: ReviewItem) => {
+    if (!user) return openAuthModal('login');
+    setOpenThreads((prev) => new Set(prev).add(rev.id));
+    setOpenComposer((cur) => (cur === rev.id ? null : rev.id));
     setReplyDraft('');
   };
 
@@ -246,145 +439,13 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
       const res = await fetch(`/api/reviews/${rev.id}/replies/${replyId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       const cur = repliesFor(rev);
-      setReplyState((prev) => ({
-        ...prev,
-        [rev.id]: { replies: cur.replies.filter((r) => r.id !== replyId), count: Math.max(0, cur.count - 1) },
-      }));
+      setReplyState((prev) => ({ ...prev, [rev.id]: { replies: cur.replies.filter((r) => r.id !== replyId), count: Math.max(0, cur.count - 1) } }));
     } catch {
       showToast('Could not delete reply', 'error');
     }
   };
 
-  const formatDate = (rawDate?: string) => {
-    if (!rawDate) return 'Recently';
-    try {
-      const d = new Date(rawDate);
-      if (isNaN(d.getTime())) return rawDate;
-      // Fixed locale, not `undefined` (the runtime's default): the server
-      // and the browser can have different default locales, which used to
-      // render two different date strings for the same value and fail
-      // hydration once this page started server-rendering.
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return rawDate;
-    }
-  };
-
-  const getSpoilerBadge = (level?: string) => {
-    switch (level) {
-      case 'FULL_SPOILERS':
-        return (
-          <span className={`${styles.spoilerBadge} ${styles.badgeFullSpoiler}`}>
-            <AlertTriangle size={14} />
-            Major spoilers
-          </span>
-        );
-      case 'SPOILERS':
-        return (
-          <span className={`${styles.spoilerBadge} ${styles.badgeSpoiler}`}>
-            <AlertTriangle size={14} />
-            Spoilers
-          </span>
-        );
-      case 'MILD_SPOILERS':
-        return (
-          <span className={`${styles.spoilerBadge} ${styles.badgeMild}`}>
-            <ShieldAlert size={14} />
-            Mild spoilers
-          </span>
-        );
-      default:
-        return (
-          <span className={`${styles.spoilerBadge} ${styles.badgeSafe}`}>
-            <ShieldCheck size={14} />
-            Spoiler-free review
-          </span>
-        );
-    }
-  };
-
-  const renderTags = (tags?: string[]) =>
-    tags && tags.length > 0 ? (
-      <div className={styles.tagsRow} aria-label="Tags">
-        {tags.map((t) => (
-          <span key={t} className={styles.tagChip}>
-            {reviewTagLabel(t)}
-          </span>
-        ))}
-      </div>
-    ) : null;
-
-  const renderThread = (rev: ReviewItem) => {
-    const { replies, count } = repliesFor(rev);
-    const username = rev.user?.username || 'OtakuMember';
-    if (replies.length === 0 && count === 0 && openComposer !== rev.id) return null;
-    return (
-      <div className={styles.thread}>
-        {replies.map((rp) => (
-          <div key={rp.id} className={styles.reply}>
-            <UserAvatar username={rp.user.username} avatarUrl={rp.user.avatarUrl} size={24} />
-            <div className={styles.replyMain}>
-              <p className={styles.replyHead}>
-                <Link href={`/profile/${encodeURIComponent(rp.user.username)}`} className={styles.replyName}>
-                  {rp.user.username}
-                </Link>
-                <span className={styles.replyDate}>{formatDate(rp.createdAt)}</span>
-                {rp.canDelete && (
-                  <button type="button" className={styles.replyDelete} onClick={() => removeReply(rev, rp.id)} aria-label="Delete reply">
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </p>
-              <p className={styles.replyBody}>{rp.body}</p>
-            </div>
-          </div>
-        ))}
-
-        {count > replies.length && (
-          <button type="button" className={styles.moreReplies} onClick={() => loadAllReplies(rev.id)} disabled={loadingAll === rev.id}>
-            {loadingAll === rev.id ? 'Loading…' : `View all ${count} replies`}
-          </button>
-        )}
-
-        {openComposer === rev.id && (
-          <div className={styles.replyForm}>
-            <Composer
-              value={replyDraft}
-              onChange={(v) => setReplyDraft(v.slice(0, 1000))}
-              onSubmit={() => postReply(rev)}
-              onCancel={() => {
-                setReplyDraft('');
-                setOpenComposer(null);
-              }}
-              submitting={postingReply}
-              submitLabel="Reply"
-              maxLength={1000}
-              placeholder={`Reply to ${username}…`}
-              replyingTo={username}
-              autoFocus
-              compact
-            />
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const replyButton = (rev: ReviewItem) => {
-    const count = repliesFor(rev).count;
-    return (
-      <button
-        type="button"
-        className={`${styles.actionBtn} ${openComposer === rev.id ? styles.actionBtnActive : ''}`}
-        onClick={() => startReply(rev.id)}
-        aria-expanded={openComposer === rev.id}
-      >
-        <MessageCircle size={12} />
-        <span>Reply{count > 0 ? ` (${count})` : ''}</span>
-      </button>
-    );
-  };
-
+  /* ── Pin (moderators) ── */
   const [pinBusy, setPinBusy] = useState<string | null>(null);
   const togglePin = async (rev: ReviewItem) => {
     if (pinBusy) return;
@@ -402,303 +463,304 @@ export const AnimeReviewsCard: React.FC<AnimeReviewsCardProps> = ({
     }
   };
 
-  // Pinned reviews sit on top; the viewer's own review comes next (only a
-  // small mark sets it apart); everyone else follows.
+  /* ── List ── */
   const pinnedIds = new Set(pinned.map((r) => r.id));
   const ownPinned = Boolean(userReview && pinnedIds.has(userReview.id));
   const communityReviews = reviews.filter((r) => !pinnedIds.has(r.id) && (!userReview || r.id !== userReview.id));
-
-  // Apply client filters and sort
-  const filteredReviews = communityReviews.filter((r) => {
-    if (spoilerFilter === 'SPOILER_FREE') {
-      return !r.spoilerLevel || r.spoilerLevel === 'SPOILER_FREE';
-    }
-    if (spoilerFilter === 'CREATORS') return Boolean(r.isCreatorReview);
-    return true;
-  });
-
-  const sortedReviews = [...filteredReviews].sort((a, b) => {
-    const aLikes = likeStates[a.id]?.count ?? a.likesCount ?? 0;
-    const bLikes = likeStates[b.id]?.count ?? b.likesCount ?? 0;
-    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-    if (sortBy === 'HELPFUL') return bLikes - aLikes;
-    if (sortBy === 'NEWEST') return bTime - aTime;
-    // RECOMMENDED default: creator reviews first (owner, 2026-10-24), then
-    // likes weighted with recency.
+  const filtered = communityReviews.filter((r) => !creatorsOnly || r.isCreatorReview);
+  const sorted = [...filtered].sort((a, b) => {
+    const likes = (r: ReviewItem) => likeStates[r.id]?.count ?? r.likesCount ?? 0;
+    const time = (r: ReviewItem) => (r.createdAt ? new Date(r.createdAt).getTime() : 0);
+    if (sortBy === 'HELPFUL') return likes(b) - likes(a);
+    if (sortBy === 'NEWEST') return time(b) - time(a);
+    // Recommended: creator reviews first (owner, 2026-10-24), then likes, then recency.
     if (Boolean(a.isCreatorReview) !== Boolean(b.isCreatorReview)) return a.isCreatorReview ? -1 : 1;
-    return bLikes !== aLikes ? bLikes - aLikes : bTime - aTime;
+    return likes(b) - likes(a) || time(b) - time(a);
   });
+  const total = pinned.length + (userReview && !ownPinned ? 1 : 0) + communityReviews.length;
 
-  /** One review, the same layout for pinned, yours and everyone else's. */
-  const renderReview = (rev: ReviewItem, own: boolean) => {
-    const username = rev.user?.username || user?.username || 'OtakuMember';
-    const avatarUrl = rev.user?.avatarUrl ?? (own ? user?.avatarUrl : null);
-    const isSpoiler = !own && rev.spoilerLevel && rev.spoilerLevel !== 'SPOILER_FREE';
-    const isRevealed = revealedIds.has(rev.id);
-    const currentLike = likeStates[rev.id] ?? { count: rev.likesCount || 0, liked: Boolean(rev.userLiked) };
-
+  /* ── One reply thread ── */
+  const renderThread = (rev: ReviewItem) => {
+    if (!openThreads.has(rev.id)) return null;
+    const { replies, count } = repliesFor(rev);
+    const author = rev.user?.username || 'member';
     return (
-      <div
-        key={rev.id}
-        id={`review-${rev.id}`}
-        className={`${styles.reviewItem} ${rev.pinnedAt ? styles.reviewPinned : ''} ${rev.isCreatorReview ? styles.reviewCreator : ''}`}
-      >
-        {/* Spoiler status first, above the name and score, so you know before you read. */}
-        <div className={styles.spoilerTop}>
-          {rev.isCreatorReview && (
-            <span className={styles.creatorLabel}>
-              <Clapperboard size={13} aria-hidden="true" /> Creator Review
-            </span>
-          )}
-          {getSpoilerBadge(rev.spoilerLevel)}
-        </div>
-        <div className={styles.userRow}>
-          <div className={styles.userInfo}>
-            <UserAvatar username={username} avatarUrl={avatarUrl} size={36} />
-            <div className={styles.userDetails}>
-              <span className={styles.nameRow}>
-                <Link href={`/profile/${username}`} className={styles.userName}>
-                  {username}
-                </Link>
-                {own && (
-                  <span className={styles.ownMark} title="This is your review">
-                    <CheckCircle2 size={12} aria-hidden="true" /> Your review
-                  </span>
-                )}
-                {rev.user?.badge && isTierKey(rev.user.badge.tier) && <BadgeChip tier={rev.user.badge.tier} count={rev.user.badge.count} />}
-                <ReviewerScore score={rev.rating} />
-              </span>
-              <div className={styles.subMeta}>
-                <span className={styles.date}>{formatDate(rev.createdAt)}</span>
-                {rev.edited && <span className={styles.editedText}>(edited)</span>}
-                {rev.watchStatusAtReview && (
-                  <span className={styles.watchStatusTag}>
-                    {rev.watchStatusAtReview.replace('_', ' ')}
-                    {typeof rev.episodeProgressAtReview === 'number' ? ` (Ep ${rev.episodeProgressAtReview})` : ''}
-                  </span>
-                )}
+      <div className={styles.thread}>
+        {replies.map((rp) => {
+          const mine = Boolean(user && rp.user.username === user.username);
+          return (
+            <div key={rp.id} className={`${styles.reply} ${mine ? styles.replyMine : ''}`}>
+              <UserAvatar username={rp.user.username} avatarUrl={rp.user.avatarUrl} size={28} />
+              <div className={styles.replyMain}>
+                <div className={styles.replyHead}>
+                  <Link href={`/profile/${encodeURIComponent(rp.user.username)}`} className={styles.replyName}>
+                    {rp.user.username}
+                  </Link>
+                  {mine && <span className={styles.youMark}>You</span>}
+                  <span className={styles.replyTime}>{timeAgo(rp.createdAt)}</span>
+                  {rp.canDelete && (
+                    <button type="button" className={styles.replyDelete} onClick={() => removeReply(rev, rp.id)} aria-label="Delete reply" title="Delete reply">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+                <p className={styles.replyBody}>{rp.body}</p>
               </div>
             </div>
-          </div>
+          );
+        })}
+        {loadingAll === rev.id && <p className={styles.threadNote}>Loading replies…</p>}
+        {replies.length === 0 && loadingAll !== rev.id && openComposer !== rev.id && <p className={styles.threadNote}>No replies yet.</p>}
 
-          <div className={styles.userRightMeta}>
-            {rev.pinnedAt && (
-              <span className={styles.pinnedMark}>
-                <Pin size={11} aria-hidden="true" /> Pinned
-              </span>
-            )}
-          </div>
-        </div>
-
-        {rev.isCreatorReview && rev.title && <h3 className={styles.creatorHeadline}>{rev.title}</h3>}
-
-        {isSpoiler && !isRevealed ? (
-          <div className={styles.spoilerShieldBox}>
-            <div className={styles.spoilerShieldContent}>
-              <AlertTriangle size={16} className={styles.shieldIcon} />
-              <div className={styles.shieldText}>
-                <strong>Spoiler Warning</strong>
-                <p>This review contains plot revelations ({rev.spoilerLevel?.replace('_', ' ').toLowerCase()}).</p>
-              </div>
-            </div>
-            <button type="button" className={styles.revealBtn} onClick={() => toggleReveal(rev.id)}>
-              <Eye size={13} />
-              <span>Reveal Review</span>
-            </button>
+        {openComposer === rev.id ? (
+          <div className={styles.replyForm}>
+            <Composer
+              value={replyDraft}
+              onChange={(v) => setReplyDraft(v.slice(0, 1000))}
+              onSubmit={() => postReply(rev)}
+              onCancel={() => {
+                setReplyDraft('');
+                setOpenComposer(null);
+              }}
+              submitting={postingReply}
+              submitLabel="Reply"
+              maxLength={1000}
+              placeholder={`Reply to ${author}…`}
+              replyingTo={author}
+              autoFocus
+              compact
+            />
           </div>
         ) : (
-          <>
-            <p className={styles.reviewBodyText}>{rev.body}</p>
-            {isSpoiler && isRevealed && (
-              <button type="button" className={styles.hideSpoilerBtn} onClick={() => toggleReveal(rev.id)}>
-                <EyeOff size={12} />
-                <span>Hide Spoilers</span>
-              </button>
-            )}
-          </>
+          <button type="button" className={styles.threadReply} onClick={() => startReply(rev)}>
+            <MessageCircle size={13} aria-hidden="true" /> Write a reply
+          </button>
         )}
-
-        {renderTags(rev.tags)}
-
-        <div className={styles.actionRow}>
-          <div className={styles.actionGroup}>
-            {own ? (
-              <span className={styles.helpfulCountText}>
-                <ThumbsUp size={12} aria-hidden="true" /> {rev.likesCount || 0} found this helpful
-              </span>
-            ) : (
-              <button
-                type="button"
-                className={`${styles.actionBtn} ${currentLike.liked ? styles.actionBtnActive : ''}`}
-                onClick={() => handleHelpfulToggle(rev)}
-                aria-label={`Mark review as helpful (${currentLike.count} helpful votes)`}
-              >
-                <ThumbsUp size={12} fill={currentLike.liked ? 'currentColor' : 'none'} />
-                <span>Helpful ({currentLike.count})</span>
-              </button>
-            )}
-            {replyButton(rev)}
-            {own && onEditReview && (
-              <button type="button" className={styles.actionBtn} onClick={() => onEditReview(rev)}>
-                <Edit3 size={12} />
-                <span>Edit</span>
-              </button>
-            )}
-            {canPin && (
-              <button type="button" className={styles.actionBtn} onClick={() => togglePin(rev)} disabled={pinBusy === rev.id}>
-                {rev.pinnedAt ? <PinOff size={12} /> : <Pin size={12} />}
-                <span>{rev.pinnedAt ? 'Unpin' : 'Pin'}</span>
-              </button>
-            )}
-          </div>
-
-          {!own && (
-            <button
-              type="button"
-              className={`${styles.actionBtn} ${styles.reportBtn}`}
-              onClick={() => setReportingReview({ id: rev.id, title: rev.title || `${username}'s review` })}
-              aria-label="Report review"
-            >
-              <Flag size={12} />
-              <span>Report</span>
-            </button>
-          )}
-        </div>
-
-        {renderThread(rev)}
+        {count > replies.length && loadingAll !== rev.id && (
+          <button type="button" className={styles.threadMore} onClick={() => loadAllReplies(rev.id)}>
+            Load all {count} replies
+          </button>
+        )}
       </div>
     );
   };
 
-  const totalReviewsCount = pinned.length + (userReview && !ownPinned ? 1 : 0) + communityReviews.length;
+  /* ── One review ── */
+  const renderReview = (rev: ReviewItem, own: boolean) => {
+    const username = rev.user?.username || user?.username || 'member';
+    const avatarUrl = rev.user?.avatarUrl ?? (own ? user?.avatarUrl : null);
+    const isSpoiler = !own && rev.spoilerLevel && rev.spoilerLevel !== 'SPOILER_FREE';
+    const hidden = isSpoiler && !showSpoilers && !revealedIds.has(rev.id);
+    const like = likeStates[rev.id] ?? { count: rev.likesCount || 0, liked: Boolean(rev.userLiked) };
+    const replyCount = repliesFor(rev).count;
+    const threadOpen = openThreads.has(rev.id);
 
-  return (
-    <div className={styles.card} role="region" aria-label="Community Reviews">
-      {/* Header */}
-      <div className={styles.headerRow}>
-        <div className={styles.headerTitleGroup}>
-          <h3 className={styles.headerTitle}>Community Reviews</h3>
-          <span className={styles.reviewCountBadge}>{totalReviewsCount}</span>
-        </div>
-        {/* No header "Write a Review" button: the composer prompt below (or the
-            empty state when there are no reviews yet) is the way in. */}
-      </div>
+    if (own && editingId === rev.id) {
+      return (
+        <article key={rev.id} id={`review-${rev.id}`} className={styles.reviewEditing}>
+          <ReviewWriteCard
+            mode="edit"
+            user={user ? { username: user.username, avatarUrl: user.avatarUrl } : null}
+            animeTitle={animeTitle}
+            initialBody={rev.body}
+            initialSpoiler={Boolean(rev.spoilerLevel && rev.spoilerLevel !== 'SPOILER_FREE')}
+            submitting={posting}
+            onSubmit={(body, spoiler) => saveEdit(rev, body, spoiler)}
+            onCancel={() => setEditingId(null)}
+            onDelete={() => deleteOwn(rev)}
+            onMoreOptions={onEditReview ? () => onEditReview(rev) : undefined}
+            onNeedLogin={() => openAuthModal('login')}
+          />
+        </article>
+      );
+    }
 
-      {/* What members tagged this anime with, most-picked first */}
-      {communityTags.length > 0 && (
-        <div className={styles.communityTags}>
-          <span className={styles.communityTagsLabel}>Members say</span>
-          <div className={styles.tagsRow}>
-            {communityTags.slice(0, 10).map((t) => (
-              <span key={t.tag} className={styles.tagChip}>
-                {t.label}
-                <span className={styles.tagCount}>{t.count}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+    return (
+      <article
+        key={rev.id}
+        id={`review-${rev.id}`}
+        className={`${styles.review} ${rev.pinnedAt ? styles.reviewPinned : ''} ${rev.isCreatorReview ? styles.reviewCreator : ''}`}
+      >
+        {/* Flat on the page (owner, 2026-10-26): no bubble, outline or border. */}
+        <UserAvatar username={username} avatarUrl={avatarUrl} size={40} />
+        <div className={styles.reviewMain}>
+          <div className={styles.bubble}>
+            <header className={styles.reviewHead}>
+              <div className={styles.who}>
+                <div className={styles.nameRow}>
+                  <Link href={`/profile/${encodeURIComponent(username)}`} className={styles.name}>
+                    {username}
+                  </Link>
+                  {rev.isCreatorReview && <BadgeCheck size={16} className={styles.creatorCheck} aria-label="Creator" />}
+                  {rev.user?.badge && isTierKey(rev.user.badge.tier) && <BadgeChip tier={rev.user.badge.tier} count={rev.user.badge.count} />}
+                  {/* One line (owner, 2026-10-26): name · retention · spoiler tag. */}
+                  <Verdict retention={rev.retention} />
+                  <SpoilerTag level={rev.spoilerLevel} />
+                  {own && <span className={styles.youMark}>Your review</span>}
+                </div>
+                <div className={styles.meta}>
+                  {rev.pinnedAt && (
+                    <span className={styles.pinned}>
+                      <Pin size={11} aria-hidden="true" /> Pinned ·
+                    </span>
+                  )}
+                  <span suppressHydrationWarning>{timeAgo(rev.createdAt)}</span>
+                  {rev.edited && <span>· edited</span>}
+                </div>
+              </div>
+            </header>
 
-      {/* Inline composer prompt: the quickest way in, styled like the feed it adds to */}
-      {!userReview && onWriteReview && totalReviewsCount > 0 && (
-        <button type="button" className={styles.composerPrompt} onClick={onWriteReview}>
-          {user ? (
-            <UserAvatar username={user.username} avatarUrl={user.avatarUrl} size={36} />
-          ) : (
-            <span className={styles.composerIcon} aria-hidden="true">
-              <PenTool size={15} />
-            </span>
-          )}
-          <span className={styles.composerText}>What did you think of {animeTitle}?</span>
-          <span className={styles.composerCta}>
-            <PenTool size={13} aria-hidden="true" /> Review
-          </span>
-        </button>
-      )}
+            {rev.isCreatorReview && rev.title && <h3 className={styles.headline}>{rev.title}</h3>}
 
-      {/* Filter and Sort bar if multiple reviews exist */}
-      {communityReviews.length > 1 && (
-        <div className={styles.controlBar}>
-          <div className={styles.filterGroup}>
-            <button
-              type="button"
-              className={`${styles.filterChip} ${spoilerFilter === 'ALL' ? styles.filterChipActive : ''}`}
-              onClick={() => setSpoilerFilter('ALL')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`${styles.filterChip} ${spoilerFilter === 'SPOILER_FREE' ? styles.filterChipActive : ''}`}
-              onClick={() => setSpoilerFilter('SPOILER_FREE')}
-            >
-              <ShieldCheck size={12} />
-              Spoiler Free
-            </button>
-            {communityReviews.some((r) => r.isCreatorReview) && (
-              <button
-                type="button"
-                className={`${styles.filterChip} ${spoilerFilter === 'CREATORS' ? styles.filterChipActive : ''}`}
-                onClick={() => setSpoilerFilter('CREATORS')}
-              >
-                <Clapperboard size={12} />
-                Creators
+            {hidden ? (
+              <button type="button" className={styles.spoilerCover} onClick={() => setRevealedIds((prev) => new Set(prev).add(rev.id))}>
+                <AlertTriangle size={15} aria-hidden="true" />
+                <span>This review has spoilers — tap to read</span>
+                <Eye size={14} aria-hidden="true" />
               </button>
+            ) : (
+              <p className={styles.body}>{rev.body}</p>
+            )}
+
+            {rev.tags && rev.tags.length > 0 && (
+              <div className={styles.tags}>
+                {rev.tags.map((t) => (
+                  <span key={t} className={styles.tagChip}>
+                    {reviewTagLabel(t)}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
 
-          <div className={styles.sortGroup}>
-            <ArrowUpDown size={12} className={styles.sortIcon} />
-            <select
-              className={styles.sortSelect}
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-            >
-              <option value="RECOMMENDED">Recommended</option>
-              <option value="HELPFUL">Most Helpful</option>
-              <option value="NEWEST">Newest</option>
-            </select>
-          </div>
-        </div>
-      )}
-
-      {/* 1. PINNED — good reviews a moderator put on top */}
-      {pinned.length > 0 && (
-        <div className={styles.pinnedGroup} aria-label="Pinned reviews">
-          <p className={styles.groupLabel}>
-            <Pin size={12} aria-hidden="true" /> Pinned
-          </p>
-          <div className={styles.reviewsList}>{pinned.map((rev) => renderReview(rev, Boolean(userReview && rev.id === userReview.id)))}</div>
-        </div>
-      )}
-
-      {/* 2. HONEST EMPTY STATE */}
-      {totalReviewsCount === 0 && (
-        <div className={styles.emptyState}>
-          <p className={styles.emptyTitle}>No reviews yet</p>
-          <p className={styles.emptySubtitle}>
-            Be the first to share your thoughts and critique on {animeTitle}!
-          </p>
-          {onWriteReview && (
-            <button type="button" className={styles.emptyWriteBtn} onClick={onWriteReview}>
-              <PenTool size={14} />
-              <span>Write the First Review</span>
+          <footer className={styles.actions}>
+            {own ? (
+              <span className={styles.action}>
+                <ThumbsUp size={14} aria-hidden="true" /> {rev.likesCount || 0}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className={`${styles.action} ${like.liked ? styles.actionOn : ''}`}
+                onClick={() => handleHelpfulToggle(rev)}
+                aria-label={`Helpful (${like.count})`}
+              >
+                <ThumbsUp size={14} fill={like.liked ? 'currentColor' : 'none'} /> {like.count}
+              </button>
+            )}
+            <button type="button" className={`${styles.action} ${threadOpen ? styles.actionOn : ''}`} onClick={() => (replyCount > 0 ? toggleThread(rev) : startReply(rev))} aria-expanded={threadOpen}>
+              <MessageCircle size={14} aria-hidden="true" />
+              {replyCount > 0 ? (
+                <>
+                  {threadOpen ? 'Hide replies' : `View ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}`}
+                  {threadOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </>
+              ) : (
+                'Reply'
+              )}
             </button>
-          )}
+            {own && (
+              <button type="button" className={styles.action} onClick={() => setEditingId(rev.id)}>
+                <Edit3 size={14} aria-hidden="true" /> Edit
+              </button>
+            )}
+            {canPin && (
+              <button type="button" className={styles.action} onClick={() => togglePin(rev)} disabled={pinBusy === rev.id}>
+                {rev.pinnedAt ? <PinOff size={14} /> : <Pin size={14} />} {rev.pinnedAt ? 'Unpin' : 'Pin'}
+              </button>
+            )}
+            {!own && (
+              <button
+                type="button"
+                className={`${styles.action} ${styles.report}`}
+                onClick={() => setReportingReview({ id: rev.id, title: rev.title || `${username}'s review` })}
+                aria-label="Report review"
+              >
+                <Flag size={13} />
+              </button>
+            )}
+          </footer>
+
+          {renderThread(rev)}
         </div>
+      </article>
+    );
+  };
+
+  return (
+    <div className={styles.card} role="region" aria-label="Reviews">
+      {/* ── Write a Review ── */}
+      {!userReview && (
+        <section className={styles.writeSection} aria-label="Write a review">
+          <h3 className={styles.sectionTitle}>Write a Review</h3>
+          <ReviewWriteCard
+            mode="new"
+            user={user ? { username: user.username, avatarUrl: user.avatarUrl } : null}
+            animeTitle={animeTitle}
+            submitting={posting}
+            onSubmit={postReview}
+            onMoreOptions={onWriteReview}
+            onNeedLogin={() => openAuthModal('login')}
+          />
+        </section>
       )}
 
-      {/* 3. YOUR REVIEW (just a small mark), THEN EVERYONE ELSE */}
-      {((userReview && !ownPinned) || sortedReviews.length > 0) && (
-        <div className={styles.reviewsList}>
-          {userReview && !ownPinned && renderReview(userReview, true)}
-          {sortedReviews.map((rev) => renderReview(rev, false))}
+      {/* ── User Reviews ── */}
+      <section aria-label="User reviews">
+        <div className={styles.listHead}>
+          <h3 className={styles.sectionTitle}>
+            User Reviews <span className={styles.count}>{total}</span>
+          </h3>
         </div>
-      )}
 
-      {/* Report Modal */}
+        {communityTags.length > 0 && (
+          <div className={styles.membersSay}>
+            <span className={styles.membersSayLabel}>Members say</span>
+            {communityTags.slice(0, 10).map((t) => (
+              <span key={t.tag} className={styles.tagChip}>
+                {t.label} <small>{t.count}</small>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {total > 0 && (
+          <div className={styles.controls}>
+            <label className={styles.sort}>
+              <ArrowUpDown size={15} aria-hidden="true" />
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} aria-label="Sort reviews">
+                <option value="RECOMMENDED">Recommended</option>
+                <option value="HELPFUL">Most liked</option>
+                <option value="NEWEST">Newest</option>
+              </select>
+              <ChevronDown size={15} aria-hidden="true" className={styles.sortChevron} />
+            </label>
+            <label className={styles.toggle}>
+              <input type="checkbox" checked={showSpoilers} onChange={(e) => setShowSpoilers(e.target.checked)} />
+              <span className={styles.checkBox} aria-hidden="true" />
+              Show spoilers
+            </label>
+            {communityReviews.some((r) => r.isCreatorReview) && (
+              <label className={styles.toggle}>
+                <input type="checkbox" checked={creatorsOnly} onChange={(e) => setCreatorsOnly(e.target.checked)} />
+                <span className={styles.checkBox} aria-hidden="true" />
+                Creators only
+              </label>
+            )}
+          </div>
+        )}
+
+        {total === 0 ? (
+          <p className={styles.empty}>No reviews yet — be the first to share what you thought of {animeTitle}.</p>
+        ) : (
+          <div className={styles.list}>
+            {pinned.map((rev) => renderReview(rev, Boolean(userReview && rev.id === userReview.id)))}
+            {userReview && !ownPinned && renderReview(userReview, true)}
+            {sorted.map((rev) => renderReview(rev, false))}
+          </div>
+        )}
+      </section>
+
       {reportingReview && (
         <ReportReviewModal
           isOpen={Boolean(reportingReview)}

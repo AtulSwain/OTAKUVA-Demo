@@ -206,7 +206,7 @@
 .lbLevelIcon, .lbLevelText { position: relative; z-index: 1; }
 .lbLevelOn, .lbLevelOn:hover {
   color: #fff;
-  background: color-mix(in srgb, var(--c) 14%, #1b1b1e);
+  background: color-mix(in srgb, var(--c) 14%, var(--surface-base));
   border-color: color-mix(in srgb, var(--c) 45%, transparent);
 }
 .lbLevelOn svg { color: var(--c); }
@@ -291,7 +291,7 @@
   --c: #fff; position: relative; overflow: hidden; isolation: isolate;
   display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 6px;
   border-radius: 999px; color: #fff;
-  background: color-mix(in srgb, var(--c) 14%, #1b1b1e);
+  background: color-mix(in srgb, var(--c) 14%, var(--surface-base));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent), 0 10px 30px -14px var(--c);
 }
 .lockedIcon, .lockedLabel, .lockedTag { position: relative; z-index: 1; }
@@ -455,3 +455,57 @@
 @keyframes tickIn { from { transform: scale(0); } to { transform: scale(1); } }
 /* Tick blends into the capsule (2026-10-22, owner): a soft tint of the
    level colour with the tick in that colour — no solid green disc. */
+
+/* ── Clean pass (2026-10-25): same poster size, gap and corner as every other rail. ── */
+.block .rail { grid-auto-columns: var(--rail-card); gap: var(--rail-gap); }
+.block .poster, .block .lbPoster { border-radius: var(--poster-radius); }
+@media (max-width: 600px) { .block .rail { grid-auto-columns: 136px; gap: 12px; } }
+
+/* ── Rank numerals like Top Rated (2026-10-25, owner) ──
+   Big "01" at the poster's bottom-left instead of a corner tag: white for
+   every rank, gold / silver / bronze metal for #1 / #2 / #3 — the same build
+   as the homepage Top Rated rail (page.module.css .rankNumeral / .medal*). */
+.block .lbRank {
+  top: auto; left: 8px; bottom: 2px; z-index: 2;
+  padding: 0; border-radius: 0; background: none;
+  color: #FFFFFF; -webkit-text-stroke: 1px rgba(0, 0, 0, 0.35);
+  font-size: 40px; font-weight: 900; line-height: 1; letter-spacing: -0.05em; font-variant-numeric: tabular-nums;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+}
+.block .lbGold, .block .lbSilver, .block .lbBronze {
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 0;
+}
+.block .lbGold { background-image: var(--medal-gold); }
+.block .lbSilver { background-image: var(--medal-silver); }
+.block .lbBronze { background-image: var(--medal-bronze); }
+
+/* Rank numeral owns the bottom-left; the countdown moves to the top-left so
+   they never touch on narrow cards (2026-10-26). */
+.block .lbSoon { top: 8px; left: 8px; right: auto; bottom: auto; }
+
+/* Upcoming card, slimmer (2026-10-26): date top-left, round hype badge bottom-left. */
+.premiereChipTop { top: 8px; bottom: auto; padding: 3px 7px; font-size: 10.5px; }
+.hypeDot {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 30px; height: 30px; padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(12, 12, 14, 0.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 90, 54, 0.75);
+  color: #ff7a54; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.hypeDot strong { color: #fff; font-weight: 800; }
+.hypeDotMine { background: #ff5a36; box-shadow: none; color: #fff; }
+
+/* Most Hyped, shorter (2026-10-26, owner): top 10, smaller posters. */
+.block .rail.lbShort { grid-auto-columns: clamp(170px, 14vw, 210px); gap: 18px; }
+.lbShort .lbTitle { font-size: 14px; }
+.lbShort .lbMeta { font-size: 12px; }
+@media (max-width: 600px) { .block .rail.lbShort { grid-auto-columns: 148px; gap: 12px; } }
+/* Subtle 3D (2026-10-26). */
+.lbPoster, .block .poster { box-shadow: var(--depth-1); }
+@media (hover: hover) { .lbCard:hover .lbPoster { transform: perspective(800px) translateY(-4px) rotateX(2deg); box-shadow: var(--depth-2); } }
+
+/* Less packed (owner, 2026-10-27): smaller rank numerals. */
+.block .lbRank { font-size: 32px; left: 10px; bottom: 6px; }
+@media (max-width: 600px) { .block .lbRank { font-size: 26px; left: 8px; bottom: 4px; } }

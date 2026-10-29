@@ -6,16 +6,19 @@
 import type { TierKey } from './tiers';
 
 export const BADGE_RULES = {
-  /** A review qualifies only if its written body is at least this many words. */
-  minWords: 40,
-  /** Pending -> counted only after this long, and only if the checks pass. */
-  maturityHours: 48,
+  /** A review qualifies only if its written body is at least this many words.
+   *  (40 → 5 on 2026-10-27, owner: short reviews are the norm here.) */
+  minWords: 5,
+  /** Pending -> counted only after this long, and only if the checks pass.
+   *  (48 → 1 on 2026-10-27, owner: reviews should count promptly.) */
+  maturityHours: 1,
   /** At most this many of one user's reviews can become counted per UTC day. */
   dailyCap: 5,
   /**
    * The user must have the title in one of these states (UserAnime.status) when
-   * writing. Watching can't be verified on a non-streaming site, so this is a
-   * friction gate, not proof. PLAN_TO_WATCH is deliberately excluded.
+   * writing — OR have ticked/rated episodes of it (2026-10-27: ticks no longer
+   * add a show to the library). Watching can't be verified on a non-streaming
+   * site, so this is a friction gate, not proof. PLAN_TO_WATCH is excluded.
    */
   eligibleWatchStatuses: ['WATCHING', 'COMPLETED', 'ON_HOLD', 'DROPPED'] as readonly string[],
   /** Only whole-anime reviews count; episode and season reviews never do. */

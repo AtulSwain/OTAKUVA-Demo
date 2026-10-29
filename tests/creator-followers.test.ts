@@ -1,4 +1,6 @@
 import './helpers/setupTestDb';
+// These tests exercise the 1–10 star rating, which is switched off by default (2026-10-25).
+process.env.STAR_RATINGS_ENABLED = 'true';
 
 import { after, describe, test } from 'node:test';
 import assert from 'node:assert/strict';

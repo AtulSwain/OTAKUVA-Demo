@@ -39,3 +39,19 @@
   .panel { padding: 16px; }
   .head { gap: 14px; }
 }
+
+/* Loading: blank seals, no tier shown until the real one arrives (2026-10-27). */
+.skelHead { display: flex; align-items: center; gap: 16px; }
+.skelSeal { width: 72px; height: 72px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.16); flex: none; }
+.skelLines { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.skelLines span { display: block; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); }
+.skelLines span:first-child { width: 40%; height: 16px; }
+.skelLines span:last-child { width: 60%; }
+.skelRow { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); justify-items: center; padding: 18px 0 30px; }
+.skelDot {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, 0.14);
+  animation: skelPulse 1.4s ease-in-out infinite;
+}
+@keyframes skelPulse { 50% { opacity: 0.4; } }
+@media (max-width: 640px) { .skelDot { width: 30px; height: 30px; } }
+@media (prefers-reduced-motion: reduce) { .skelDot { animation: none; } }

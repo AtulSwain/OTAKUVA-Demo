@@ -1,0 +1,89 @@
+/* Pill tabs with one highlight that slides between them (landing page). */
+.segment {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--count, 2), minmax(0, 1fr));
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.thumb {
+  position: absolute;
+  top: 4px; bottom: 4px; left: 4px;
+  width: calc((100% - 8px) / var(--count, 2));
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.8);
+  transform: translateX(calc(var(--index, 0) * 100%));
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.tab, .tabOn {
+  position: relative; z-index: 1;
+  height: 38px;
+  border: 0;
+  background: transparent;
+  font: inherit; font-size: 13.5px; font-weight: 700;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  white-space: nowrap;
+}
+.tab { color: var(--text-secondary, #a1a1aa); }
+.tab:hover { color: var(--text-primary, #f5f5f7); }
+.tabOn { color: var(--accent-on, #111113); }
+@media (prefers-reduced-motion: reduce) { .thumb { transition: none; } }
+@media (max-width: 420px) {
+  .tab, .tabOn { font-size: 12px; letter-spacing: -0.01em; padding: 0 2px; }
+}
+
+/* ── Password sign-in / sign-up (2026-10-28) ───────────────────── */
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.labelRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.forgotLink, .back {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-secondary, #a1a1aa); font: inherit; font-size: 12.5px; font-weight: 600;
+}
+.forgotLink:hover, .back:hover { color: var(--text-primary, #f5f5f7); text-decoration: underline; text-underline-offset: 3px; }
+.back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
+.stepTitle { margin: 0 0 4px; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+
+.pwWrap { position: relative; display: flex; }
+.pwInput { flex: 1; min-width: 0; padding-right: 44px !important; }
+.eye {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 34px; height: 34px;
+  border: 0; border-radius: 8px; background: transparent;
+  color: var(--text-muted, #71717a); cursor: pointer;
+}
+.eye:hover { color: var(--text-primary, #f5f5f7); background: rgba(255, 255, 255, 0.06); }
+
+.meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.meter span { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); transition: background 0.25s ease; }
+.meter[data-level='1'] span:nth-child(-n + 1) { background: #ef4444; }
+.meter[data-level='2'] span:nth-child(-n + 2) { background: #f59e0b; }
+.meter[data-level='3'] span:nth-child(-n + 3) { background: #84cc16; }
+.meter[data-level='4'] span:nth-child(-n + 4) { background: #22c55e; }
+
+/* Opens below once the phone code checks out. */
+.panel { display: flex; flex-direction: column; gap: 14px; animation: panelIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes panelIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.verified {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 12px;
+  background: rgba(34, 197, 94, 0.1); color: #86efac;
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.25);
+  font-size: 13px;
+}
+.verified strong { color: #dcfce7; font-weight: 700; }
+.verifiedChange { margin-left: auto; padding: 0; border: 0; background: none; color: #86efac; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.verifiedChange:hover { text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+
+/* Browser autofill keeps the dark field instead of Chrome's light blue. */
+.pwInput:-webkit-autofill,
+.pwInput:-webkit-autofill:hover,
+.pwInput:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary, #f5f5f7);
+  -webkit-box-shadow: 0 0 0 1000px #1e1e22 inset;
+  transition: background-color 9999s ease-out 0s;
+}

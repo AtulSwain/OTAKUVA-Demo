@@ -24,7 +24,7 @@ export function PageHead({
       <div className={styles.text}>
         <p className={styles.kicker}>{kicker}</p>
         <h1 className={styles.title}>{title}</h1>
-        {children && <p className={styles.subtitle}>{children}</p>}
+        {/* Descriptions under page titles were removed site-wide (owner, 2026-10-26). */}
       </div>
       {actions && <div className={styles.actions}>{actions}</div>}
     </header>

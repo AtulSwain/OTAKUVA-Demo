@@ -99,7 +99,7 @@
 /* ── Timeline ─────────────────────────────── */
 .timeline { margin: 0; }
 .bars { display: flex; align-items: flex-end; gap: 3px; height: 140px; padding-bottom: 22px; position: relative; }
-.barCol { position: relative; flex: 1; min-width: 4px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.barCol { position: relative; flex: 1; min-width: 1px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
 .bar { display: block; width: 100%; border-radius: 4px 4px 1px 1px; background: rgba(180, 180, 188, 0.45); transition: background 0.15s ease; }
 .barCol:hover .bar { background: rgba(180, 180, 188, 0.85); }
 .barPeak { background: var(--accent-gradient); }
@@ -193,3 +193,82 @@
   .heroMedia::before { animation: none; }
   .poster, .workPoster, .avatar { transition: none; }
 }
+
+/* Clean pass (2026-10-25): studio and creator pages line up with the header
+   (the shell already provides the side padding). */
+.page { max-width: none; padding-left: 0; padding-right: 0; }
+.source a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── Studio history timeline (2026-10-28) ────────────────────────────
+   A horizontal line of years with a card under each: company events
+   (founding, parent company, closing) get a bright marker; milestones
+   from the catalog link to the anime; upcoming work is dashed. */
+.history {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(230px, 270px);
+  gap: 16px;
+  margin: 4px 0 0;
+  padding: 0 2px 18px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.history::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 47px;
+  height: 2px;
+  min-width: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.22) 8%, rgba(255, 255, 255, 0.22) 92%, rgba(255, 255, 255, 0.04));
+}
+.historyItem { position: relative; display: flex; flex-direction: column; scroll-snap-align: start; }
+.historyYear { font-size: clamp(24px, 2.2vw, 30px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text-primary); height: 34px; display: flex; align-items: flex-end; }
+.historyDot {
+  position: relative; z-index: 1;
+  width: 14px; height: 14px; margin: 6px 0 14px;
+  border-radius: 50%;
+  background: var(--bg-primary, #141416);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+}
+.historyCompany .historyDot { background: #fff; border-color: #fff; box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.1); }
+.historyUpcoming .historyDot { border-style: dashed; }
+.historyBody { flex: 1; display: flex; }
+.historyCard {
+  flex: 1;
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--surface-base, #18181b);
+  box-shadow: var(--depth-1);
+  color: inherit; text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+a.historyCard:hover { transform: translateY(-3px); box-shadow: var(--depth-2); background: var(--surface-elevated, #1f1f23); }
+.historyCompany .historyCard { background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02)); box-shadow: var(--depth-1), inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.historyUpcoming .historyCard { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); background: transparent; }
+.historyThumb { position: relative; flex: none; width: 46px; height: 66px; border-radius: 8px; overflow: hidden; background: var(--surface-elevated, #1f1f23); box-shadow: 0 6px 14px -8px rgba(0, 0, 0, 0.9); }
+.historyThumb img { width: 100%; height: 100%; object-fit: cover; }
+.historyText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.historyLabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.historyText strong { font-size: 14.5px; font-weight: 700; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.historyText > span:last-child:not(.historyLabel) { font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; }
+@media (max-width: 640px) {
+  .history { grid-auto-columns: 78%; }
+}
+
+/* Real logos are mostly wide wordmarks (e.g. 360×58): the plate keeps the
+   tile's height but grows sideways to fit, so the mark stays legible.
+   Square logos still get a square plate. (2026-10-28) */
+.logoImage { width: auto; min-width: 56px; max-width: 168px; padding: 7px 10px; }
+.logoImage img { width: auto; height: 100%; max-width: 100%; object-fit: contain; }
+.logoSm.logoImage { min-width: 40px; max-width: 118px; padding: 5px 8px; border-radius: 10px; }
+.logoLg.logoImage { height: 120px; min-width: 120px; max-width: 340px; padding: 18px 22px; border-radius: 26px; }
+@media (max-width: 640px) {
+  .logoLg.logoImage { height: 84px; min-width: 84px; max-width: 240px; padding: 12px 16px; border-radius: 20px; }
+}
+/* Fit the whole mark inside the plate (tall images were being clipped). */
+.logoImage { display: flex; align-items: center; justify-content: center; }
+.logoImage img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; }

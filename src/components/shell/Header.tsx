@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { ThemePicker } from '../ui/ThemePicker';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import {
@@ -41,10 +42,11 @@ import {
   BarChart3,
   Palette,
   type LucideIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BROWSE_GENRES } from '../../lib/browse';
-import { isCreator } from '../../lib/roles';
+import { hasMinRole, isCreator } from '../../lib/roles';
 import styles from './Header.module.css';
 
 // Category shortcuts shown in the phone/tablet menu; each opens /browse on that list.
@@ -143,7 +145,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
 
   useEffect(() => {
     loadNotifications();
-  }, [loadNotifications]);
+    // Keep the bell current on a tab left open (e.g. a hyped show premiering,
+    // 2026-10-25): refresh every 5 minutes while the tab is visible, and when
+    // the member comes back to it.
+    if (!user) return;
+    const tick = () => {
+      if (document.visibilityState === 'visible') loadNotifications();
+    };
+    // Every minute: a hyped show's premiere notice arrives within a minute of going live.
+    const timer = window.setInterval(tick, 60 * 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [loadNotifications, user]);
 
   // Unread OTAKUVA Chat total (DMs + anime rooms), summed client-side from
   // the same per-conversation unreadCount ChatList uses — refetched whenever
@@ -522,6 +538,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSearch, onQuickAdd }) => {
                     <Clapperboard size={14} />
                     <span>{isCreator(user.role) ? 'Creator dashboard' : 'Become a creator'}</span>
                   </Link>
+
+                  {/* The owner's admin panel — only shown to ADMIN / SUPER_ADMIN accounts. */}
+                  {hasMinRole(user.role, 'ADMIN') && (
+                    <Link href="/control" className={styles.dropdownLink} onClick={() => setIsUserMenuOpen(false)}>
+                      <ShieldCheck size={14} />
+                      <span>Control center</span>
+                    </Link>
+                  )}
+
+                  <div className={styles.dropdownDivider} />
+                  <div className={styles.themeRow}>
+                    <span className={styles.themeLabel}>Theme</span>
+                    <ThemePicker compact />
+                  </div>
 
                   <div className={styles.dropdownDivider} />
 

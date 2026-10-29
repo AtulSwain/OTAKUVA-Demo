@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, CalendarDays, Heart, MessageCircle, MessageSquare, Search, Star, Users } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Heart, MessageCircle, MessageSquare, Search, Star, Users } from 'lucide-react';
+import { retentionColor, retentionLabel } from '../../lib/rating/retentionTone';
+import { PeakedAt } from '../rating/PeakedAt';
 import { AnimeImage } from '../anime/AnimeImage';
 import { UserAvatar } from '../ui/UserAvatar';
 import Seal from '../badges/Seal';
@@ -12,6 +14,7 @@ import type { FrontPageData } from '../../lib/home/frontPage';
 import type { ReleaseScheduleItem } from './ReleaseSchedule';
 import { TypedName } from './TypedName';
 import { CommunityScoreBadge } from '../rating/CommunityScoreBadge';
+import { SeasonScene } from './SeasonScene';
 import styles from './FrontPage.module.css';
 
 const whole = new Intl.NumberFormat('en-US');
@@ -105,6 +108,8 @@ export function Masthead({ data, username, displayName = null, onJoin }: { data:
     <header className={`${styles.masthead} ${username ? styles.welcome : ''}`}>
       {/* Signed in: a soft light sweeps across once the greeting lands. */}
       {username && <span className={styles.welcomeSheen} aria-hidden="true" />}
+      {/* Seasonal artwork (2026-10-27): fall maple, spring sakura, … */}
+      <SeasonScene season={data.season.season} />
       <p className={styles.dateline}>
         <span suppressHydrationWarning>{dateLine ?? ' '}</span>
         <span className={styles.dot} aria-hidden="true" />
@@ -177,27 +182,6 @@ export function Masthead({ data, username, displayName = null, onJoin }: { data:
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** Ticking countdown to the next episode (only this bit re-renders every second). */
-function Countdown({ to }: { to: string }) {
-  const now = useNow(1000);
-  if (!now) return <span className={styles.countdown} aria-hidden="true">--:--:--</span>;
-  const ms = Math.max(0, new Date(to).getTime() - now.getTime());
-  const d = Math.floor(ms / 86_400_000);
-  const h = Math.floor((ms % 86_400_000) / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  const sec = Math.floor((ms % 60_000) / 1000);
-  const parts: [string, string][] = [...(d ? ([[String(d), d === 1 ? 'day' : 'days']] as [string, string][]) : []), [pad(h), 'hrs'], [pad(m), 'min'], [pad(sec), 'sec']];
-  return (
-    <span className={styles.countdown} role="timer" aria-label={ms === 0 ? 'Airing now' : `Airs in ${d ? `${d} days ` : ''}${h} hours ${m} minutes`}>
-      {parts.map(([v, label]) => (
-        <span key={label} className={styles.countUnit}>
-          <strong>{v}</strong>
-          <small>{label}</small>
-        </span>
-      ))}
-    </span>
-  );
-}
 
 type AirItem = ReleaseScheduleItem & { episodeTo: number };
 
@@ -247,43 +231,65 @@ function SoonTimer({ to }: { to: string }) {
   );
 }
 
+/**
+ * "On air" (2026-10-26, owner): episodes premiering within 2 hours get big
+ * side-by-side cards with a live countdown; everything else is a list —
+ * Up next and Just aired — with bigger rows than before. Aired rows link
+ * straight to the Episode Guide to rate.
+ */
 export function OnAir({ items }: { items: ReleaseScheduleItem[] }) {
   const now = useNow();
-  const { aired, next, todayCount } = useMemo(() => {
-    if (!now) return { aired: [] as AirItem[], next: [] as AirItem[], todayCount: 0 };
+  const railRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+  const { aired, soon, later, todayCount } = useMemo(() => {
+    if (!now) return { aired: [] as AirItem[], soon: [] as AirItem[], later: [] as AirItem[], todayCount: 0 };
     const t = now.getTime();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const endOfDay = startOfDay + 86_400_000;
+    const upcoming = mergeDrops(items.filter((i) => new Date(i.airingAt).getTime() > t));
     return {
-      aired: mergeDrops(items.filter((i) => new Date(i.airingAt).getTime() <= t).sort((a, b) => b.airingAt.localeCompare(a.airingAt))).slice(0, 6),
-      next: mergeDrops(items.filter((i) => new Date(i.airingAt).getTime() > t)),
+      aired: mergeDrops(items.filter((i) => new Date(i.airingAt).getTime() <= t).sort((a, b) => b.airingAt.localeCompare(a.airingAt))).slice(0, 8),
+      soon: upcoming.filter((i) => new Date(i.airingAt).getTime() - t <= SOON_MS),
+      later: upcoming.filter((i) => new Date(i.airingAt).getTime() - t > SOON_MS).slice(0, 8),
       todayCount: items.filter((i) => {
         const at = new Date(i.airingAt).getTime();
         return at >= startOfDay && at < endOfDay;
       }).length,
     };
   }, [items, now]);
+
+  const measure = () => {
+    const el = railRef.current;
+    if (el) setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+  };
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [soon.length]);
   if (items.length === 0) return null;
 
   const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const day = (iso: string) => new Date(iso).toLocaleDateString([], { weekday: 'long' });
-  const minsUntil = (iso: string) => Math.max(1, Math.round((new Date(iso).getTime() - (now?.getTime() ?? 0)) / 60000));
+  const dayLabel = (iso: string) => {
+    if (!now) return '';
+    const d = new Date(iso);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const that = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const diff = Math.round((that - today) / 86_400_000);
+    return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'short' });
+  };
   const until = (iso: string) => {
-    const mins = minsUntil(iso);
+    const mins = Math.max(1, Math.round((new Date(iso).getTime() - (now?.getTime() ?? 0)) / 60000));
     if (mins < 60) return `in ${mins}m`;
     const h = Math.floor(mins / 60);
     return h < 24 ? `in ${h}h ${mins % 60}m` : `in ${Math.floor(h / 24)}d`;
   };
-  // Everything premiering within 2 hours gets its own big, vertically scrolling panel;
-  // when nothing is that close, the single next episode is featured instead.
-  const soon = now ? next.filter((i) => new Date(i.airingAt).getTime() - now.getTime() <= SOON_MS) : [];
-  const featured = soon.length === 0 ? (next[0] ?? null) : null;
-  const upcoming = next.slice(soon.length || (featured ? 1 : 0)).slice(0, 6);
+  const scrollBy = (dir: 1 | -1) => railRef.current?.scrollBy({ left: dir * railRef.current.clientWidth * 0.85, behavior: 'smooth' });
 
-  const Row = ({ i, upcoming: soon }: { i: AirItem; upcoming: boolean }) => (
-    <li>
-      <Link href={`/anime/${i.anime.slug}`} className={styles.airRow}>
-        <span className={styles.airThumb}>{i.anime.posterUrl && <AnimeImage src={i.anime.posterUrl} alt="" fill sizes="48px" />}</span>
+  const row = (i: AirItem, kind: 'next' | 'aired') => (
+    <li key={i.id}>
+      <Link href={`/anime/${i.anime.slug}${kind === 'aired' ? '#episodes' : ''}`} className={styles.airRow}>
+        <span className={styles.airThumb}>{i.anime.posterUrl && <AnimeImage src={i.anime.posterUrl} alt="" fill sizes="64px" />}</span>
         <span className={styles.airText}>
           <strong>{i.anime.title}</strong>
           <span>
@@ -292,12 +298,19 @@ export function OnAir({ items }: { items: ReleaseScheduleItem[] }) {
           </span>
         </span>
         <span className={styles.airWhen}>
-          {soon ? (
-            <span className={`${styles.airPill} ${minsUntil(i.airingAt) <= 60 ? styles.airPillHot : ''}`}>{until(i.airingAt)}</span>
+          {kind === 'next' ? (
+            <>
+              <span className={styles.airPill}>{until(i.airingAt)}</span>
+              <small>
+                {dayLabel(i.airingAt)} · {time(i.airingAt)}
+              </small>
+            </>
           ) : (
-            <span className={styles.airAgo}>{ago(i.airingAt, now)}</span>
+            <>
+              <span className={styles.airRate}>Rate</span>
+              <small>{ago(i.airingAt, now!)}</small>
+            </>
           )}
-          <small>{time(i.airingAt)}</small>
         </span>
       </Link>
     </li>
@@ -310,82 +323,65 @@ export function OnAir({ items }: { items: ReleaseScheduleItem[] }) {
         <div className={styles.airSkeleton} aria-hidden="true" />
       ) : (
         <>
-          <div className={`${styles.airGrid} ${featured || soon.length ? '' : styles.airGridNoFeature}`}>
-            {soon.length > 0 && (
-              <div className={styles.soonPanel} aria-labelledby="premiering-soon">
-                <h3 className={styles.soonHead} id="premiering-soon">
+          {soon.length > 0 && (
+            <div className={styles.soonBlock}>
+              <div className={styles.airBar}>
+                <h3 className={styles.colTitle}>
                   <span className={styles.liveDot} aria-hidden="true" /> Premiering within 2 hours
-                  <span className={styles.soonCount}>{soon.length}</span>
                 </h3>
-                <ul className={styles.soonList} tabIndex={0} aria-label="Episodes premiering within 2 hours">
-                  {soon.map((i) => (
-                    <li key={i.id}>
-                      <Link href={`/anime/${i.anime.slug}`} className={styles.soonCard}>
-                        {i.anime.posterUrl && (
-                          <span className={styles.soonBg} aria-hidden="true">
-                            <AnimeImage src={i.anime.posterUrl} alt="" fill sizes="360px" />
-                          </span>
-                        )}
-                        <span className={styles.soonPoster}>
-                          {i.anime.posterUrl && <AnimeImage src={i.anime.posterUrl} alt="" fill sizes="96px" />}
-                        </span>
-                        <span className={styles.soonText}>
-                          <strong>{i.anime.title}</strong>
-                          <span>
-                            {episodeLabel(i)}
-                            {i.anime.type ? ` · ${i.anime.type}` : ''}
-                          </span>
-                          <span>Airs {time(i.airingAt)}</span>
-                          <SoonTimer to={i.airingAt} />
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {featured && (
-              <Link href={`/anime/${featured.anime.slug}`} className={styles.airFeature}>
-                {featured.anime.posterUrl && (
-                  <span className={styles.airFeatureBg} aria-hidden="true">
-                    <AnimeImage src={featured.anime.posterUrl} alt="" fill sizes="400px" />
+                {!(edges.start && edges.end) && (
+                  <span className={styles.airArrows}>
+                    <button type="button" onClick={() => scrollBy(-1)} disabled={edges.start} aria-label="Scroll back">
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button type="button" onClick={() => scrollBy(1)} disabled={edges.end} aria-label="Scroll forward">
+                      <ChevronRight size={16} />
+                    </button>
                   </span>
                 )}
-                <span className={styles.airFeatureBody}>
-                  <span className={styles.airFeatureKicker}>
-                    <span className={styles.liveDot} aria-hidden="true" /> Next episode
-                  </span>
-                  <span className={styles.airFeatureMain}>
-                    <span className={styles.airFeaturePoster}>
-                      {featured.anime.posterUrl && <AnimeImage src={featured.anime.posterUrl} alt="" fill sizes="120px" />}
-                    </span>
-                    <span className={styles.airFeatureText}>
-                      <strong>{featured.anime.title}</strong>
-                      <span>{episodeLabel(featured)}</span>
-                      <span>
-                        {day(featured.airingAt)} · {time(featured.airingAt)}
-                      </span>
-                    </span>
-                  </span>
-                  <Countdown to={featured.airingAt} />
-                </span>
-              </Link>
-            )}
-            <div className={styles.airCols}>
-              <div className={styles.airPanel}>
-                <h3 className={styles.colTitle}>
-                  <span className={styles.liveDot} aria-hidden="true" /> Just aired
-                </h3>
-                {aired.length ? <ul className={styles.airList}>{aired.map((i) => <Row key={i.id} i={i} upcoming={false} />)}</ul> : <p className={styles.muted}>Nothing in the last day.</p>}
               </div>
-              <div className={styles.airPanel}>
-                <h3 className={styles.colTitle}>
-                  <CalendarDays size={14} aria-hidden="true" /> Up next
-                </h3>
-                {upcoming.length ? <ul className={styles.airList}>{upcoming.map((i) => <Row key={i.id} i={i} upcoming />)}</ul> : <p className={styles.muted}>Nothing else scheduled yet.</p>}
+              <div className={styles.airRail} ref={railRef} onScroll={measure}>
+                {soon.map((i) => (
+                  <article key={i.id} className={`${styles.airCard} ${styles.airCardSoon}`}>
+                    <Link href={`/anime/${i.anime.slug}`} className={styles.airCardPoster} aria-label={i.anime.title}>
+                      {i.anime.posterUrl && <AnimeImage src={i.anime.posterUrl} alt="" fill sizes="160px" />}
+                    </Link>
+                    <div className={styles.airCardBody}>
+                      <span className={styles.airCardWhen}>
+                        {dayLabel(i.airingAt)} · {time(i.airingAt)}
+                      </span>
+                      <Link href={`/anime/${i.anime.slug}`} className={styles.airCardTitle}>
+                        {i.anime.title}
+                      </Link>
+                      <span className={styles.airCardEp}>
+                        {episodeLabel(i)}
+                        {i.anime.type ? ` · ${i.anime.type}` : ''}
+                      </span>
+                      <div className={styles.airCardFoot}>
+                        <SoonTimer to={i.airingAt} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
+          )}
+
+          <div className={styles.airCols}>
+            <div className={styles.airPanel}>
+              <h3 className={styles.colTitle}>
+                <CalendarDays size={14} aria-hidden="true" /> Up next
+              </h3>
+              {later.length ? <ul className={styles.airList}>{later.map((i) => row(i, 'next'))}</ul> : <p className={styles.muted}>Nothing else scheduled yet.</p>}
+            </div>
+            <div className={styles.airPanel}>
+              <h3 className={styles.colTitle}>
+                <span className={styles.liveDot} aria-hidden="true" /> Just aired
+              </h3>
+              {aired.length ? <ul className={styles.airList}>{aired.map((i) => row(i, 'aired'))}</ul> : <p className={styles.muted}>Nothing aired in the last day.</p>}
+            </div>
           </div>
+
           {todayCount > 0 && (
             <p className={styles.airSummary}>
               <strong>{todayCount}</strong> {todayCount === 1 ? 'episode airs' : 'episodes air'} today in your time zone.{' '}
@@ -400,27 +396,71 @@ export function OnAir({ items }: { items: ReleaseScheduleItem[] }) {
 
 /* ───────────────────────── Reviews ───────────────────────── */
 
-export function LatestReviews({ reviews }: { reviews: FrontPageData['reviews'] }) {
+/** A tick + "Creator review" (owner, 2026-10-27: just that — no side bar, no channel). */
+function CreatorChip({ channel, label = 'Creator review' }: { channel?: string | null; label?: string }) {
+  return (
+    <span className={styles.creatorChip} title={channel ? `Content creator · ${channel}` : 'Content creator'}>
+      <BadgeCheck size={13} aria-hidden="true" className={styles.creatorTick} /> {label}
+    </span>
+  );
+}
+
+export function LatestReviews({
+  reviews,
+  episodeNotes = [],
+}: {
+  reviews: FrontPageData['reviews'];
+  /** Creators' latest episode ratings with a comment (2026-10-25). */
+  episodeNotes?: FrontPageData['creatorEpisodeNotes'];
+}) {
   const now = useNow();
-  if (reviews.length === 0) return null;
+  if (reviews.length === 0 && episodeNotes.length === 0) return null;
   return (
     <section className={styles.block} aria-labelledby="latest-reviews">
-      <SectionHead kicker="From members" title="Latest reviews" id="latest-reviews" href="/rankings" linkLabel="Top rated" />
+      <SectionHead kicker="From members & creators" title="Latest reviews" id="latest-reviews" href="/rankings" linkLabel="Top rated" />
+
+      {/* Creators rating an episode with a comment — highlighted. */}
+      {episodeNotes.length > 0 && (
+        <div className={styles.creatorNotes}>
+          {episodeNotes.map((n) => (
+            <article key={n.id} className={`${styles.review} ${styles.reviewCreator}`}>
+              <Link href={`/anime/${n.anime.slug}#retention`} className={styles.reviewAnime}>
+                <span className={styles.reviewPoster}>{n.anime.posterUrl && <AnimeImage src={n.anime.posterUrl} alt="" fill sizes="44px" />}</span>
+                <span className={styles.reviewAnimeText}>
+                  <span className={styles.reviewOf}>Rated episode {n.episodeNumber} of</span>
+                  <strong>{n.anime.title}</strong>
+                </span>
+                <span className={styles.noteScore} style={{ color: retentionColor(n.retention) }}>
+                  {n.retention}% <small>{retentionLabel(n.retention)}</small>
+                </span>
+              </Link>
+              {n.comment && <blockquote className={styles.quote}>{n.comment}</blockquote>}
+              <footer className={styles.reviewFoot}>
+                <Link href={`/profile/${encodeURIComponent(n.user.username)}`} className={styles.reviewer}>
+                  <UserAvatar username={n.user.username} avatarUrl={n.user.avatarUrl} size={26} />
+                  <span>@{n.user.username}</span>
+                  <CreatorChip channel={n.user.channelName} label="Creator" />
+                </Link>
+                <span className={styles.reviewMeta} suppressHydrationWarning>
+                  {ago(n.at, now)}
+                </span>
+              </footer>
+            </article>
+          ))}
+        </div>
+      )}
+
       <div className={styles.reviewGrid}>
         {reviews.slice(0, 4).map((r) => (
-          <article key={r.id} className={styles.review}>
+          <article key={r.id} className={`${styles.review} ${r.user.isCreator ? styles.reviewCreator : ''}`}>
             <Link href={`/anime/${r.anime.slug}#reviews`} className={styles.reviewAnime}>
               <span className={styles.reviewPoster}>{r.anime.posterUrl && <AnimeImage src={r.anime.posterUrl} alt="" fill sizes="44px" />}</span>
               <span className={styles.reviewAnimeText}>
-                <span className={styles.reviewOf}>{r.isCreatorReview ? 'Creator Review of' : 'Review of'}</span>
+                <span className={styles.reviewOf}>Review of</span>
                 <strong>{r.anime.title}</strong>
               </span>
-              {r.rating != null && (
-                <span className={styles.reviewScore} aria-label={`Rated ${r.rating} out of 10`}>
-                  <Star size={13} fill="currentColor" aria-hidden="true" />
-                  {Number.isInteger(r.rating) ? r.rating : r.rating.toFixed(1)}
-                </span>
-              )}
+              {/* The anime's community retention (was the reviewer's 1–10 star, 2026-10-25). */}
+              <PeakedAt animeId={r.anime.id} />
             </Link>
             {r.excerpt ? (
               <blockquote className={styles.quote}>{r.excerpt}</blockquote>
@@ -431,7 +471,7 @@ export function LatestReviews({ reviews }: { reviews: FrontPageData['reviews'] }
               <Link href={`/profile/${encodeURIComponent(r.user.username)}`} className={styles.reviewer}>
                 <UserAvatar username={r.user.username} avatarUrl={r.user.avatarUrl} size={26} />
                 <span>@{r.user.username}</span>
-                <Seal tier={r.tier} size={20} decorative />
+                {r.user.isCreator ? <CreatorChip channel={r.user.channelName} /> : <Seal tier={r.tier} size={20} decorative />}
               </Link>
               <span className={styles.reviewMeta}>
                 {r.likes > 0 && (
@@ -500,7 +540,6 @@ export function Rankings({ rankings }: { rankings: FrontPageData['rankings'] }) 
         {rankings.mostPopular.length > 0 && <RankTable title="Most popular on OTAKUVA" items={rankings.mostPopular} metric="trackers" href="/top-picks?tab=viewed" />}
         {rankings.highestRated.length > 0 && <RankTable title="Highest rated" items={rankings.highestRated} metric="score" href="/top-picks?tab=top100" />}
       </div>
-      <p className={styles.footnote}>&ldquo;Highest rated&rdquo; is ordered by MyAnimeList / AniList data; the score and retention shown are OTAKUVA members&apos;.</p>
     </section>
   );
 }

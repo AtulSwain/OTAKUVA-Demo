@@ -395,7 +395,7 @@ async function runPhase3MasterTests() {
   });
   assert(watchRes.isWatched === true, 'Episode 1 marked watched');
   assert(watchRes.totalCompleted === 1, 'Total completed episodes is 1');
-  assert(watchRes.userAnime.status === 'WATCHING', 'Anime status transitioned to WATCHING in user library');
+  assert(watchRes.userAnime?.status === 'WATCHING', 'Anime status transitioned to WATCHING in user library');
 
   // 2. Fetch authenticated episode list and verify isWatched and nextUnwatchedEpisode
   const authEpList = await EpisodeEngine.getAnimeEpisodes(testAnime.id, {}, testUser.id);

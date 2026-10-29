@@ -15,6 +15,7 @@ import { AuthModal } from '../ui/AuthModal';
 import { BadgeEventHost } from '../badges/BadgeEventHost';
 import { VerifyPhoneBanner } from '../auth/VerifyPhoneBanner';
 import { VerifyPhonePrompt } from '../auth/VerifyPhonePrompt';
+import { InstallPrompt } from '../pwa/InstallPrompt';
 import styles from './AppShell.module.css';
 
 interface AppShellProps {
@@ -37,13 +38,16 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
     !isBleed &&
     (pathname === '/anime' ||
       pathname === '/studios' ||
+      // News feed lines up with the header like the homepage (clean pass, 2026-10-25).
+      pathname === '/news' ||
       // Creator dashboard + community management fill the screen too (owner, 2026-10-24).
       pathname === '/creator' ||
       pathname.startsWith('/creator/communities/') ||
       ['/browse', '/top-picks', '/seasonal', '/rankings', '/artists'].some((p) => pathname === p || pathname.startsWith(`${p}/`)));
   // A single community (/community/<slug>) is its own full-screen workspace,
   // Discord-style: no site header, footer or bottom nav around it.
-  const isImmersive = /^\/community\/(?!create(?:\/|$))[^/]+\/?$/.test(pathname);
+  // The /welcome landing page and the /control admin console are full-screen too.
+  const isImmersive = /^\/community\/(?!create(?:\/|$))[^/]+\/?$/.test(pathname) || pathname === '/welcome' || pathname === '/control' || pathname.startsWith('/control/');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
@@ -120,6 +124,7 @@ const ShellContent: React.FC<AppShellProps> = ({ children }) => {
       {/* 10. "Verify your email" prompt for signed-in, unverified accounts */}
       <VerifyPhoneBanner />
       <VerifyPhonePrompt />
+      <InstallPrompt />
     </div>
   );
 };

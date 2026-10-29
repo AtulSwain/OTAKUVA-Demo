@@ -153,3 +153,107 @@
   .epLine, .epTick, .strip span { transition: none; }
   .epTickOn { animation: none; }
 }
+
+/* "Just aired · 2 min ago" on the newest episode's first day (2026-10-25). */
+.justAired { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(52, 199, 123, 0.14); color: #34C77B; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.justAired i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: justAiredPulse 1.6s ease-in-out infinite; }
+@keyframes justAiredPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .justAired i { animation: none; } }
+
+/* ── Episode rows, tidier (2026-10-25) ── */
+.communityPill { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; white-space: nowrap; }
+.epLineMeta { flex-wrap: wrap; row-gap: 4px; }
+@media (max-width: 720px) {
+  .epLine {
+    grid-template-columns: 34px minmax(0, 1fr) 38px;
+    grid-template-rows: auto auto;
+    align-items: start;
+    row-gap: 10px;
+    column-gap: 12px;
+    padding: 14px 4px;
+  }
+  .epLineNo { padding-top: 2px; }
+  .epLineTitle, .epLineTitleMuted { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14.5px; line-height: 1.3; }
+  .epTick { grid-column: 3; grid-row: 1; width: 36px; height: 36px; align-self: start; }
+  .epLineRate { grid-column: 1 / 4; grid-row: 2; padding-left: 46px; }
+  .notAired { height: 26px; }
+}
+
+/* ── v6 (2026-10-26, owner: "looks outdated; remove the white line on the
+   left"): rows are soft tiles with a little depth, the number sits in a
+   raised chip, "Up next" is a gentle lit tile (no edge line), no focus ring
+   or tap flash on click. ── */
+.epLines { gap: 8px; }
+.epLine {
+  min-height: 64px; padding: 10px 14px; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 0 rgba(0, 0, 0, 0.35), 0 10px 22px -16px rgba(0, 0, 0, 0.9);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+.epLine + .epLine::before { display: none; }
+.epLine:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 0 rgba(0, 0, 0, 0.35), 0 16px 28px -18px rgba(0, 0, 0, 1);
+}
+.epLine:focus, .epLine:focus-within { outline: none; }
+.epLineNext::after { display: none; }
+.epLineNext {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025) 60%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 14px 28px -18px rgba(0, 0, 0, 1);
+}
+.epLineNo {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 10px -4px rgba(0, 0, 0, 0.8);
+  font-size: 15px; color: var(--text-primary);
+}
+.epLineNo small { margin: 0 0 2px; font-size: 7.5px; }
+.epLineWatched .epLineNo { background: linear-gradient(160deg, rgba(16, 185, 129, 0.32), rgba(16, 185, 129, 0.12)); color: #6EE7B7; }
+.epLine { grid-template-columns: 42px minmax(0, 1fr) minmax(0, 340px) 32px; }
+.epLineTitle, .epLineTitleMuted { font-size: 14.5px; }
+.epLineWatched { opacity: 0.85; }
+.epTick:focus:not(:focus-visible) { outline: none; }
+@media (max-width: 720px) {
+  .epLine { grid-template-columns: 38px minmax(0, 1fr) 30px; padding: 10px; }
+  .epLineNo { width: 38px; height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) { .epLine:hover { transform: none; } }
+
+/* Watched → rate first (2026-10-26): the episode you just ticked stays lit,
+   its retention bar ready, until you submit. */
+.rateNowBadge {
+  flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 9px; border-radius: 999px;
+  background: #10b981; color: #04140d; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  animation: rateNowPulse 1.8s ease-in-out infinite;
+}
+@keyframes rateNowPulse { 50% { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.18); } }
+.epLineRateNow, .epLineRateNow.epLineWatched {
+  opacity: 1;
+  background: linear-gradient(120deg, rgba(16, 185, 129, 0.14), rgba(255, 255, 255, 0.03) 65%);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.35), 0 16px 30px -18px rgba(0, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) { .rateNowBadge { animation: none; } }
+
+/* ── Range chips: 1–12, 13–24 … for long lists (2026-10-27) ── */
+.rangeChips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.rangeChips::-webkit-scrollbar { display: none; }
+.rangeChip {
+  flex: none; position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px;
+  border: 0; border-radius: var(--radius-pill, 999px); background: var(--pill-bg, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  font-variant-numeric: tabular-nums; transition: background 0.15s ease, color 0.15s ease;
+}
+.rangeChip:hover { background: var(--pill-bg-hover, rgba(255, 255, 255, 0.1)); color: var(--text-primary); }
+.rangeChipActive, .rangeChipActive:hover { background: #fff; color: #000; }
+/* "Up next is in here" marker. */
+.rangeDot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+
+/* Phones (2026-10-28): the rating line uses the row's full width (the 46px
+   indent left the Edit / Submit buttons pushed past the right edge on
+   360–390px screens). */
+@media (max-width: 720px) {
+  .epLineRate { padding-left: 0; min-width: 0; }
+}

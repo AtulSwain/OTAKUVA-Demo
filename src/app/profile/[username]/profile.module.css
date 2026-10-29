@@ -5,14 +5,14 @@
    is full-bleed (AppShell isBleed) and constrains everything below the banner. */
 
 .profilePage { display: flex; flex-direction: column; gap: 28px; padding-bottom: 96px; }
-.profilePage > :not(.hero) { width: min(100% - 2 * clamp(16px, 4vw, 56px), 1120px); margin-inline: auto; }
+.profilePage > :not(.hero) { width: min(100% - 2 * var(--page-gutter), var(--page-max) - 2 * var(--page-gutter)); margin-inline: auto; }
 
 /* ── Banner ─────────────────────────────────────────── */
 .hero { position: relative; width: 100%; }
 .banner { position: relative; width: 100%; height: clamp(170px, 26vw, 340px); overflow: hidden; background: #18181b; }
 .bannerImg { object-fit: cover; object-position: center 35%; }
 /* No banner: a flat graphite field with one soft light from the top — no blobs. */
-.bannerPlain { height: clamp(120px, 15vw, 200px); background: linear-gradient(180deg, #232327 0%, #18181b 70%); }
+.bannerPlain { height: clamp(120px, 15vw, 200px); background: linear-gradient(180deg, var(--surface-elevated) 0%, #18181b 70%); }
 .bannerShade {
   position: absolute;
   inset: 0;
@@ -26,7 +26,7 @@
   display: flex;
   align-items: flex-end;
   gap: 24px;
-  width: min(100% - 2 * clamp(16px, 4vw, 56px), 1120px);
+  width: min(100% - 2 * var(--page-gutter), var(--page-max) - 2 * var(--page-gutter));
   margin: clamp(-84px, -7vw, -56px) auto 0;
 }
 .avatarWrap {
@@ -354,3 +354,42 @@
 a.channel:hover { text-decoration: underline; text-underline-offset: 3px; }
 .countBig strong { font-size: 18px; }
 .countBig { color: var(--text-primary); }
+
+/* ── Compact numbers, milestones, library filter (2026-10-25, owner) ── */
+.statChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.statChip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  height: 30px; padding: 0 12px; align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary); font: inherit; font-size: 12.5px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.statChip strong { color: var(--text-primary); font-weight: 800; font-variant-numeric: tabular-nums; }
+.statChip:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.16); }
+.statChipStatic { cursor: default; }
+.statChipStatic:hover { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.08); }
+
+.milestones { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.milestoneEarned { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px; background: rgba(242, 201, 76, 0.12); color: #f2c94c; font-size: 12px; font-weight: 800; }
+.milestoneNext { position: relative; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.05); color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.milestoneNext i { position: absolute; left: 0; bottom: 0; height: 2px; background: #f2c94c; border-radius: 2px; }
+
+.libFilters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-bottom: 16px; }
+.libFilters::-webkit-scrollbar { display: none; }
+.libFilter { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.libFilter small { color: var(--text-muted); font-size: 11.5px; font-weight: 700; }
+.libFilterOn { background: #f4f4f5; color: #111113; }
+.libFilterOn small { color: #52525b; }
+.libEmpty { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+/* Phones: everything wraps cleanly, nothing overflows (2026-10-25). */
+@media (max-width: 640px) {
+  .statChip { height: 28px; padding: 0 10px; font-size: 12px; }
+  .counts { gap: 4px 14px; }
+  .tabBtn { padding-left: 12px; padding-right: 12px; }
+}
+
+/* The level seal on the avatar: a clean circle, no dark square plate
+   (owner, 2026-10-27) — a soft shadow separates it from the photo. */
+.avatarSeal { padding: 0; border-radius: 50%; background: transparent; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.75)); }

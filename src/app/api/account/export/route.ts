@@ -153,12 +153,17 @@ export async function GET(request: NextRequest) {
       targetEntityId: authUser.id,
     });
 
+    // OTAKUVA Vibe grades per aspect ("What's your vibe?") — plain SQL so it
+    // works on a server whose Prisma client predates the table.
+    const vibes = await prisma.$queryRaw<{ animeId: string; category: string; grade: string; updatedAt: Date }[]>`
+      SELECT "animeId", "category", "grade", "updatedAt" FROM "AnimeVibe" WHERE "userId" = ${authUser.id} ORDER BY "updatedAt" DESC`;
+
     const exportPayload = {
       exportGeneratedAt: new Date().toISOString(),
       exportFormatVersion: 1,
       note:
         'This is a full export of the personal data OTAKUVA holds for this account, generated on request under GDPR Art. 15 / CCPA right-to-access. See src/app/api/account/export/route.ts for exactly what is and is not included.',
-      data: user,
+      data: { ...user, vibes },
     };
 
     return new NextResponse(JSON.stringify(exportPayload, null, 2), {

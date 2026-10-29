@@ -165,7 +165,6 @@ export default function NewsPage() {
         <div>
           <p className={styles.kicker}>Newsroom</p>
           <h1 className={styles.title}>Anime news</h1>
-          <p className={styles.subtitle}>Announcements, productions, casting and industry stories from established anime news sources.</p>
         </div>
         {canSyncNews && (
           <button type="button" className={styles.syncBtn} onClick={handleManualSync} disabled={isSyncing} title="Refresh verified feed from providers">

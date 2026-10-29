@@ -42,6 +42,10 @@ async function resolveStudioId(slugOrId: string): Promise<string | null> {
 
 function safeUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
+  // Logos downloaded by scripts/enrich_studios_wikidata.ts are served locally.
+  if (/^\/brand\/studios\/[\w-]+\.(png|jpe?g|webp)$/.test(raw)) return raw;
+  // Files uploaded in the control center.
+  if (/^\/(uploads|api\/media)\/[\w./-]+$/.test(raw) && !raw.includes('..')) return raw;
   try {
     const u = new URL(raw);
     return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null;
@@ -119,6 +123,11 @@ export async function getStudioProfile(slugOrId: string) {
         select: { id: true, name: true, slug: true, iconUrl: true, memberCount: true },
         orderBy: { memberCount: 'desc' },
         take: 4,
+      },
+      historyEvents: {
+        where: { publicationState: 'PUBLISHED' },
+        orderBy: [{ eventYear: 'asc' }, { displayOrder: 'asc' }],
+        select: { id: true, title: true, shortDescription: true, eventType: true, eventYear: true, eventDate: true, source: true, sourceUrl: true, relatedStudioId: true },
       },
       newsRelations: {
         where: { article: { status: 'PUBLISHED', deletedAt: null } },
@@ -217,6 +226,60 @@ export async function getStudioProfile(slugOrId: string) {
   const partnerCount = new Map(partnerRows.map((r) => [r.studioId, r._count.animeId]));
 
   const bySize = (a: StudioWork, b: StudioWork) => (b.members ?? 0) - (a.members ?? 0);
+
+  // Wikidata extras (scripts/enrich_studios_wikidata.ts) live in metadataJson.
+  let wd: { founders?: string[]; parentCompany?: string; predecessors?: string[]; successors?: string[]; aboutSource?: string; wikidataId?: string } = {};
+  try {
+    const meta = studio.metadataJson ? JSON.parse(studio.metadataJson) : null;
+    if (meta && typeof meta.wikidata === 'object' && meta.wikidata) wd = meta.wikidata;
+  } catch {
+    wd = {};
+  }
+
+  // History: dated company events (Wikidata, admins) + milestones read off the
+  // studio's own works in the catalog. Every entry comes from stored data.
+  type HistoryItem = { key: string; year: number; date: string | null; title: string; detail: string | null; kind: 'company' | 'work' | 'upcoming'; anime?: StudioWork; source?: string | null; sourceUrl?: string | null };
+  const history: HistoryItem[] = studio.historyEvents
+    .filter((e) => e.eventYear != null)
+    .map((e) => ({
+      key: e.id,
+      year: e.eventYear as number,
+      date: e.eventDate ? e.eventDate.toISOString() : null,
+      title: e.title,
+      detail: e.shortDescription,
+      kind: 'company' as const,
+      source: e.source,
+      sourceUrl: safeUrl(e.sourceUrl),
+    }));
+  const released = works.filter((w) => w.year && classifyAnimeStatus(w.status) !== 'upcoming');
+  const byYearAsc = [...released].sort((a, b) => (a.year as number) - (b.year as number) || bySize(a, b));
+  const first = byYearAsc[0];
+  if (first) history.push({ key: `first-${first.id}`, year: first.year as number, date: null, title: 'First work in the catalog', detail: first.title, kind: 'work', anime: first });
+  const firstTv = byYearAsc.find((w) => w.type === 'TV');
+  if (firstTv && firstTv.id !== first?.id) history.push({ key: `tv-${firstTv.id}`, year: firstTv.year as number, date: null, title: 'First TV series', detail: firstTv.title, kind: 'work', anime: firstTv });
+  const firstMovie = byYearAsc.find((w) => w.type === 'Movie');
+  if (firstMovie && firstMovie.id !== first?.id) history.push({ key: `movie-${firstMovie.id}`, year: firstMovie.year as number, date: null, title: 'First film', detail: firstMovie.title, kind: 'work', anime: firstMovie });
+  const biggest = [...released].sort(bySize)[0];
+  if (biggest && (biggest.members ?? 0) > 0 && ![first?.id, firstTv?.id, firstMovie?.id].includes(biggest.id)) {
+    history.push({ key: `hit-${biggest.id}`, year: biggest.year as number, date: null, title: 'Its most-watched work', detail: biggest.title, kind: 'work', anime: biggest });
+  }
+  const busiest = [...perYear.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0];
+  if (busiest && busiest[1] >= 3) history.push({ key: `busy-${busiest[0]}`, year: busiest[0], date: null, title: 'Busiest year', detail: `${busiest[1]} titles released`, kind: 'work' });
+  const latest = [...released].sort((a, b) => (b.year as number) - (a.year as number) || bySize(a, b))[0];
+  if (latest && latest.id !== first?.id && latest.year !== busiest?.[0]) history.push({ key: `latest-${latest.id}`, year: latest.year as number, date: null, title: 'Latest release', detail: latest.title, kind: 'work', anime: latest });
+  const upcoming = works.filter((w) => classifyAnimeStatus(w.status) === 'upcoming').sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999) || bySize(a, b));
+  if (upcoming[0]) {
+    history.push({
+      key: `next-${upcoming[0].id}`,
+      year: upcoming[0].year ?? (latestYear ?? new Date().getUTCFullYear()),
+      date: null,
+      title: upcoming.length > 1 ? `Coming next · ${upcoming.length} announced` : 'Coming next',
+      detail: upcoming[0].title,
+      kind: 'upcoming',
+      anime: upcoming[0],
+    });
+  }
+  history.sort((a, b) => a.year - b.year || (a.kind === 'company' ? -1 : 0) - (b.kind === 'company' ? -1 : 0));
   const name = sanitizePublicEntityName(studio.adminOverrideName || studio.name) || studio.name;
   let aliases: string[] = [];
   try {
@@ -236,11 +299,20 @@ export async function getStudioProfile(slugOrId: string) {
     logoUrl: safeUrl(studio.adminOverrideImageUrl || studio.imageUrl),
     bannerUrl: safeUrl(studio.bannerUrl),
     description: studio.adminOverrideDescription || studio.about || studio.shortDescription || null,
+    descriptionSource: studio.adminOverrideDescription ? 'admin' : studio.about && wd.aboutSource === 'wikipedia' ? 'wikipedia' : null,
+    shortDescription: studio.shortDescription,
     foundedYear: studio.adminOverrideFoundedYear ?? studio.foundedYear ?? null,
+    /** Exact founding day, only when the source had it (and no admin year override). */
+    foundedDate: !studio.adminOverrideFoundedYear && studio.foundedDate ? studio.foundedDate.toISOString() : null,
+    closedYear: studio.dissolvedDate ? studio.dissolvedDate.getUTCFullYear() : null,
     closed: ['CLOSED', 'INACTIVE'].includes(studio.status),
-    // The schema defaults country to "Japan" for every row, so a location is
-    // only shown when someone actually recorded a city or region.
-    location: studio.city || studio.region ? [studio.city, studio.region, studio.country].filter(Boolean).join(', ') : null,
+    founders: (wd.founders || []).slice(0, 4),
+    parentCompany: wd.parentCompany || null,
+    successors: wd.successors || [],
+    // The schema defaults country to "Japan" for every row (wrong for Korean
+    // and Chinese studios), so only the recorded city/region is shown.
+    location: [studio.city, studio.region].filter(Boolean).join(', ') || null,
+    history,
     verified: studio.verificationStatus === 'VERIFIED',
     links: [
       { label: 'Official site', url: safeUrl(studio.adminOverrideWebsite || studio.website) },

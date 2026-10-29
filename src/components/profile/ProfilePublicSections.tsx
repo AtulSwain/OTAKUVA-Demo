@@ -7,6 +7,7 @@
  * collections are PUBLIC ones only, PRIVATE communities are filtered server
  * side (and joined ones respect the member's showJoinedCommunities setting).
  */
+import { retentionColor, retentionLabel } from '../../lib/rating/retentionTone';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Star, MessageSquare, Layers, Users } from 'lucide-react';
@@ -16,7 +17,8 @@ import styles from './ProfilePublicSections.module.css';
 
 interface RatedItem {
   anime: { id: string; slug: string; title: string; posterUrl: string | null; year: number | null; type: string | null };
-  score: number;
+  retention: number;
+  episodes: number;
   ratedAt: string;
   reviewed: boolean;
 }
@@ -60,7 +62,7 @@ export function ProfileRatings({ username, name, limit, onSeeAll }: { username: 
 
   if (items === null) return <p className={styles.loading}>Loading ratings…</p>;
   if (items.length === 0) {
-    return limit ? null : <Empty icon={<Star size={28} />} title="No ratings yet" sub={`${name} hasn't rated any anime yet.`} />;
+    return limit ? null : <Empty icon={<Star size={28} />} title="No ratings yet" sub={`${name} hasn't rated any episodes yet.`} />;
   }
 
   return (
@@ -83,8 +85,12 @@ export function ProfileRatings({ username, name, limit, onSeeAll }: { username: 
             <Link href={`/anime/${r.anime.slug}`} className={styles.poster}>
               <span className={styles.posterArt}>
                 {r.anime.posterUrl && <AnimeImage src={r.anime.posterUrl} alt="" fill sizes="180px" />}
-                <span className={styles.myScore} title={`${name}'s rating`}>
-                  <Star size={11} fill="currentColor" stroke="none" aria-hidden="true" /> {r.score.toFixed(1)}
+                <span
+                  className={styles.myScore}
+                  style={{ color: retentionColor(r.retention) }}
+                  title={`${name}'s retention · ${r.episodes} ${r.episodes === 1 ? 'episode' : 'episodes'} rated`}
+                >
+                  {r.retention}% · {retentionLabel(r.retention)}
                 </span>
                 {r.reviewed && (
                   <span className={styles.reviewedTag} title="Also reviewed">

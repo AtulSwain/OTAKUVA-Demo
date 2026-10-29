@@ -11,6 +11,7 @@ import { StudioLogo } from '../../../components/entity/StudioLogo';
 import { WorksGrid } from '../../../components/entity/WorksGrid';
 import { GenreChips, PosterRow, StatTiles } from '../../../components/entity/EntityBlocks';
 import styles from '../../../components/entity/Entity.module.css';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,7 @@ export default async function PersonPage({ params }: { params: { slug: string } 
 
   return (
     <div className={styles.page}>
+      <ViewBeacon kind="person" id={p.id} />
       <header className={styles.hero}>
         <div className={styles.heroMedia}>
           <CreatorPhoto src={p.imageUrl} name={p.name} />

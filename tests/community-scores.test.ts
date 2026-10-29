@@ -41,6 +41,27 @@ describe('card scores: members only, never the provider score', () => {
     assert.equal(scores[unrated.id], undefined, 'no placeholder for an anime nobody rated');
   });
 
+  test('verdicts = distinct members who rated an episode or published a review', async () => {
+    const anime = await createAnime({ status: 'Finished Airing', episodes: 12 });
+    const [a, b, c, d] = await Promise.all([createUser(), createUser(), createUser(), createUser()]);
+    await prisma.episodeRating.createMany({
+      data: [
+        { userId: a.id, animeId: anime.id, episodeNumber: 1, retention: 70 },
+        { userId: a.id, animeId: anime.id, episodeNumber: 2, retention: 80 },
+      ],
+    });
+    // a also reviewed: still one verdict. b reviewed without rating. c's review is a draft, d's is deleted.
+    const base = { animeId: anime.id, title: '', body: 'x'.repeat(60), watchStatusAtReview: 'COMPLETED' };
+    await prisma.review.create({ data: { ...base, userId: a.id } });
+    await prisma.review.create({ data: { ...base, userId: b.id } });
+    await prisma.review.create({ data: { ...base, userId: c.id, status: 'DRAFT' } });
+    await prisma.review.create({ data: { ...base, userId: d.id, deletedAt: new Date() } });
+
+    const res = await scoresGET(request('GET', `/api/anime/community-scores?ids=${anime.id}`));
+    const { scores } = (await read(res)).body;
+    assert.equal(scores[anime.id].verdicts, 2);
+  });
+
   test('rejects more than 200 ids', async () => {
     const ids = Array.from({ length: 201 }, (_, i) => `id${i}`).join(',');
     const res = await scoresGET(request('GET', `/api/anime/community-scores?ids=${ids}`));

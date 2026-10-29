@@ -57,7 +57,8 @@ describe('studio page data', () => {
     const s = await studio({ city: 'Suginami', region: 'Tokyo', imageUrl: 'https://img.test/logo.png', website: 'javascript:alert(1)', wikipediaUrl: 'https://en.wikipedia.org/wiki/X' });
     const p = await getStudioProfile(s.slug!);
     assert.equal(p!.logoUrl, 'https://img.test/logo.png');
-    assert.equal(p!.location, 'Suginami, Tokyo, Japan');
+    // Country is left off (2026-10-28): the schema defaults every studio to "Japan", wrong for Korean/Chinese ones.
+    assert.equal(p!.location, 'Suginami, Tokyo');
     assert.deepEqual(p!.links.map((l) => l.label), ['Wikipedia']);
   });
 

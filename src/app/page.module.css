@@ -408,7 +408,7 @@
 
 
 /* ===== Apple TV+ shelves ===== */
-.main { max-width: none; padding: 0 clamp(20px, 4vw, 56px) 96px; }
+.main { max-width: var(--page-max); margin-inline: auto; padding: 0 var(--page-gutter) 96px; }
 .section { padding: 40px 0 0; }
 .sectionHead { align-items: baseline; margin-bottom: 16px; }
 .kicker { display: none; }
@@ -767,3 +767,95 @@
 .medalSilver { background-image: var(--medal-silver); }
 .medalBronze { background-image: var(--medal-bronze); }
 .topScore { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; color: #F59E0B; font-weight: 800; }
+
+/* ── Clean pass (2026-10-25, owner: "clean and minimal, change nothing else") ──
+   Every homepage section sits on one rhythm (the gap below), so no block
+   brings its own top margin; poster rails share one card size, gap and
+   corner (tokens.css: --rail-card / --rail-gap / --poster-radius). */
+.page .main { display: flex; flex-direction: column; gap: var(--page-section-gap); }
+.page .main > * { margin-top: 0; margin-bottom: 0; }
+.page .main > *:first-child { margin-top: 24px; }
+@media (max-width: 768px) {
+  .page .main { gap: 44px; }
+  .page .main > *:first-child { margin-top: 12px; }
+}
+.page .rail { grid-auto-columns: var(--rail-card); gap: var(--rail-gap); }
+.page .posterWrapper { border-radius: var(--poster-radius); }
+.page .rankNumeral { font-size: 40px; }
+@media (max-width: 600px) { .page .rail { grid-auto-columns: 136px; gap: 12px; } }
+
+/* Subtle 3D on homepage posters (2026-10-26). */
+.page .posterWrapper { box-shadow: var(--depth-1); transition: transform 0.25s ease, box-shadow 0.25s ease; }
+@media (hover: hover) { .page .posterWrapper:hover { transform: perspective(800px) translateY(-4px) rotateX(2deg); box-shadow: var(--depth-2); } }
+@media (prefers-reduced-motion: reduce) { .page .posterWrapper:hover { transform: none; } }
+
+/* Ranked poster rails less packed (owner, 2026-10-27): smaller rank
+   numerals and on-poster chips, a touch more air between posters. */
+.page .rankNumeral { font-size: 32px; left: 10px; bottom: 6px; }
+.page .rail { gap: 20px; }
+.verdictSmall { transform: scale(0.88); transform-origin: top right; }
+@media (max-width: 600px) {
+  .page .rail, .block .rail { grid-auto-columns: 124px; gap: 14px; }
+  .page .rankNumeral { font-size: 26px; left: 8px; bottom: 4px; }
+}
+
+/* Browse by Genre v2 (2026-10-28, owner: "bigger, no title counts, more 3D").
+   Bigger tiles; depth from a stacked shadow (contact + ambient), a lit top
+   edge and a glossy sheen; on hover the tile tilts back slightly and lifts
+   while the artwork moves a little further, so it reads as a raised card. */
+.page .genreRail {
+  grid-auto-columns: clamp(210px, 17vw, 280px);
+  gap: 16px;
+  /* room for the lifted shadow inside the scroller */
+  padding: 10px 2px 30px;
+  margin: -10px -2px -18px;
+  perspective: 1200px;
+}
+.page .genreTile {
+  aspect-ratio: 16 / 11;
+  border-radius: 18px;
+  transform-style: preserve-3d;
+  background: var(--surface-elevated, #1b1b1e);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    0 14px 28px -10px rgba(0, 0, 0, 0.75),
+    0 30px 48px -26px rgba(0, 0, 0, 0.9);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page .genreShade {
+  background:
+    linear-gradient(180deg, rgba(10, 10, 12, 0) 34%, rgba(10, 10, 12, 0.5) 66%, rgba(10, 10, 12, 0.92) 100%),
+    linear-gradient(90deg, rgba(10, 10, 12, 0.4) 0%, rgba(10, 10, 12, 0) 60%);
+}
+.genreSheen {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 24%, rgba(255, 255, 255, 0) 42%);
+  opacity: 0.7;
+  transition: opacity 420ms ease, transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page .genreText { padding: 16px 18px; transform: translateZ(24px); }
+.page .genreName { font-size: clamp(19px, 1.5vw, 23px); letter-spacing: -0.035em; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.6); }
+@media (hover: hover) {
+  .page .genreTile:hover, .page .genreTile:focus-visible {
+    transform: translateY(-8px) rotateX(5deg) scale(1.02);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.26),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+      0 4px 8px rgba(0, 0, 0, 0.4),
+      0 26px 44px -14px rgba(0, 0, 0, 0.85),
+      0 48px 70px -34px rgba(0, 0, 0, 0.95);
+  }
+  .page .genreTile:hover .genreSheen, .page .genreTile:focus-visible .genreSheen { opacity: 1; transform: translateX(6%); }
+  .page .genreTile:hover .genreImg, .page .genreTile:focus-visible .genreImg { transform: scale(1.1); }
+}
+.page .genreTile:active { transform: translateY(-2px) scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .page .genreTile, .genreSheen { transition: none; }
+  .page .genreTile:hover, .page .genreTile:focus-visible { transform: none; }
+}
+@media (max-width: 600px) {
+  .page .genreRail { grid-auto-columns: 196px; gap: 12px; }
+  .page .genreName { font-size: 18px; }
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, Heart, Star, Play } from 'lucide-react';
+import { Plus, Check, Heart, Gauge, Play } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { useLibrary } from '../../context/LibraryContext';
 import { AnimeImage } from './AnimeImage';
@@ -14,7 +14,8 @@ interface AnimeStickyActionBarProps {
   onOpenRatingModal: () => void;
   onOpenTrailer?: () => void;
   /** Average of OTAKUVA members' ratings, as shown in the hero. */
-  otakuvaScore?: number | null;
+  /** The anime's community retention (shown instead of the 1–10 score since 2026-10-25). */
+  retention?: { value: number | null; status?: string; badge?: string | null } | null;
   /** False for a title that hasn't aired yet — hides the Rate action. */
   hasPremiered?: boolean;
 }
@@ -24,7 +25,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
   userRating,
   onOpenRatingModal,
   onOpenTrailer,
-  otakuvaScore = null,
+  retention = null,
   hasPremiered = true,
 }) => {
   const { getStatus, getItem, updateStatus, toggleFavorite } = useLibrary();
@@ -83,7 +84,7 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
         <div className={styles.titleBlock}>
           <span className={styles.title}>{displayTitle}</span>
           <span className={styles.meta}>
-            {[anime.type, typeof otakuvaScore === 'number' ? `OTAKUVA ${otakuvaScore.toFixed(1)}` : null].filter(Boolean).join(' • ')}
+            {[anime.type, typeof retention?.value === 'number' ? `Retention ${retention.value}%` : null].filter(Boolean).join(' • ')}
           </span>
         </div>
       </div>
@@ -116,10 +117,10 @@ export const AnimeStickyActionBar: React.FC<AnimeStickyActionBarProps> = ({
             type="button"
             className={`${styles.actionBtn} ${styles.secondaryBtn} ${styles.iconOnlyBtn}`}
             onClick={onOpenRatingModal}
-            aria-label="Rate anime"
-            title={effectiveRating !== null ? `Your rating: ★ ${effectiveRating.toFixed(1)}/10` : 'Rate anime'}
+            aria-label="Rate episodes"
+            title="Rate how well each episode kept you watching"
           >
-            <Star size={15} fill={effectiveRating !== null ? '#F59E0B' : 'none'} color={effectiveRating !== null ? '#F59E0B' : 'currentColor'} />
+            <Gauge size={15} />
           </button>
         )}
 

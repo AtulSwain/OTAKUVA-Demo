@@ -10,11 +10,12 @@
  */
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Flame, MessageSquare, Star } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+import { HypeIcon } from '../hype/HypeMeter';
+import { PeakedAt } from '../rating/PeakedAt';
 import { SectionHead } from '../ui/SectionHead';
 import { AnimeImage } from '../anime/AnimeImage';
 import { avatarInitial } from '../../lib/mediaResolver';
-import { getScoreColor } from '../../lib/rating/ratingTiers';
 import { useAuth } from '../../context/AuthContext';
 import styles from './CreatorsSpotlight.module.css';
 
@@ -30,7 +31,7 @@ interface FeedItem {
   kind: 'RATED' | 'REVIEWED' | 'HYPED';
   at: string;
   creator: { username: string; name: string; avatarUrl: string | null };
-  anime: { slug: string; title: string; posterUrl: string | null };
+  anime: { id?: string; slug: string; title: string; posterUrl: string | null };
   score: number | null;
   review: { id: string; title: string } | null;
 }
@@ -128,11 +129,8 @@ export function CreatorsSpotlight() {
                   </span>
                   <span className={styles.feedAnime}>{item.anime.title}</span>
                   <span className={styles.feedWhat}>
-                    {item.kind === 'RATED' && item.score != null && (
-                      <span style={{ color: getScoreColor(item.score) }}>
-                        <Star size={12} fill="currentColor" stroke="none" aria-hidden="true" /> {item.score.toFixed(1)}
-                      </span>
-                    )}
+                    {/* The anime's community retention, not the creator's 1–10 (2026-10-25, owner). */}
+                    {item.kind === 'RATED' && <PeakedAt animeId={item.anime.id} />}
                     {item.kind === 'REVIEWED' && (
                       <span>
                         <MessageSquare size={12} aria-hidden="true" /> {item.review?.title}
@@ -140,7 +138,7 @@ export function CreatorsSpotlight() {
                     )}
                     {item.kind === 'HYPED' && (
                       <span className={styles.hype}>
-                        <Flame size={12} aria-hidden="true" /> Hyped
+                        <HypeIcon size={12} aria-hidden="true" /> Hyped
                       </span>
                     )}
                   </span>

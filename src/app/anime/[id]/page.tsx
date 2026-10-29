@@ -2,6 +2,7 @@ import { getRequestOrigin, getForwardedCookieHeader } from '../../../lib/server/
 import AnimeDetailClient from './AnimeDetailClient';
 import { getSeasonSeries } from '../../../lib/catalog/seasonSeries';
 import { getAnimeFacts } from '../../../lib/anime/animeFacts';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 // Server component: fetches everything the detail view needs at request
 // time (via the same Route Handlers the client used to call after mount),
@@ -112,6 +113,8 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
   // component starts with an empty list and fills it in immediately on mount.
 
   return (
+    <>
+    <ViewBeacon kind="anime" id={canonicalId} />
     <AnimeDetailClient
       id={id}
       initialAnime={anime}
@@ -134,5 +137,6 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
       initialNextEpisodeNumber={nextEpisodeNumber}
       initialRecommendationsRaw={[]}
     />
+    </>
   );
 }

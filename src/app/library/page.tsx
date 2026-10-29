@@ -98,9 +98,6 @@ function LibraryContent() {
     <div className={styles.libraryPage}>
       <div className={styles.header}>
         <h1 className={styles.title}>My Library</h1>
-        <p className={styles.subtitle}>
-          Your personal anime archive. Track episodes, manage status, and organize your collection.
-        </p>
       </div>
 
       <LibrarySwitch />

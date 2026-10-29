@@ -927,7 +927,7 @@ gaps against later phases, from the last audit (2026-08-28):
   (white → graphite) — **changed same day**: hype levels carry meaning
   colours (Hyped flame #FF5A36, Excited amber #FFB020, Curious sky
   #3FB6F2, Not for me grey). Welcome masthead has a soft white glow for
-  contrast. Don't reintroduce pink/violet/blue as theme accents.
+  contrast. Don't reintroduce pink/violet/blue as the *default* accents (optional themes exist since 2026-10-26 — see Theme picker).
   **Hype leaderboard accuracy**: a level board takes EVERY upcoming show,
   counts that level's votes exactly (DB groupBy), and orders by count →
   total votes → sooner premiere → title (no date window — a far-future show
@@ -1200,6 +1200,203 @@ gaps against later phases, from the last audit (2026-08-28):
   - *OTAKUVA Vibe section* simplified to one summary line (strongest/
     weakest) + one row per rated aspect (bar coloured by score, score, tier
     word). Donut, tier scale and "Vibe Synthesis" box removed.
+  - *Hype is Hyped-only (2026-10-25, owner)*: `SKIP` ("Not interested")
+    moved to `RETIRED_HYPE_LEVELS` — stored votes kept, not counted/shown,
+    and those members may vote Hyped once. The homepage board has no level
+    tabs any more; the hype icon is a flame everywhere (rocket removed).
+    `CreatorsSpotlight` now sits right below "You are tracking".
+  - *Clean pass (2026-10-25, owner: "clean and minimal, don't remove or
+    change anything")*: alignment/consistency only, no section removed or
+    reordered. Every page's content now starts on the header's edges
+    (`AppShell.module.css` `.contentInner` has no max-width; side padding
+    `clamp(20px, 4vw, 56px)` everywhere, footer too); the anime-page body
+    matches its hero; News is a wide page. Extra page-level side padding was
+    dropped on /news, /articles (list), /upcoming (+genre/theme/producer/
+    character pages that share its CSS), /studios and studio/creator pages.
+    Schedule, Settings and the article reader/form stay narrow, centred
+    columns on purpose. Homepage poster rails share `--rail-card`,
+    `--rail-gap`, `--poster-radius` (tokens.css) and sections sit on one
+    `--page-section-gap` rhythm (`.page .main` is a flex column — don't give
+    homepage sections their own top margins). Use these tokens for new
+    rails/sections.
+  - *Episode Retention System (2026-10-25, owner spec)* — supersedes the
+    retention notes above (steps of 5, green/yellow/red, per-member average,
+    auto-save). Rules live ONLY in `src/lib/rating/retentionScore.ts` (pure):
+    rating = whole number 1–100 per member per episode (existing unique key
+    `userId_animeId_episodeNumber`; re-rating updates; P2002 race → update);
+    episode score = mean of its ratings; anime score = mean of RATED episodes'
+    scores (each episode once, unrated never 0); badge from the RAW score —
+    DROPPED <20, SLEEPER <40, SOLID <70, PEAKING <90, HOOKED ≥90 (was "Locked In") — only
+    when ≥3 members AND ≥min(3, declared episodes) rated episodes, else
+    "Provisional" (no badge); nothing rated = "Not rated". DB reads:
+    `animeRetention.ts` (`getAnimeRetentions` batch, `getRetentionRankings`),
+    computed on read. Shown: anime hero chip (links `#retention`), the
+    Retention section (replaced the 1–10 Community Rating block —
+    `RatingDistributionCard`/`AnimeScoreCard` now unused), Episode Guide rows
+    (`RetentionBars` → `RetentionSegments`: 20 silver/graphite segments,
+    explicit Submit/Update, community avg + count below; watched-tick first
+    still enforced), `EpisodeRetentionModal`, every card via
+    `CommunityScoreBadge` ("72% PEAKING" / "Provisional" — no star score on
+    cards any more), `/rankings` Retention tab (default; rated and
+    Provisional listed apart; `GET /api/rankings/retention`). Badge UI:
+    `RetentionBadge`. `retentionTone.ts` colours now = badge bands. The 1–10
+    member rating (Rate window, OTAKUVA Vibe, reviewer scores on reviews) is
+    kept — owner's choice — it just isn't the headline score. No migration.
+    Tests: `tests/retention-score.test.ts`.
+    **Same day, owner follow-up**: the top badge is **Hooked** (key
+    `HOOKED`, was Locked In); band colours are clear green → lime → yellow →
+    orange → red (`RETENTION_BADGES`) and colour the rating bar fill
+    (`RetentionSegments` `color`), the episode chart bars (+ legend) and the
+    numbers. Retention section = Community **ring** (earlier design) + You as
+    the big number. OTAKUVA Vibe got its **donut circle** back beside the
+    aspect rows — then (owner, same day) **grades only**: no score numbers
+    anywhere in Vibe, circle centre = overall grade + "N members rated",
+    each aspect in its own colour (`ASPECT_COLORS`, data colours — the
+    owner asked for them), no Worst…Great tier chips. It's "what to expect",
+    not a score.
+    **Then (owner)**: every retention % carries its band name (cards, hero,
+    ring, chart extremes, episode rows "You 72 · Peaking", profile
+    activity); a Provisional title shows its band greyed with "· early"
+    ("Solid · early") instead of a coloured badge. The 1–10 star score beside
+    an anime in review lists (homepage Latest reviews, profile reviews) and
+    the creators feed is replaced by `PeakedAt` — "Peaked at 93%", the
+    anime's community retention, number only, no band name. `frontPage`
+    review items and `creatorDirectory` feed items now include `anime.id`.
+  - *Big anime-page pass (2026-10-25, owner)*:
+    - **Characters for every anime**: only 286 / 18,106 anime had any.
+      `scripts/import_characters_studios_anilist.ts [--apply] [--limit=N]
+      [--studios-only]` (AniList, 6 anime/request, resumable via
+      DataSourceRecord CHARACTER/anilist): characters main-first (AniList
+      returns 25 per anime per request — not paginated further) + Japanese
+      VAs, only for anime with no characters yet; Character matched by
+      `externalId = "anilist:<id>"` (slug `<name>-c<id>`), never by name;
+      VAs via personResolver. Same run adds missing **studio links**
+      (animation studios only, via CanonicalStudioResolver; non-main =
+      role ANIMATION, isMain false, source ANILIST) — owner's "re-check
+      studio counts from AniList". Log in scripts/import_logs/.
+    - `CharacterPreview` modernised: main first, All/Main/Supporting filter
+      with counts, scroll arrows, name over the portrait, Japanese VA below;
+      no more anime-poster stand-in for a missing character photo.
+    - **Vibe input**: new table `AnimeVibe` (migration
+      `20261025150000_anime_vibe`, hand-written without the searchVector
+      drops) — one grade (WORST…GREAT) per member/anime/aspect.
+      `src/lib/rating/vibe.ts` (`getVibeSummary`, `saveVibe`), `GET|POST
+      /api/anime/[id]/vibe` (verified members, after ep 1 airs; `null`
+      removes a grade). Chart = Vibe grades, else the member's older aspect
+      score from the 1–10 window (each member once per aspect); grades
+      average via band mid-points, shown as grades only. `VibeModal`
+      ("What's your vibe about this anime?") opened from the prompt at the
+      top of the Vibe section, right under Retention. In the account export.
+      `OtakuvaVibe` now takes `vibe: VibeSummary` (SVG ring, grade pills,
+      "You: Good"). `AnimeVibe` is read/written with plain SQL
+      (`$queryRaw`/`$executeRaw`, id = `gen_random_uuid()`) so it works
+      even on a server whose Prisma client predates the table. Browser
+      components import ONLY `src/lib/rating/vibeGrades.ts` (constants +
+      types) — importing `vibe.ts` (server: prisma) into a client component
+      broke the page bundle and made grade clicks do nothing (fixed
+      2026-10-25).
+    - **Vibe chart = infographic ring (owner, later 2026-10-25)**: SVG donut,
+      one coloured segment per aspect with small gaps, numbered 01–07,
+      segment size = how strongly that aspect is rated (share of the summed
+      averages, shown as %), raised centre with the overall grade + members,
+      callouts (dot + elbow line) with name · grade · share · "You: X".
+      ≤760px: ring + numbered legend instead of callouts.
+    - **Reviews redesign (owner, reference screenshot)**: `AnimeReviewsCard`
+      rewritten — "Write a Review" card (avatar, @username, plain textarea
+      with spellCheck/autoCorrect, char count /5000, "Contains spoilers",
+      Post → POST /api/reviews; "More options" opens WriteReviewModal for
+      headline/tags), "User Reviews" with sort select + "Show spoilers" +
+      "Creators only" toggles. Each review: avatar, name, creator check,
+      tier chip, Spoiler-free/Spoilers tag right after the name (no spoiler
+      line above any more), and a verdict pill = the reviewer's own
+      retention band (`retention` on GET /api/reviews items via
+      `src/lib/reviews/reviewerRetention.ts`). Replies collapsed behind
+      "View N replies"; own replies marked "You" with delete. The reviewer's
+      1–10 star is no longer shown on the card.
+    - **1–10 star ratings switched OFF (owner, 2026-10-25, later)**:
+      `src/lib/rating/starRatings.ts` (`STAR_RATINGS_ENABLED`, default off).
+      Off = POST /api/anime/:id/rating → 410 STAR_RATINGS_OFF, legacy
+      per-episode `{score}` → 410, library `personalRating` ignored, creator
+      review score ignored (editor field removed). Stored AnimeRating rows
+      are kept, not shown. UI: hero/sticky "Rate" → "Rate episodes" (scrolls
+      to `#episodes`), poster "Your rating" badge removed, journey card shows
+      "Your retention", profile Rated tab = anime the member rated episodes
+      of with their retention (`publicRatings.ts` now from EpisodeRating).
+      Tests that cover the old star logic set the env var themselves;
+      `tests/star-ratings-off.test.ts` checks the default.
+    - Vibe chart: the same callout chart on phones (own NARROW geometry,
+      "World Building" → "World"); tap a segment/label → it pops out, others
+      dim, the centre shows that aspect (grade, share, members / your grade).
+    - Reviews are chat bubbles (avatar beside a bubble; replies smaller,
+      indented bubbles) — owner picked this over cards.
+    - Episode Guide phone polish: community score as a pill under the title,
+      rating bar full width below, 36px tick, locked bar plain (the striped
+      locked bar shimmered on phones), no empty "—".
+    - **Episode comments**: optional ≤280-char comment with an episode
+      rating (`EpisodeRating.review`, no schema change; omitted keeps,
+      '' clears). Inline "Comment" in Episode Guide rows. Homepage Latest
+      reviews shows creators' episode ratings with comments
+      (`creatorEpisodeNotes` in frontPage) and highlights creator reviews
+      (Creator chip + channel, accent bar).
+    - Episode Guide: newest episode gets a live "Just aired · 2 min ago"
+      (first 24h); next one says "Airs in 3h 12m" instead of "Not aired yet".
+    - Movies: "Runtime 1h 47m" in the hero and Details (`src/lib/anime/runtime.ts`).
+    - Details: "On OTAKUVA" — in libraries, favorites (Favorite ∪
+      UserAnime.favorite), rated (1–10), episode raters. Always shown.
+    - **Recommendations follow the anime's genres**: `similarAnimeEngine` v4
+      — candidate pool by IDF-weighted shared genres (rare genres like
+      Horror count more), one entry per series, the anime's own series
+      excluded; signed-in members use it too (was the general taste engine,
+      same list on every page). ~1s.
+    - Footer: link columns removed; "Made in India / Made with ♥ from India",
+      "© 2026 Copyright OTAKUVA"; Privacy · Terms · Data credits kept small
+      (AniList credit + privacy policy are required).
+  - *Profile numbers, completion milestones, homepage spacing (2026-10-26, owner)*:
+    `GET /api/users/:u/stats` adds `tracking` (all library entries), `rated`
+    (anime rated by retention), `meanRetention`, `reviews` (PUBLISHED count —
+    the profile used to count only the first page of 20) and `milestones`.
+    Profile: the big owner-only stat strip became small tappable chips for
+    everyone (Tracking/Completed/Watching/Dropped open the owner's Library
+    tab filtered by status — library lists stay owner-only; Rated/Reviews
+    open their tabs); Library tab has a status filter (`?tab=library&status=`),
+    `?list=followers|following` opens the follow list. **Completion
+    milestones** `src/lib/library/completionMilestones.ts`: 10/25/50/100/250/
+    500/1000 completed → one `COMPLETION_MILESTONE` notification the moment
+    it's reached (library PATCH, both mark-all-watched routes, watched-episode
+    ticks, episode progress), stamps on the profile + "next at N". Creator
+    dashboard overview: "Your anime & people" (status counts, rated, reviews,
+    following, stamps; each links to its profile list); dashboard numbers
+    smaller. Homepage: `CommunityScoreBadge position="top"` on cards with a
+    rank numeral (Top Rated); overlay chips drop "· early"; Hype board
+    countdown moved top-left. Upcoming cards (`HypeCard`): date top-left,
+    round ⚡ hype badge bottom-left (filled when you're hyped), title + meta
+    only. HypeMeter voted line "You're hyped for this anime"; header bell
+    polls every 60s while visible. Tests: `tests/profile-stats-milestones.test.ts`.
+  - *Hyped → tracked → premiere notification (2026-10-25, owner)*:
+    `src/lib/hype/hypePremiere.ts`. Voting Hyped adds the anime to the
+    library as PLAN_TO_WATCH (+ STATUS_CHANGED activity) only when it isn't
+    already there — never changes an existing status. Once episode 1 has
+    aired (`getEpisodeReleaseState`), each Hyped voter gets ONE
+    `HYPE_PREMIERE` notification ("<title> has premiered", link
+    `/anime/<slug>#retention`); exactly-once via a per-anime
+    `pg_advisory_xact_lock` + "already has this type+link" check — no schema
+    change. Premieres older than 30 days aren't announced. Runs: for the
+    member on `GET /api/notifications`; background sweep (≤ every 10 min per
+    process) from the homepage and `/api/schedule`; after each schedule
+    refresh (`ensureFreshSchedule`). Not a queue job yet. The header bell now
+    refreshes every 5 min while the tab is visible. HypeMeter: no "Add to
+    Plan to Watch" button any more — says "Added to your library. We'll
+    notify you when it premieres." Votes cast before this change were not
+    back-filled into libraries. Tests: `tests/hype-premiere.test.ts`.
+  - *Hype icon + ranks, trailer backdrop (2026-10-25, owner)*: hype icon is
+    lucide `Zap` everywhere (`HYPE_ICONS`, HypeMeter, profile activity,
+    CreatorsSpotlight) — not Flame or Rocket. Hype board ranks are big "01"
+    numerals like Top Rated (gold/silver/bronze for 1–3). Anime hero
+    background: AniList banner → else a still from the anime's own YouTube
+    trailer (`trailerStills` in `heroArt.ts`, maxres → sd → hq, a <400px
+    stand-in steps down) → else the blurred poster. 6,686 anime have a
+    banner, +3,004 more get a trailer still, ~8,400 still fall back to the
+    poster. Some stills carry the video's own "Official trailer" text.
   - *Hype* on the anime page: one question, one button — "Are you hyped
     for this anime?" → I'm hyped → "You are hyped for this one" (no "not
     interested" choice there since later on 2026-10-24; old SKIP votes still
@@ -1317,6 +1514,391 @@ gaps against later phases, from the last audit (2026-08-28):
   200 same-name people pairs listed for review (not merged — often different
   people). Not filled: characters/voice cast (Jikan still down) and episode
   lists for the new titles (the `episode-backfill` worker job needs Redis).
+- **Homepage verdicts, On air rail, Theme picker (2026-10-26, owner)**:
+  - *Top Rated cards*: the retention chip is replaced by `VerdictCount`
+    ("12 verdicts", tooltip "N members rated episodes or reviewed this
+    anime") = distinct members with an episode retention 1–100 OR a
+    PUBLISHED, non-deleted review (`verdicts` in `communityScores.ts`;
+    test in `tests/community-scores.test.ts`). Hidden at 0.
+  - *On air* (`OnAir` in `FrontPage.tsx`): a horizontal rail of big cards
+    (poster, local day · time, episode, live h:mm:ss within 2h else
+    "in 10h 39m", "Aired 2h ago" + "Rate episode" → `#episodes`), Up next /
+    Just aired tabs, arrows on desktop, swipe on phones. Most Hyped board
+    is now top 10 with smaller posters (`.lbShort`).
+  - *Theme picker*: Graphite (default, unchanged), Midnight, Sakura, Ember,
+    Emerald. `src/lib/theme/themes.ts` (ids, `THEME_INIT_SCRIPT`),
+    `src/styles/themes.css` (`:root[data-theme=…]` overrides of the page/
+    surface greys + accent tokens only — retention bands, medals, hype and
+    score gold never change), `ThemePicker` in the user menu and Settings
+    (removed from the footer the same day, owner). Per device (localStorage
+    `otakuva-theme`), applied before paint by an inline head script. Hard-
+    coded page greys used as *backgrounds* in CSS modules were pointed at
+    the tokens (same values) so themes reach them; dark text on white pills
+    was left as-is. Use tokens, not `#141416`/`#1B1B1E`, for new surfaces.
+- **Owner pass (2026-10-26, later)**:
+  - *Library is the member's choice*: ticking an episode (watched-episodes
+    route and `toggleEpisodeWatchStatus`) never creates a `UserAnime` row any
+    more — it only updates an existing one (`inLibrary: false` /
+    `userTracking: null` otherwise). Ratings/retention/reviews never added
+    one. Hype → Plan to Watch (owner's earlier rule) is unchanged.
+    `tests/episode-watch.test.ts`.
+  - *On air*: big countdown cards only for episodes within 2 hours; the rest
+    are bigger Up next / Just aired list rows (Just aired → "Rate").
+    Most Hyped back to larger posters (top 10).
+  - *Descriptions removed site-wide*: `PageHead` no longer renders its
+    subtitle; taglines under page titles, the Top Rated footnote, the hype
+    board summary line, Vibe/Retention/Premiere notes were dropped. Don't add
+    explanatory sub-lines back; real content (list/franchise descriptions,
+    news summaries, empty states) stays.
+  - *Vibe chart*: no 01–07 numbers on segments, larger ring, soft depth.
+  - *Episode Guide v6*: soft raised tiles, number chip, no white left edge on
+    "Up next". *Reviews/replies*: flat on the page (no bubble/card/border),
+    one line = avatar · name · level · retention verdict · spoiler tag.
+  - *Subtle 3D*: `--depth-1/--depth-2` shadow tokens (tokens.css) on posters
+    and cards, small lift on hover. Keep it subtle.
+  - *Explore*: "Welcome back"/profile masthead is homepage-only; Explore is
+    infinite scroll (IntersectionObserver sentinel, pages appended, no pager,
+    `?page=` no longer written to the URL).
+- **Watched → rate first, Where to Watch logos (2026-10-26, owner)**:
+  - *Episode Guide*: ticking an episode you haven't rated keeps that row as
+    the focus ("Rate this episode", green-lit tile, its retention bar ready)
+    instead of jumping "Up next" to the following episode; once a retention
+    is submitted (or the tick is undone) "Up next" moves on. Client-only
+    (`rateFirst` in `EpisodeQuickList.tsx`).
+  - *Where to Watch*: official platform icon on its brand colour, a soft tint
+    of that colour, lift on hover. Art comes from AniList's
+    `ExternalLinkSourceCollection` (36 streaming sites) via
+    `anilistProvider.getStreamingSources()` into the new `StreamingPlatform`
+    table (one row per site; migration `20261026120000_streaming_platform`,
+    additive) — `src/lib/catalog/streamingPlatforms.ts`, read/written with
+    plain SQL like AnimeVibe. `scripts/sync_streaming_platforms.ts [--apply]`
+    refreshes it and lists listings with no art; re-run if AniList adds a
+    site (unknown sites show a letter tile). The anime detail DTO's
+    `streaming[]` now carries `iconUrl`/`color`. Tests:
+    `tests/streaming-platforms.test.ts`.
+- **Hype button in the hero (2026-10-27, owner)**: on a not-yet-premiered
+  anime the Hype control is no longer a panel in the premiere notice — it's
+  one pill right under Add to Library, same shape/size/width
+  (`HypeMeter compact`, passed as `AnimeHero`'s `belowLibrary`; the two stack
+  in `.libraryStack`). "I'm hyped" (flame gradient + embers) → "You're
+  hyped"; the library/notify note became a toast. The hype icon is now
+  lucide `Sparkles` everywhere (`HypeIcon`/`HYPE_ICONS` in `HypeMeter.tsx`) —
+  replaces Zap; not Flame or Rocket either.
+- **Vibe chart details + page order (2026-10-26, owner)**: the Vibe ring has
+  shaded segments with a bright outer rim, a faint 5° tick ring, and a soft
+  glow tinted by the overall grade (or the tapped aspect); the "Strongest /
+  Weakest" sentence became four tiles under the chart (Strongest, Weakest —
+  tap to select that aspect — Members, Your vibe). Section description line
+  removed. Anime page: reviews now come **after** the Episode Guide.
+- **Owner-supplied streaming logos (2026-10-26)**: `public/brand/streaming/`
+  — `prime-video.png` (fills the tile, card tinted #0779FF),
+  `crunchyroll.png` (on white). No stand-in logo: a platform with no icon
+  gets a plain grey letter tile (the owner's generic star mark was removed —
+  it showed on every card when AniList's CDN failed to serve icons). Icons
+  are now downloaded by `scripts/sync_streaming_platforms.ts --apply` into
+  `public/brand/streaming/sites/<anilistSiteId>.png` and served locally
+  (`StreamingPlatform.iconUrl` holds that path) — no hotlinking. No glow:
+  cards are flat, no brand tint or coloured shadows. Mapped by site name in `LOCAL_LOGOS`
+  (`WhereToWatch.tsx`); everything else uses AniList's icon. The Netflix image
+  offered was a watermarked VectorStock preview — not used; Netflix keeps
+  AniList's official icon until a clean file is supplied. Which anime is on
+  which platform is per-anime AniList data (8,019 anime with a listing:
+  Crunchyroll 3,399, Netflix 970, Prime Video 437, …).
+- **Anime page navigation (2026-10-27, owner: borrow from two reference
+  layouts, keep font/theme/colours)**: `AnimeSectionNav` — a sticky "on this
+  page" chip bar under the header (Overview · Details · Retention · Vibe ·
+  Watch · Episodes · Reviews · Characters · Staff · Related · For you ·
+  Discussion · News; only sections actually rendered), scroll-spy
+  highlight, white active pill, scrolls sideways on phones. Sections carry
+  those ids (`#retention`, `#episodes`, `#reviews`, `#discussion` kept);
+  `.contentSection[id]` has a `scroll-margin-top` clearing header + bar.
+  Episode Guide: range chips (12 per chip up to 120 eps, 25 up to 400, 50
+  up to 1200, else 100) for lists over 24 — opens on the range holding
+  "Up next" (green dot), stays put once you tick/pick; "Show all" only for
+  short lists. Related Anime: filter chips by relation type with counts
+  (only with 2+ types).
+  Same day, owner follow-up: **Vibe** shows no member counts any more (centre
+  = overall verdict line, e.g. "Worth watching"; the Members tile became
+  "Verdict"); new "What to expect" list = one plain sentence per graded
+  aspect, worded from its grade only (`EXPECT` in `OtakuvaVibe.tsx`, four
+  bands: Great/Good · Decent · Average · Worst); Weakest tile hidden when
+  every aspect has the same grade. **Episode retention is locked once
+  saved**: `RetentionBars` shows the saved value read-only
+  (`RetentionSegments readOnly`) with an "Edit" button → Save / Remove /
+  Cancel, so a stray touch can't change it. **Related Anime** is compact
+  (auto-fill 128px tiles; 3 columns on phones), relation names normalised
+  ("ADAPTATION" → "Adaptation"); recommendations are titled "You Might
+  Like" (same spotlight + rail UI). **Homepage masthead** has seasonal
+  artwork, `SeasonScene` (SVG, no stock/anime art): fall maple branch +
+  torii + low sun + falling leaves; spring sakura, summer fireflies, winter
+  snow; right side on desktop, top banner on phones (masthead padding-top
+  150px ≤760px); particles off under reduced motion.
+  Then (owner): fall uses the owner-supplied artwork instead of the drawn
+  scene — `public/brand/seasons/fall.webp` (1920w) / `fall-sm.webp` (960w,
+  phones), from `ARTWORK` in `SeasonScene.tsx` (crop `50% 22%` keeps both
+  faces); leaves still fall on top. Other seasons keep the SVG until art is
+  added there. Rights/credit for that artwork are the owner's to confirm.
+- **Badges count reviews AND ratings (2026-10-27, owner)**: every review had
+  been INELIGIBLE (40-word minimum; library-status gate that ticking/rating
+  no longer satisfies) and maturation only ran on the Redis worker, so every
+  badge sat at 0. Now (`src/lib/badges/config.ts`, `rules.ts`,
+  `countingService.ts`): `minWords` 5, `maturityHours` 1; "watched" = library
+  status at writing OR now Watching/Completed/On hold/Dropped OR ticked
+  episodes (`UserEpisodeWatch`) OR an episode retention (`hasWatchedEpisodes`);
+  level points = counted reviews + **anime rated** (distinct anime with any
+  episode retention), stored in `UserBadgeStats.countedReviewCount` so all
+  tier/ladder readers keep working. `refreshUserBadges(userId)` (throttled
+  20s/member/process) re-checks NOT_WATCHED reviews, matures due ones (daily
+  cap kept) and recounts — called by `GET /api/users/:u/badges` and after
+  each episode retention save/delete, so counting no longer needs the worker.
+  The badges API adds `reviewCount`/`ratedCount`; the owner panel shows
+  "N reviews · N anime rated · helpful votes · communities" (+ "N reviews will
+  count within the hour"). Existing data recounted once with
+  `scripts/badges/recount_after_rule_change.ts --apply` (8 reviews counted;
+  13 still NOT_WATCHED — no library entry, ticks or ratings for that show;
+  they count automatically once the member ticks/rates an episode).
+  Also: on phones (≤640px) the header's notification tray and account menu
+  open as a full-width sheet under the header (list scrolls, stops above the
+  bottom bar) — the 320px tray used to run off the left edge.
+  **Badge path + share card (2026-10-27, owner, later)**: `LevelJourney` no
+  longer has one rail under every seal — each step draws a short connector
+  in the gap from the previous seal's edge to its own (`.link`, `--pr`/`--r`
+  radii, `--part` fill), in the colour of the level it leads to (full when
+  reached, part-way for the next, dashed after). Reached seals glow in their
+  colour and their name takes it; unreached stay blank; requirement labels
+  read "At 100"; hint says "N more reviews or ratings to X".
+  `ProfileBadgePanel` shows blank dashed seals while loading (never a
+  guessed tier). Palette (tiers.ts only): Buchō teal → copper `#B4612A`,
+  Tatsujin navy → steel `#56637A` (dark `#64728A`/`#AEBBD0`) so the ladder
+  reads green → blue → copper → purple → crimson → steel → black-gold →
+  ivory. Share card (`profileCard.ts`): creators get a blue tick "Creator"
+  chip after the level chip and "LV n · CREATOR"; stats are Reviews · Rated
+  (from the badges API's `reviewCount`/`ratedCount`) · Completed · Episodes;
+  **Manga** = ink title band + paper page with three bordered panels — the
+  banner inked into them (greyscale/contrast via `ctx.filter`, saturation
+  blend fallback, halftone) or screentone + speed lines without one — focus
+  lines from the seal and a ドン！ in the tier colour; **Minimal** = tier-
+  colour wash, pinstripes, outlined level kanji watermark, ripples around
+  the seal.
+- **Owner pass (2026-10-27, late)**: `StaffRail` — everyone after the key
+  creators is a wrapping grid of ROUND avatars (first 12 + "Show all N
+  staff", first role + "+N more"); on phones key creators are a 3-column grid
+  (no swipe strip). Profile avatar's level seal: round, no dark square plate.
+  "Collected" marks: `LevelJourney` puts a check on every collected seal
+  (+ "Collected" label for earned levels), `StampCollection` a coloured
+  "Collected" tag under each stamp. Anime hero age-rating box has real
+  padding/min-height (letters touched the outline). Homepage "Premiering
+  within 2 hours" cards: text wraps/ellipsizes inside the card, clearer red
+  outline. Ranked poster rails (Top Rated, Most Hyped) less packed: rank
+  numerals 32px (26px phones), smaller verdict chip, 124px phone cards.
+- **Badge info, Vibe details, creator reviews (2026-10-27, owner)**: every
+  seal in `LevelJourney` and `StampCollection` is a button that opens
+  `BadgeInfoSheet` (portal; centred card, bottom sheet on phones): seal,
+  kanji, meaning, level n/9, Collected / "N to go" + progress, about text,
+  "How to earn it" and "What it gives you" — criteria/perks DERIVED from
+  tiers.ts + config.ts gates in `src/lib/badges/tierInfo.ts` (prose in
+  `TIER_ABOUT`). `StampCollection` now also shows not-yet-collected levels
+  as blank "Locked" slots (tappable) — visitors see them too. OTAKUVA Vibe:
+  the four tiles and the "What to expect" list are gone; tapping a segment
+  or label opens a detail card (what the aspect covers, the expect line,
+  members' grade, share of the vibe, your grade — no member counts).
+  Homepage Latest reviews: creator reviews have no left bar; just a blue
+  tick "Creator review" chip ("Creator" on episode-rating notes).
+- **One page frame (2026-10-28, owner: "same left/right padding on every
+  tab, centred")**: tokens `--page-max` (1600px) and `--page-gutter`
+  (`clamp(16px, 3vw, 40px)`) in `tokens.css`, used by the header, footer,
+  AppShell (normal + wide pages — no separate wider catalog frame now) and the
+  full-bleed pages' inner content (home `.main`, anime hero + body + section
+  nav, profile, `/l/`). Pages no longer add their own side padding or column
+  (schedule, articles, history, people, upcoming, franchise, discussion
+  detail, news reader, badges, person, search, directory got a "Page frame"
+  override at the end of their CSS). Deliberate centred reading/form columns
+  kept: article reader body, Settings, Credits, legal pages, collection
+  builder. Use the two tokens for any new page; don't hard-code gutters.
+- **Studios from Wikidata + studios redesign (2026-10-28, owner)**:
+  `scripts/enrich_studios_wikidata.ts [--apply] [--no-logos] [--no-wikipedia]`
+  (backup first: `../otakuva-backups/otakuva-before-studio-enrich-*.dump`).
+  Matches by id only — Wikidata "MyAnimeList company ID" (P11490), or an anime
+  found by AniList/MAL anime id whose production company (P272) carries the
+  same name as one of OUR studios linked to that anime; ambiguous matches are
+  skipped and logged. Fills empty fields only: founded year/date, closed date,
+  native name, aliases, website, Wikipedia URL, HQ city, short description,
+  Wikipedia intro as `about` (page shows "From Wikipedia, CC BY-SA 4.0"), MAL
+  id; logos downloaded to `public/brand/studios/<Qid>.png` (not hotlinked).
+  `country` is never written (Wikidata had US/China for some Japanese
+  studios) — kept in `metadataJson.wikidata.country`, disagreements logged;
+  the page shows only city/region. CLOSED only if no works after the closing
+  year. Timeline = `StudioHistoryEvent` (source Wikidata, UNVERIFIED).
+  2026-10-28 run: 274 matched, 245 founded years, 189 about texts, 167 logos,
+  260 events. Left for review in the log: Sunrise (two Wikidata items —
+  Sunrise vs its 2022 rename), Saber Works/DNA, 8 "closed but later works".
+  Studio page: founded date/founders/parent in the hero, **History**
+  timeline (company events + milestones derived from the catalog: first
+  work/TV/film, most-watched, busiest year, latest, coming next).
+  `/studios` is now a server page (`src/lib/studios/studioDirectory.ts`, one
+  SQL query, unstable_cache + 10-min in-memory memo; `GET
+  /api/studios/directory?q=&sort=works|name|oldest|newest|active&status=all|active|closed&offset=&limit=`):
+  "Founded through the decades" timeline + every studio (was 24) with
+  search/sort/filter and infinite scroll. Homepage studio cards reuse its
+  `StudioCardGrid`; `getHomeData` studios gained `logoUrl/nativeName/
+  foundedYear/city/closed` (additive) and pick "known for" by members.
+  Logos are wide wordmarks: `.logoImage` plates widen to fit (Entity.module.css).
+  Homepage Browse by Genre: bigger 4:3 tiles, no title counts, layered 3D
+  shadows + sheen + tilt-lift on hover. Catalog re-import the same day added
+  only 11 titles — AniList is fully imported; what's left out on purpose is
+  adult titles and music videos (~2.5–3k MVs).
+- **Landing page `/welcome` (2026-10-28, owner)**: signed-out visitors opening
+  `/` are sent to `/welcome` by `src/middleware.ts` (no `anilog_token` and no
+  `otakuva_guest` cookie → 307; done in middleware because the root
+  `loading.tsx` streams first, so `redirect()` in the page came too late; the
+  homepage still re-checks the session as a fallback). Full-screen (AppShell
+  `isImmersive`): tilted wall of the 72 most-watched posters (AniList
+  `/cover/medium/`, ~3× lighter) in columns drifting up/down, glass card with
+  the sign-in form → homepage after sign-in. "Browse without signing in" sets
+  `otakuva_guest` (30 days, `src/lib/landing/guest.ts`). Every other page
+  stays public (owner chose this over a site-wide login wall). The sign-in /
+  sign-up form now lives in `src/components/auth/AuthForm.tsx`, shared by
+  `AuthModal` and `/welcome` — change it there. Same day, later: the wall is
+  a 160vmax tilted square (18 columns × 14 posters, cycled from 120 titles,
+  no Ecchi covers) so no corner is ever bare; the card is top-anchored and
+  mostly opaque (the re-centring and the blur over moving art were the
+  "jitter"). `/welcome` shows three pill tabs — Sign In / Create Account /
+  **Creator**: username + channel name + channel link + phone/SMS code →
+  the normal `register` → then the existing `POST /api/creator/upgrade`
+  (unchanged; channel limits now shared from `src/lib/creator/channelRules.ts`
+  so the form checks before the account is created). The pop-up still has
+  two tabs (`AuthForm` `modes` prop). The empty `Landing page/`
+  folder at the repo root isn't used (Next only serves `src/app`).
+- **Passwords for everyone (2026-10-28, owner) — supersedes "Phone + OTP
+  replaced email verification" above for sign-in.** Sign-up: username + phone
+  → SMS code → `POST /api/auth/phone/verify-code` returns a signed **phone
+  pass** (`signPhonePass`/`verifyPhonePass` in `src/lib/auth.ts`: 10 min,
+  own JWT audience, so it can never act as a session) → password + confirm →
+  `POST /api/auth/register { username, password, pass }` (the one-step
+  `{ phone, code, password }` form still works; a password is always
+  required). Sign-in: `POST /api/auth/login { identifier, password }` for
+  every account (username case-insensitive, or a legacy email); the old
+  phone+code login is refused (`USE_PASSWORD`) once an account has a
+  password, and passwordless phone accounts get `NO_PASSWORD` → "Forgot
+  password". Forgot password: send-otp purpose `reset` → verify-code
+  `reset` → `POST /api/auth/password-reset/phone { pass, password }` (single
+  use: refused if `passwordChangedAt` is newer than the pass). Rules in
+  `src/lib/identity/password.ts` (8+, a letter and a number, not the
+  username). New User columns `passwordChangedAt`, `lastLoginAt`,
+  `lastSeenAt` (migration `20261028120000_user_password_activity`; touched
+  with raw SQL because the running dev server's Prisma client predated them —
+  typed access is fine after a restart). `lastSeenAt` is written by
+  `GET /api/auth/me` at most every 5 min. UI: `AuthForm` (Sign In with
+  "Forgot password?", Create Account / Creator → code → password panel with
+  strength meter + confirm). Tests: `tests/phone-auth.test.ts`.
+  **Not done:** changing a password doesn't sign out other existing sessions
+  (needs `passwordChangedAt` vs token `iat` in `getAuthUserFrom*`).
+- **Control center `/control` (2026-10-28, owner)**: ADMIN/SUPER_ADMIN only
+  (`src/lib/control/access.ts`; every `/api/control/**` route checks it);
+  its own sign-in screen (username + password), no site chrome (AppShell
+  immersive). The owner's account is made with
+  `npx tsx scripts/create_control_admin.ts --username=<name>` (asks for the
+  password, hidden; SUPER_ADMIN; re-run to reset). Pages: Overview (members,
+  active 24h/7d from `lastSeenAt`, sign-ups chart, "Fix next" gaps, catalog,
+  community, news — `src/lib/control/overview.ts`), Users (search/role/
+  sort; never returns phone/email/password; role change = existing
+  SUPER_ADMIN `PATCH /api/admin/users/:id/role`), Anime (add by AniList/MAL
+  id via `syncEngine.ingestAnime`, no adult; edit title/synopsis/poster/
+  banner/trailer), Creators, Characters, Studios (photo/logo). Edits go
+  through `src/lib/control/editor.ts`: row + EditorialOverride (+
+  AnimeMetadataHistory for anime); clearing removes the override. Images:
+  https links or uploads (`POST /api/control/upload`, existing storage
+  pipeline, `/uploads/...`). **Sync fix**: `syncEngine.ingestAnime` now also
+  skips overridden poster/banner/trailer (it already skipped title/synopsis).
+  News, reviews/reports, full studio editor, image health and data/sync are
+  the older `/admin/*` tools, linked from the sidebar. Tests:
+  `tests/control-center.test.ts`.
+  **v2, same day (owner: "a completely new admin panel, in my Control
+  Center folder")** — supersedes the paths above. ALL control-center code
+  now lives in the repo-root folder **`Control Center/`** (`lib/`, `api/`,
+  `ui/`, `ui/pages/`; see its README), imported as `@control/*` (tsconfig
+  path). `src/app/control/**` pages and `src/app/api/control/**` routes are
+  one-line re-exports into it (keep `export const dynamic` in the route file).
+  Sidebar: Dashboard · Catalog (Anime, Creators, Characters, Studios) ·
+  Editorial (Charts, OTAKUVA Choice, News, Articles, Collections) · People
+  (Users) · More tools (old `/admin/*`). New:
+  - *Dashboard* (`lib/dashboard.ts`): accounts active today/week/month vs not
+    active 30+ days vs never seen; premiering in 60 days (AiringSchedule ep 1
+    else startDate, with HYPED counts); on air now (`nextAiringAt`); most
+    hyped / reviewed / rated.
+  - *Anime form* (`lib/animeForm.ts`, `/control/anime/new|<id>`): every
+    field the anime page shows (titles by language, synopsis, background,
+    format, status, episodes, length, source, age rating, country, season,
+    year, dates, broadcast, poster, banner, trailer, genres, themes, studios
+    with main star, streaming links as source `EDITORIAL`, AniList/MAL ids).
+    Manual anime = `externalSource 'manual'`. On existing anime each changed
+    column gets an EditorialOverride + history row. **syncEngine now skips
+    EVERY overridden field** (generic: deletes override keys from the update
+    payload), not just title/synopsis/images.
+  - *Charts* (`lib/charts.ts`, tables `CuratedChart`/`CuratedChartEntry`,
+    migration `20261028150000_curated_charts_daily_picks`, plain SQL): Top
+    10/25/50/100 with notes; published ones at `/charts` and
+    `/charts/<slug>`. Slug `otakuva-choice`, once published with entries,
+    replaces `src/lib/curated.ts`'s OTAKUVA_CHOICE in `getBrowseList('choice')`.
+  - *Daily OTAKUVA Choice* (`lib/dailyPicks.ts`, table `DailyPick`): the
+    homepage spotlight per UTC day (its note replaces the synopsis); no pick
+    → the old rotation.
+  - *News / Articles / Collections* (`lib/editorial.ts`): news via the
+    existing `newsAdminService` (provider `INTERNAL`, `OTAKUVA_EDITORIAL`; the
+    news page now shows the full text for INTERNAL stories and hides "Read
+    original"), articles as `UserArticle` by the admin account (cover may be
+    any https/uploaded image), collections as PUBLIC `UserList`s owned by the
+    admin account (order + banner set directly).
+  Tests: `tests/control-center-editorial.test.ts` (+ the v1 file).
+  **Publish step**: `Control Center/lib/publish.ts` `refreshSite(animeKeys)`
+  runs after every successful control-center write (automatically in
+  `guarded()` for non-GET, and in the older handlers): revalidateTag for
+  home sections / `studio-directory` / hype board / `platform-stats`,
+  revalidatePath for the main pages, CacheManager tags `tag:anime:catalog`,
+  `tag:news:list` (news list cache is now tagged) and `tag:anime:<id|slug>`,
+  plus the studio-directory and genre-artwork in-memory caches. Header
+  account menu shows **Control center** for `hasMinRole(role, 'ADMIN')`.
+  Live-checked 2026-10-28 (create → public API/page/chart show it at once;
+  test rows removed). Known: on a cold dev server the anime page's 11
+  self-fetches can time out and render "not found" once — a reload fixes it.
+  **Images fixed + analytics (2026-10-28, later)**:
+  - *Why uploads looked broken*: `.env` has `STORAGE_PROVIDER=r2` and
+    `MEDIA_PUBLIC_URL` = `https://media.otakuva.com`, a domain that doesn't
+    resolve — files reached the bucket but every returned link was dead. Now
+    (a) `DevR2WithLocalFallback` (dev only) also falls back to local
+    `public/uploads` when the public address can't be reached (injectable
+    check; `tests/storage-fallback.test.ts`), and (b) the control-center upload
+    returns `resolveMediaUrl(url)` — bucket files come back as the existing
+    `/api/media/<key>` relay, which works without the domain (production too).
+    `/api/media/…` paths are accepted by `cleanImageUrl` and the studio pages.
+    **Owner action before launch**: point media.otakuva.com at the R2 bucket
+    (or set MEDIA_PUBLIC_URL to the bucket's public r2.dev URL) — member
+    avatars/banners shown raw elsewhere depend on it.
+  - *Image from a link*: `POST /api/control/upload { url, kind }` downloads
+    and stores a copy (`Control Center/lib/remoteImage.ts`: http(s) only,
+    DNS-checked against private/loopback ranges on every redirect hop, 15 MB,
+    HTML pages get "copy image address" advice). ImageField: "Choose from
+    computer" + "Use this link".
+  - *Page views*: table `PageViewDaily(kind, entityId, day, views)` (migration
+    `20261028180000_page_view_daily`; counts only, no user/IP), `POST
+    /api/track/view` (bots/unknown kinds/bad ids ignored, rate-limited, always
+    204), `ViewBeacon` (once per page per session) on anime, news, article,
+    collection (/l/), chart, studio and person pages. Starts at zero on
+    2026-10-28.
+  - *Analytics* (`Control Center/lib/analytics.ts`, `ui/Charts.tsx` —
+    server-rendered KPI tiles, daily bars, ranked bars; `?days=7|30|90`):
+    `/control/analytics/anime|news|collections|members|community`. News
+    opens come from existing EventLog `NEWS_OPENED`. Tests:
+    `tests/control-analytics.test.ts`.
+  - *Main desk / Platform* (`Control Center/lib/platform.ts`,
+    `ui/pages/PlatformPages.tsx`): `/control/desk` (platform totals, admin
+    alerts, latest activity), `/control/creators` (every CREATOR with
+    followers, reviews, rated anime, hype, communities, articles, last seen),
+    `/control/communities` (all communities + discussions, `?q=`),
+    `/control/activity` (feed across all accounts, `?kind=`). Admin alerts:
+    `src/lib/notifications/adminAlerts.ts` — Notification types
+    `ADMIN_NEW_MEMBER` (register route) and `ADMIN_NEW_CREATOR`
+    (`upgradeToCreator`) to every ADMIN/SUPER_ADMIN; best-effort.
 - Real-world schedule spec: `docs/OTAKUVA_SCHEDULE_SPEC_v1.md` (AniList +
   AnimeSchedule.net dual-provider `ReleaseEvent` model, regional/sub/dub
   releases, delay tracking, admin conflict resolution). Not started.

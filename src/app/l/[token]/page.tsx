@@ -8,6 +8,7 @@ import { getSharedList } from '../../../lib/lists/listService';
 import { resolveAvatarUrl, resolveMediaUrl } from '../../../lib/mediaResolver';
 import { CopyLinkButton } from './CopyLinkButton';
 import styles from './share.module.css';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,7 @@ export default async function SharedListPage({ params }: { params: { token: stri
 
   return (
     <div className={styles.page}>
+      <ViewBeacon kind="collection" id={list.id} />
       <section className={styles.card} aria-labelledby="shared-list-title">
         <div className={styles.glow} aria-hidden="true" />
         {/* Collection banner (2026-10-22): chosen or the first anime's, fading into the page. */}

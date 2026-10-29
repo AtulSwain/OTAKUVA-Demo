@@ -113,7 +113,7 @@ function Wrap({ href, className, title, children }: { href: string | null; class
  * better and modern"). People are merged (one card per person, all their
  * roles); the lead creatives (director, original creator, composition,
  * character design, music…) get tall portrait cards, everyone else a slim
- * row of rounded-square avatars. No boxes; provider "no photo" stand-ins
+ * grid of round avatars (2026-10-27). No boxes; provider "no photo" stand-ins
  * show initials instead.
  */
 export const StaffRail: React.FC<StaffRailProps> = ({ staff = [], onViewAll }) => {
@@ -121,6 +121,11 @@ export const StaffRail: React.FC<StaffRailProps> = ({ staff = [], onViewAll }) =
   const key = credits.filter((c) => c.rank < 99).sort((a, b) => a.rank - b.rank).slice(0, MAX_KEY);
   const keySet = new Set(key.map((k) => k.key));
   const rest = credits.filter((c) => !keySet.has(c.key));
+  // Everyone else: a wrapping grid of round avatars (owner, 2026-10-27 — the
+  // sideways strip hid most people on phones), first few rows + "Show all".
+  const [showAll, setShowAll] = React.useState(false);
+  const REST_PREVIEW = 12;
+  const shownRest = showAll ? rest : rest.slice(0, REST_PREVIEW);
 
   return (
     <div className={styles.section} aria-label="Staff &amp; Key Creators">
@@ -160,15 +165,26 @@ export const StaffRail: React.FC<StaffRailProps> = ({ staff = [], onViewAll }) =
           )}
 
           {rest.length > 0 && (
-            <div className={styles.railScroll}>
-              {rest.map((c) => (
-                <Wrap key={c.key} href={c.href} className={styles.staffCard} title={`${c.name} — ${c.roles.join(', ')}`}>
-                  <Portrait name={c.name} image={c.image} sizes="64px" className={styles.avatarWrapper} />
-                  <span className={styles.staffName}>{c.name}</span>
-                  <span className={styles.staffRole}>{c.roles.join(' · ')}</span>
-                </Wrap>
-              ))}
-            </div>
+            <>
+              <p className={styles.restLabel}>
+                All staff <span>{rest.length}</span>
+              </p>
+              <div className={styles.staffGrid}>
+                {shownRest.map((c) => (
+                  <Wrap key={c.key} href={c.href} className={styles.staffCard} title={`${c.name} — ${c.roles.join(', ')}`}>
+                    <Portrait name={c.name} image={c.image} sizes="72px" className={styles.avatarWrapper} />
+                    <span className={styles.staffName}>{c.name}</span>
+                    <span className={styles.staffRole}>{c.roles[0]}</span>
+                    {c.roles.length > 1 && <span className={styles.staffMore}>+{c.roles.length - 1} more</span>}
+                  </Wrap>
+                ))}
+              </div>
+              {rest.length > REST_PREVIEW && (
+                <button type="button" className={styles.showAllBtn} onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+                  {showAll ? 'Show less' : `Show all ${rest.length} staff`}
+                </button>
+              )}
+            </>
           )}
         </>
       )}

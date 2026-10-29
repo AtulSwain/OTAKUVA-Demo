@@ -34,6 +34,9 @@ import { HypeBoard, UpcomingRail } from '../components/hype/HypeBoard';
 import { CreatorsSpotlight } from '../components/home/CreatorsSpotlight';
 import { MemberCollectionsRail } from '../components/collections/MemberCollectionsRail';
 import { CommunityScoreBadge } from '../components/rating/CommunityScoreBadge';
+import { VerdictCount } from '../components/rating/VerdictCount';
+import { StudioCardGrid } from '../components/studios/StudiosDirectory';
+import { SponsorAdRail } from '../components/monetization/SponsorAdRail';
 
 type HomeAnime = Anime & { posterUrl?: string };
 
@@ -70,6 +73,11 @@ type StudioItem = {
   slug: string;
   name: string;
   imageUrl?: string | null;
+  logoUrl?: string | null;
+  nativeName?: string | null;
+  foundedYear?: number | null;
+  city?: string | null;
+  closed?: boolean;
   projectCount?: number;
   knownFor: HomeAnime[];
 };
@@ -115,6 +123,8 @@ export function HomeClient({
     <div className={styles.page}>
       <main className={styles.main}>
         {fp && <Masthead data={fp} username={user?.username ?? null} displayName={user?.displayName ?? null} onJoin={() => openAuthModal('register')} />}
+
+        <SponsorAdRail />
 
         {/* Hype board: upcoming shows by how members feel — right under the Welcome back masthead. */}
         <div className={front.block}>
@@ -180,9 +190,13 @@ export function HomeClient({
           </section>
         )}
 
+        {/* Content creators: story-style circles + what they recently rated/reviewed —
+            right below "You are tracking" (owner, 2026-10-25). */}
+        <CreatorsSpotlight />
+
         {fp && (
           <>
-            <LatestReviews reviews={fp.reviews} />
+            <LatestReviews reviews={fp.reviews} episodeNotes={fp.creatorEpisodeNotes ?? []} />
             {(data.topRated?.length ?? 0) > 0 && (
               <section className={front.block} aria-labelledby="top-rated">
                 <SectionHead kicker="Already out · ranked" title="Top Rated" id="top-rated" href="/rankings" linkLabel="All rankings" />
@@ -194,7 +208,8 @@ export function HomeClient({
                       <Link key={anime.id} href={`/anime/${anime.slug || anime.id}`} className={styles.card}>
                         <div className={styles.posterWrapper}>
                           <AnimeImage src={anime.posterImage || anime.posterUrl} alt={title} fill sizes="180px" />
-                          <CommunityScoreBadge animeId={anime.id} variant="overlay" />
+                          {/* How many members rated or reviewed it (owner, 2026-10-26) — not the % here. */}
+                          <VerdictCount animeId={anime.id} className={styles.verdictSmall} />
                           <span className={`${styles.rankNumeral} ${medal}`} aria-label={`Rank ${idx + 1}`}>
                             {String(idx + 1).padStart(2, '0')}
                           </span>
@@ -238,9 +253,9 @@ export function HomeClient({
                       <img src={g.imageUrl} alt={g.fromTitle ? `Artwork from ${g.fromTitle}` : ''} loading="lazy" decoding="async" className={styles.genreImg} />
                     )}
                     <span className={styles.genreShade} aria-hidden="true" />
+                    <span className={styles.genreSheen} aria-hidden="true" />
                     <span className={styles.genreText}>
                       <span className={styles.genreName}>{g.genre}</span>
-                      <span className={styles.genreCount}>{g.count.toLocaleString('en-US')} titles</span>
                     </span>
                   </Link>
                 );
@@ -270,30 +285,25 @@ export function HomeClient({
         {studiosList.length > 0 && (
           <section className={front.block} aria-labelledby="home-studios">
             <SectionHead kicker="Production" title="Animation Studios" id="home-studios" href="/studios" linkLabel="Explore production" />
-            <div className={front.studioCards}>
-              {studiosList.map((studio) => (
-                <Link key={studio.id} href={`/studios/${studio.slug || studio.id}`} className={front.studioCard}>
-                  <span className={front.studioPosters} aria-hidden="true">
-                    {studio.knownFor.slice(0, 3).map((a) => (
-                      <span key={a.id} className={front.studioPoster}>
-                        <AnimeImage src={a.posterImage || a.posterUrl} alt="" fill sizes="90px" />
-                      </span>
-                    ))}
-                  </span>
-                  <span className={front.studioInfo}>
-                    <strong>{studio.name}</strong>
-                    {studio.projectCount != null && <span>{studio.projectCount.toLocaleString('en-US')} works in the catalog</span>}
-                    {studio.knownFor[0] && <span className={front.studioKnown}>Known for {getAnimeDisplayTitle(studio.knownFor[0])}</span>}
-                  </span>
-                </Link>
-              ))}
-            </div>
+            <StudioCardGrid
+              studios={studiosList.map((studio) => ({
+                id: studio.id,
+                slug: studio.slug || studio.id,
+                name: studio.name,
+                nativeName: studio.nativeName && studio.nativeName !== studio.name ? studio.nativeName : null,
+                logoUrl: studio.logoUrl ?? null,
+                foundedYear: studio.foundedYear ?? null,
+                closed: Boolean(studio.closed),
+                city: studio.city ?? null,
+                works: studio.projectCount ?? 0,
+                firstYear: null,
+                latestYear: null,
+                posters: studio.knownFor.map((a) => a.posterImage || a.posterUrl).filter((p): p is string => typeof p === 'string' && p.length > 0).slice(0, 3),
+                knownFor: studio.knownFor[0] ? getAnimeDisplayTitle(studio.knownFor[0]) : null,
+              }))}
+            />
           </section>
         )}
-
-        {/* Content creators: story-style circles + what they recently rated/reviewed —
-            right above Creators and Directors (owner, 2026-10-24). */}
-        <CreatorsSpotlight />
 
         {/* Creators: directors, writers, designers and composers, by creative credits. */}
         {creatorsList.length > 0 && (

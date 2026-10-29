@@ -164,10 +164,10 @@ export const POST = withApiHandler('EpisodeWatchToggle', async (
     data: {
       episodesWatched: result.totalCompleted,
       watchedEpisodes: watched ? [result.episodeNumber] : [],
-      userAnime: { ...result.userAnime, status: result.userAnime.status.toLowerCase() },
+      userAnime: result.userAnime ? { ...result.userAnime, status: result.userAnime.status.toLowerCase() } : null,
     },
     episodesWatched: result.totalCompleted,
     watchedEpisodes: watched ? [result.episodeNumber] : [],
-    userAnime: { ...result.userAnime, status: result.userAnime.status.toLowerCase() },
+    userAnime: result.userAnime ? { ...result.userAnime, status: result.userAnime.status.toLowerCase() } : null,
   };
 });

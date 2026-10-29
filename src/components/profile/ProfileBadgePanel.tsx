@@ -21,7 +21,13 @@ interface CommunityRow {
 interface BadgeData {
   username: string;
   tier: TierKey;
+  /** Level points: counted reviews + rated anime (2026-10-27). */
   countedReviewCount: number;
+  /** The two parts of the level points. */
+  reviewCount?: number;
+  ratedCount?: number;
+  /** Own profile only: reviews still in their short waiting window. */
+  pendingReviewCount?: number;
   helpfulVotes: number;
   isCritic: boolean;
   communities: CommunityRow[];
@@ -65,7 +71,28 @@ export function ProfileBadgePanel({
     };
   }, [username]);
 
-  if (!data) return null;
+  // Blank seals until the member's real levels load (owner, 2026-10-27) —
+  // never a guessed tier.
+  if (!data) {
+    return (
+      <section className={styles.panel} aria-label="Loading badges" aria-busy="true">
+        <div className={styles.skelHead}>
+          <span className={styles.skelSeal} />
+          <span className={styles.skelLines}>
+            <span />
+            <span />
+          </span>
+        </div>
+        {variant !== 'public' && (
+          <div className={styles.skelRow} aria-hidden="true">
+            {Array.from({ length: 9 }, (_, i) => (
+              <span key={i} className={styles.skelDot} style={{ animationDelay: `${i * 80}ms` }} />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
   const tier = getTier(data.tier);
   const progress = progressToNext(data.countedReviewCount);
   const communityHeader = `${pluralize(data.communities.length, 'community', 'communities')}${
@@ -102,12 +129,19 @@ export function ProfileBadgePanel({
           <h2 className={styles.username}>{data.username}</h2>
           <p className={styles.title}>{BADGE_STRINGS.titleWithMeaning(tier.name, glossFor(tier.glossKey))}</p>
           <p className={styles.meta}>
-            <span>{pluralize(data.countedReviewCount, 'review')}</span>
+            <span>{pluralize(data.reviewCount ?? data.countedReviewCount, 'review')}</span>
+            <span aria-hidden="true">·</span>
+            <span>{pluralize(data.ratedCount ?? 0, 'anime rated', 'anime rated')}</span>
             <span aria-hidden="true">·</span>
             <span>{formatCompact(data.helpfulVotes)} helpful votes</span>
             <span aria-hidden="true">·</span>
             <span>{pluralize(data.communities.length, 'community', 'communities')}</span>
           </p>
+          {Boolean(data.pendingReviewCount) && (
+            <p className={styles.meta}>
+              {`${pluralize(data.pendingReviewCount!, 'review')} will count within the hour`}
+            </p>
+          )}
         </div>
       </div>
 

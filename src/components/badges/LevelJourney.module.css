@@ -18,28 +18,32 @@
   grid-template-columns: repeat(9, minmax(0, 1fr));
 }
 
-/* The rail runs through the seal centres: middle of the first column to middle of the last. */
-.rail {
+/* Connectors live in the gaps between seals (2026-10-27): from the previous
+   seal's edge to this seal's edge, so no line ever crosses a badge. */
+.link {
   position: absolute;
-  top: calc(18px + 30px);
-  left: calc(100% / 18);
-  right: calc(100% / 18);
-  height: 4px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  top: 30px; /* the seal row's centre (.sealWrap is 60px tall) */
+  left: calc(-50% + var(--pr, 22px) + 8px);
+  right: calc(50% + var(--r, 22px) + 8px);
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
   transform: translateY(-50%);
+  overflow: hidden;
   pointer-events: none;
 }
-.railFill {
+.linkLocked { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.14) 0 4px, transparent 4px 8px); }
+.linkFill {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
   border-radius: inherit;
-  background: var(--rail-gradient);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.18);
-  transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+  background: var(--b-bar-dark, #fff);
+  box-shadow: 0 0 8px var(--b-bar-dark, transparent);
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i) * 90ms + 0.1s);
 }
-.play .railFill { width: calc(var(--fill) * 100%); }
+.play .linkFill { width: calc(var(--part, 0) * 100%); }
 
 .step {
   position: relative;
@@ -60,7 +64,11 @@
 .req { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 
 .earned .sealWrap { filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35)); }
-.locked .sealWrap { opacity: 0.45; }
+/* Reached levels glow softly in their own colour; the name takes it too. */
+.reached .stamp { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--b-bar-dark, #fff) 45%, transparent)); }
+.reached .name { color: var(--b-bar-dark, var(--text-primary)); }
+.reached.step:first-child .name { color: var(--text-primary); }
+.locked .sealWrap { opacity: 0.4; }
 .locked .name { color: var(--text-muted); font-weight: 600; }
 .next .sealWrap { opacity: 0.8; }
 .next .req { color: var(--b-bar-dark, var(--text-secondary)); font-weight: 600; }
@@ -70,7 +78,7 @@
   display: inline-block;
   padding: 1px 8px;
   border-radius: 999px;
-  background: var(--b-bar-dark, #fff);
+  background: var(--b-chip-fill, var(--b-bar-dark, #fff));
   color: #fff;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -94,7 +102,7 @@
 @media (prefers-reduced-motion: reduce) {
   .step { opacity: 1; transform: none; }
   .play .step, .halo, .current .sealWrap :global(svg) { animation: none; }
-  .railFill { transition: none; }
+  .linkFill { transition: none; }
 }
 
 /* ── Stamps (2026-10-23): round hanko pressed onto every level reached ── */
@@ -138,3 +146,18 @@
 @media (prefers-reduced-motion: reduce) {
   .play .stamped .stamp, .play .fresh .stamp, .play .fresh .ink { animation: none; }
 }
+
+/* Collected levels (owner, 2026-10-27): a small check on the seal + label. */
+.collectedTick {
+  position: absolute; top: 2px; right: calc(50% - 30px); z-index: 2;
+  display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--b-chip-fill, var(--b-bar-dark, var(--text-secondary))); color: #fff;
+  box-shadow: 0 0 0 2px var(--surface-base, #1b1b1e);
+}
+.current .collectedTick { top: -2px; right: calc(50% - 36px); }
+.collectedLabel { color: var(--b-bar-dark, var(--text-secondary)); font-weight: 800; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Each seal opens its info card (2026-10-27). */
+.sealBtn { display: grid; place-items: center; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; border-radius: 50%; }
+.sealBtn:focus-visible { outline: 2px solid var(--b-bar-dark, #fff); outline-offset: 3px; }
+@media (hover: hover) { .sealBtn:hover .stamp { transform: rotate(var(--tilt, 0deg)) scale(1.06); transition: transform 0.15s ease; } }

@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '../../prisma';
+import { getPlatformArt } from '../../catalog/streamingPlatforms';
 import { AnimeFilterParams, AnimeCardDto, AnimeDetailDto, PaginationMeta } from '../../contracts/apiContracts';
 import { CacheManager } from '../../performance/cacheManager';
 import { normalizeSearchTitle } from '../../normalizers';
@@ -495,6 +496,8 @@ export class AnimeCatalogEngine {
 
     const franchise = anime.franchiseItems[0]?.franchise || null;
     const mainTitle = getAnimeDisplayTitle(anime);
+    // Official icon + brand colour per streaming site (AniList), for "Where to Watch".
+    const platformArt = await getPlatformArt(anime.streamingAvailability.map((s) => s.provider));
 
     const detail: AnimeDetailDto = {
       id: anime.id,
@@ -548,7 +551,11 @@ export class AnimeCatalogEngine {
       studios: anime.animeStudios.map((as) => ({ id: as.studio.id, name: as.studio.name, slug: as.studio.slug })),
       // Official streaming listings (imported from AniList, or set by an
       // editor). Feeds "Where to Watch"; empty means nothing is recorded.
-      streaming: dedupeStreaming(anime.streamingAvailability),
+      streaming: dedupeStreaming(anime.streamingAvailability).map((s) => ({
+        ...s,
+        iconUrl: platformArt.get(s.name.toLowerCase())?.iconUrl ?? null,
+        color: platformArt.get(s.name.toLowerCase())?.color ?? null,
+      })),
       producers: anime.animeProducers.map((ap) => ({
         id: ap.producer.id,
         name: ap.producer.name,

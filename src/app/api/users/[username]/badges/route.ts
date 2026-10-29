@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
 import { getCriticEligibleUserIds, getUserBadgeSnapshot } from '../../../../../lib/badges/queries';
+import { getRatedAnimeStats, refreshUserBadges } from '../../../../../lib/badges/countingService';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,10 @@ export async function GET(request: NextRequest, { params }: { params: { username
     const authUser = await getAuthUserFromRequest(request);
     const isSelf = authUser?.id === user.id;
 
-    const [snapshot, memberships, critics] = await Promise.all([
+    // Count due reviews + ratings now instead of waiting for the queue worker.
+    await refreshUserBadges(user.id);
+
+    const [snapshot, memberships, critics, reviewCount, rated] = await Promise.all([
       getUserBadgeSnapshot(user.id),
       prisma.communityMember.findMany({
         where: {
@@ -38,6 +42,8 @@ export async function GET(request: NextRequest, { params }: { params: { username
         },
       }),
       getCriticEligibleUserIds([user.id]),
+      prisma.review.count({ where: { userId: user.id, countState: 'COUNTED', deletedAt: null } }),
+      getRatedAnimeStats(user.id),
     ]);
 
     const communities = memberships
@@ -55,7 +61,10 @@ export async function GET(request: NextRequest, { params }: { params: { username
     return NextResponse.json({
       username: user.username,
       tier: snapshot.tier,
+      // Level points = counted reviews + rated anime (2026-10-27).
       countedReviewCount: snapshot.countedReviewCount,
+      reviewCount,
+      ratedCount: rated.count,
       pendingReviewCount: isSelf ? snapshot.pendingReviewCount : undefined,
       helpfulVotes: snapshot.helpfulVotes,
       isCritic: critics.has(user.id),

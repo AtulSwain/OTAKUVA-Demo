@@ -63,7 +63,7 @@
   transform-style: preserve-3d;
   transition: transform 0.25s ease-out, box-shadow 0.3s ease;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  background: #141416;
+  background: var(--bg-primary);
 }
 .enter { opacity: 0; transform-style: preserve-3d; }
 .ready { animation: cardIn 0.75s cubic-bezier(0.2, 1.3, 0.35, 1) both; }
@@ -94,7 +94,7 @@
 .swatch { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
 .sw_banner { background: linear-gradient(160deg, #5a6a8a, #1b1b26 70%); }
 .sw_manga { background: repeating-conic-gradient(from 0deg at 70% 40%, var(--glow) 0 4deg, #15151d 4deg 14deg); }
-.sw_minimal { background: radial-gradient(circle at 50% 0%, var(--glow), #101012 70%); }
+.sw_minimal { background: radial-gradient(circle at 50% 0%, var(--glow), var(--header-bg) 70%); }
 
 .primaryRow { display: flex; gap: 8px; }
 .primaryRow > * { flex: 1; animation: pop 0.4s cubic-bezier(0.3, 1.5, 0.5, 1) both; animation-delay: calc(0.25s + var(--d) * 50ms); }

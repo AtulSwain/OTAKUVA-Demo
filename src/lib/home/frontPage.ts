@@ -136,7 +136,7 @@ export async function buildFrontPageSections(now = new Date()) {
           createdAt: true,
           userId: true,
           animeId: true,
-          user: { select: { username: true, avatarUrl: true } },
+          user: { select: { username: true, avatarUrl: true, role: true, creatorChannelName: true } },
           anime: { select: { slug: true, canonicalTitle: true, posterUrl: true } },
         },
       }),
@@ -191,6 +191,30 @@ export async function buildFrontPageSections(now = new Date()) {
       : [];
   const trackers = new Map(mostPopular.map((r) => [r.animeId, r._count.animeId]));
 
+  // Creators' latest episode ratings that came with a comment (2026-10-25,
+  // owner): shown in Latest reviews, highlighted as a creator's take.
+  const creatorEpisodeRows = await prisma.episodeRating.findMany({
+    where: {
+      review: { not: null },
+      retention: { gte: 1, lte: 100 },
+      episodeNumber: { not: null },
+      user: { role: 'CREATOR' },
+      anime: { isAdult: false },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 4,
+    select: {
+      id: true,
+      episodeNumber: true,
+      retention: true,
+      review: true,
+      updatedAt: true,
+      userId: true,
+      user: { select: { username: true, avatarUrl: true, creatorChannelName: true } },
+      anime: { select: { id: true, slug: true, canonicalTitle: true, posterUrl: true } },
+    },
+  });
+
   const [ratings, tiers, onThisDayRows] = await Promise.all([
     getReviewerRatings(reviewRows.map((r) => ({ userId: r.userId, animeId: r.animeId }))),
     getTierBriefs(reviewRows.map((r) => r.userId)).catch(() => new Map()),
@@ -228,10 +252,24 @@ export async function buildFrontPageSections(now = new Date()) {
         createdAt: r.createdAt.toISOString(),
         rating: reviewerRatingFrom(ratings, r.userId, r.animeId),
         tier: tiers.get(r.userId)?.tier ?? 'shoshinsha',
-        user: { username: r.user.username, avatarUrl: r.user.avatarUrl },
-        anime: { slug: r.anime.slug, title: title(r.anime.canonicalTitle), posterUrl: r.anime.posterUrl },
+        user: {
+          username: r.user.username,
+          avatarUrl: r.user.avatarUrl,
+          isCreator: r.user.role === 'CREATOR',
+          channelName: r.user.role === 'CREATOR' ? r.user.creatorChannelName : null,
+        },
+        anime: { id: r.animeId, slug: r.anime.slug, title: title(r.anime.canonicalTitle), posterUrl: r.anime.posterUrl },
       };
     }),
+    creatorEpisodeNotes: creatorEpisodeRows.flatMap((e) => (!e.anime ? [] : [{
+      id: e.id,
+      episodeNumber: e.episodeNumber as number,
+      retention: e.retention as number,
+      comment: excerpt(e.review || ''),
+      at: e.updatedAt.toISOString(),
+      user: { username: e.user.username, avatarUrl: e.user.avatarUrl, channelName: e.user.creatorChannelName },
+      anime: { id: e.anime.id, slug: e.anime.slug, title: title(e.anime.canonicalTitle), posterUrl: e.anime.posterUrl },
+    }])),
     discussions: discussions.map((d) => ({
       id: d.id,
       title: title(d.title),

@@ -472,3 +472,6 @@
 }
 
 .filterShort { display: none; }
+
+/* Infinite scroll sentinel (2026-10-26). */
+.loadMore { display: grid; place-items: center; min-height: 64px; color: var(--text-muted); font-size: 13px; }

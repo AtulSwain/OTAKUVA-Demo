@@ -7,7 +7,7 @@ import { isHypeLevel } from '../../../../lib/hype/hypeLevels';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/hype/board?level=HYPED|SKIP|upcoming&limit=20
+ * GET /api/hype/board?level=HYPED|upcoming&limit=20
  * Upcoming anime by premiere date, or ranked by votes of one Hype level.
  * Signed in: `mine` maps animeId → the viewer's own vote.
  */

@@ -90,7 +90,7 @@ a.rowTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
 .success { padding: 10px 14px; border-radius: 12px; background: rgba(34, 197, 94, 0.1); color: #86efac; font-size: 13.5px; }
 
 /* Invitation credentials */
-.secretBox { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 16px; background: #141416; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.secretBox { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 16px; background: var(--bg-primary); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
 .secretRow { display: flex; align-items: center; gap: 10px; }
 .secretLabel { flex: none; width: 92px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .secretValue { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; letter-spacing: 0.02em; overflow-x: auto; white-space: nowrap; color: var(--text-primary); }
@@ -125,3 +125,12 @@ a.rowTitle:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* Dashboard embedded in the creator's profile (one place, 2026-10-24). */
 .embedded { display: flex; flex-direction: column; gap: 24px; }
 .embeddedHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* Compact numbers + "Your anime & people" (2026-10-25, owner: "make them smaller"). */
+.stats dd { font-size: 20px !important; }
+.stats dt { font-size: 11px; }
+.miniStats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.miniStat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); color: inherit; text-decoration: none; transition: background 0.15s ease; }
+.miniStat:hover { background: rgba(255, 255, 255, 0.08); }
+.miniStat strong { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.miniStat span { color: var(--text-muted); font-size: 12px; font-weight: 600; }

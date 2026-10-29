@@ -1,6 +1,10 @@
 import { getHomeData } from '../lib/home/getHomeData';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getAuthUserFromCookies } from '../lib/auth';
-import { getBrowseList, getGenreArtwork } from '../lib/browseService';
+import { GUEST_COOKIE } from '../lib/landing/guest';
+import { getBrowseItemById, getBrowseList, getGenreArtwork } from '../lib/browseService';
+import { getTodayPick } from '@control/lib/dailyPicks';
 import { HomeClient } from './HomeClient';
 
 // Server component: every query behind the homepage runs here, at request
@@ -9,18 +13,26 @@ import { HomeClient } from './HomeClient';
 // the interactive bits (search, local times, auth-aware CTAs).
 export default async function HomePage() {
   const authUser = await getAuthUserFromCookies();
-  const [homeData, genreArt, choice] = await Promise.all([
+  // Signed-out visitors see the landing page first, unless they chose to
+  // browse as a guest there (cookie set by /welcome).
+  if (!authUser && !cookies().get(GUEST_COOKIE)) redirect('/welcome');
+  const [homeData, genreArt, choice, todayPick] = await Promise.all([
     getHomeData(authUser),
     getGenreArtwork().catch(() => []),
     getBrowseList('choice', {}).catch(() => []),
+    getTodayPick(),
   ]);
 
-  // OTAKUVA Choice spotlight: the team's curated list, one title per day
-  // (UTC), preferring titles with wide banner art.
+  // OTAKUVA Choice spotlight: today's pick from the control center when one
+  // is set (its note replaces the synopsis); otherwise one title per day
+  // (UTC) from the OTAKUVA Choice list, preferring wide banner art.
+  const picked = todayPick
+    ? await getBrowseItemById(todayPick.animeId, todayPick.note ? { synopsis: todayPick.note } : {}).catch(() => null)
+    : null;
   const withArt = choice.filter((c) => c.bannerUrl);
   const pool = withArt.length ? withArt : choice;
   const day = Math.floor(Date.now() / 86_400_000);
-  const spotlight = pool.length ? pool[day % pool.length] : null;
+  const spotlight = picked ?? (pool.length ? pool[day % pool.length] : null);
 
   // getHomeData()'s return type is inferred from the raw Prisma mapping
   // (mapAnime), which is looser than HomeClient's HomeData shape.

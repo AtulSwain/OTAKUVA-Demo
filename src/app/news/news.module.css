@@ -106,3 +106,7 @@
 @media (prefers-reduced-motion: reduce) {
   .cover, .card, .lead { transition: none; }
 }
+
+/* ── Clean pass (2026-10-25): the shell already pads the page to the header's
+   edges, so the feed adds no side padding or width cap of its own. ── */
+.page { max-width: none; padding-left: 0; padding-right: 0; }

@@ -21,15 +21,11 @@ export default async function ArticlesPage({ searchParams }: { searchParams: { p
   const { articles, total, hasMore } = await listArticles({ page, limit: 18 }).catch(() => ({ articles: [], total: 0, hasMore: false }));
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.pageWide}`}>
       <CommunityHubNav />
       <header className={styles.hero}>
         <p className={styles.kicker}>From the community</p>
         <h1 className={styles.title}>Articles</h1>
-        <p className={styles.subtitle}>
-          News tips, write-ups and things worth knowing about anime, shared by OTAKUVA members. Each article shows who
-          wrote it and links to its sources.
-        </p>
         <Link href="/articles/new" className={styles.writeBtn}>
           <PenLine size={15} aria-hidden="true" /> Write an article
         </Link>

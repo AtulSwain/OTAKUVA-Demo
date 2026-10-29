@@ -1,3 +1,4 @@
+import { alertAdmins } from '../notifications/adminAlerts';
 /**
  * Creator Mode (2026-10-24): the creator role, creator reviews, and the
  * dashboard's numbers. Everything here derives identity and role from the
@@ -17,9 +18,11 @@
  * applied on publish — the same rule as everyone (no rating before ep 1).
  */
 import { prisma } from '../prisma';
+import { CHANNEL_NAME_MAX, CHANNEL_NAME_MIN, CHANNEL_URL_MAX } from './channelRules';
 import { isCreator } from '../roles';
 import { createAndAnalyzeReview, deleteReview } from '../engine/review/reviewIntelligence';
 import { submitUserRating, validateRatingScore } from '../rating/ratingService';
+import { starRatingsEnabled } from '../rating/starRatings';
 import { getEpisodeReleaseState } from '../rating/episodeRatings';
 import { getAnimeDisplayTitle } from '../animeTitleResolver';
 
@@ -31,8 +34,6 @@ export class CreatorError extends Error {
 
 // ── Role ────────────────────────────────────────────────────────────────────
 
-const CHANNEL_NAME_MAX = 60;
-const CHANNEL_URL_MAX = 200;
 
 export interface CreatorProfile {
   isCreator: boolean;
@@ -60,7 +61,7 @@ export async function getCreatorProfile(userId: string): Promise<CreatorProfile>
 function cleanChannel(input: { channelName?: unknown; channelUrl?: unknown }) {
   // eslint-disable-next-line no-control-regex
   const name = typeof input.channelName === 'string' ? input.channelName.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim() : '';
-  if (name.length < 2 || name.length > CHANNEL_NAME_MAX) {
+  if (name.length < CHANNEL_NAME_MIN || name.length > CHANNEL_NAME_MAX) {
     throw new CreatorError(400, 'INVALID_CHANNEL_NAME', `Channel name must be 2–${CHANNEL_NAME_MAX} characters.`);
   }
   let url: string | null = null;
@@ -97,6 +98,10 @@ export async function upgradeToCreator(userId: string, input: { channelName?: un
       creatorChannelUrl: url,
     },
   });
+  if (user.role !== 'CREATOR') {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true } });
+    await alertAdmins('ADMIN_NEW_CREATOR', 'New creator joined', `@${u?.username} became a creator — ${name}.`, '/control/creators');
+  }
   return getCreatorProfile(userId);
 }
 
@@ -160,7 +165,8 @@ function cleanReview(input: CreatorReviewInput) {
       ? (input.spoilerLevel as SpoilerLevel)
       : 'SPOILER_FREE';
   let score: number | null = null;
-  if (input.score !== undefined && input.score !== null && input.score !== '') {
+  // Creator-review scores are 1–10 stars — ignored while stars are off.
+  if (starRatingsEnabled() && input.score !== undefined && input.score !== null && input.score !== '') {
     const v = validateRatingScore(Number(input.score));
     if (!v.valid) throw new CreatorError(400, 'INVALID_SCORE', v.error || 'Invalid score.');
     score = v.normalized;
@@ -218,7 +224,7 @@ export async function saveCreatorReview(userId: string, input: CreatorReviewInpu
   const release = await getEpisodeReleaseState(animeId);
   if (!release.isOpen) throw new CreatorError(403, 'NOT_AIRED', 'Reviews open when episode 1 airs. Save it as a draft for now.');
 
-  if (score !== null) await submitUserRating({ userId, animeId, score });
+  if (score !== null && starRatingsEnabled()) await submitUserRating({ userId, animeId, score });
   const userAnime = await prisma.userAnime.findUnique({ where: { userId_animeId: { userId, animeId } }, select: { status: true, episodesWatched: true } });
   const { review } = await createAndAnalyzeReview({
     userId,
@@ -315,7 +321,7 @@ export async function getCreatorDashboard(userId: string) {
     prisma.follow.findMany({ where: { followerId: userId }, select: { followingId: true } }),
   ]);
   const iFollow = new Set(followingBack.map((f) => f.followingId));
-  const [publishedReviews, draftReviews, recentJoins, recentPosts] = await Promise.all([
+  const [publishedReviews, draftReviews, recentJoins, recentPosts, pendingRequests] = await Promise.all([
     prisma.review.count({ where: { userId, isCreatorReview: true, status: 'PUBLISHED', deletedAt: null } }),
     prisma.review.count({ where: { userId, status: 'DRAFT', deletedAt: null } }),
     ids.length
@@ -332,6 +338,14 @@ export async function getCreatorDashboard(userId: string) {
           orderBy: { createdAt: 'desc' },
           take: 8,
           select: { id: true, title: true, createdAt: true, author: { select: { username: true } }, community: { select: { name: true, slug: true } } },
+        })
+      : [],
+    ids.length
+      ? prisma.communityJoinRequest.findMany({
+          where: { communityId: { in: ids }, status: 'PENDING' },
+          orderBy: { createdAt: 'asc' },
+          take: 50,
+          select: { id: true, userId: true, message: true, createdAt: true, user: { select: { username: true } }, community: { select: { name: true, slug: true } } },
         })
       : [],
   ]);
@@ -393,5 +407,6 @@ export async function getCreatorDashboard(userId: string) {
       createdAt: c.createdAt.toISOString(),
     })),
     activity,
+    pendingRequests: pendingRequests.map((r) => ({ id: r.id, userId: r.userId, username: r.user.username, communityName: r.community.name, communitySlug: r.community.slug, message: r.message, createdAt: r.createdAt.toISOString() })),
   };
 }

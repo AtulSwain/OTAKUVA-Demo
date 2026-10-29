@@ -83,6 +83,38 @@ export async function refreshAggregatesForUser(userId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Watch evidence + rated anime (2026-10-27)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ticked or retention-rated episodes of this anime (or a current Watching/
+ * Completed/On hold/Dropped library entry) count as "watched" for a
+ * review — ticking no longer adds a show to the library (2026-10-26), so the
+ * library status alone missed most members.
+ */
+export async function hasWatchedEpisodes(userId: string, animeId: string): Promise<boolean> {
+  const [tick, rated, library] = await Promise.all([
+    prisma.userEpisodeWatch.findFirst({ where: { userId, animeId }, select: { id: true } }),
+    prisma.episodeRating.findFirst({ where: { userId, animeId, retention: { not: null } }, select: { id: true } }),
+    // The library entry as it is now (the review only kept a snapshot from writing time).
+    prisma.userAnime.findFirst({ where: { userId, animeId, status: { in: [...BADGE_RULES.eligibleWatchStatuses] } }, select: { id: true } }),
+  ]);
+  return Boolean(tick || rated || library);
+}
+
+/** Different anime this member has rated (any episode retention), and the latest such rating. */
+export async function getRatedAnimeStats(userId: string): Promise<{ count: number; lastAt: Date | null }> {
+  const rows = await prisma.episodeRating.groupBy({
+    by: ['animeId'],
+    where: { userId, retention: { not: null }, animeId: { not: null } },
+    _max: { updatedAt: true },
+  });
+  let lastAt: Date | null = null;
+  for (const r of rows) if (r._max.updatedAt && (!lastAt || r._max.updatedAt > lastAt)) lastAt = r._max.updatedAt;
+  return { count: rows.length, lastAt };
+}
+
+// ---------------------------------------------------------------------------
 // Tier recalculation
 // ---------------------------------------------------------------------------
 
@@ -105,16 +137,21 @@ export async function recalculateUser(userId: string, now: Date = new Date()): P
   const stats = await prisma.userBadgeStats.findUniqueOrThrow({ where: { userId } });
   const previousTier: TierKey = isTierKey(stats.currentTier) ? stats.currentTier : 'shoshinsha';
 
-  const [counted, helpfulVotes] = await Promise.all([
+  const [counted, helpfulVotes, rated] = await Promise.all([
     prisma.review.aggregate({
       where: { userId, countState: 'COUNTED', deletedAt: null },
       _count: { _all: true },
       _max: { countedAt: true },
     }),
     prisma.reviewLike.count({ where: { reactionType: 'HELPFUL', review: { userId, deletedAt: null } } }),
+    getRatedAnimeStats(userId),
   ]);
-  const countedReviewCount = counted._count._all;
-  const lastCountedReviewAt = counted._max.countedAt ?? null;
+  // Level points (owner, 2026-10-27): counted reviews + anime rated episode
+  // by episode. Stored in `countedReviewCount` so every tier/ladder reader
+  // keeps working; the badges API also returns the two parts separately.
+  const countedReviewCount = counted._count._all + rated.count;
+  const reviewAt = counted._max.countedAt ?? null;
+  const lastCountedReviewAt = reviewAt && rated.lastAt ? (reviewAt > rated.lastAt ? reviewAt : rated.lastAt) : reviewAt ?? rated.lastAt;
 
   const resolved = resolveTier({
     countedReviewCount,
@@ -203,10 +240,12 @@ interface ReviewForCounting {
  * counting state. Star-only quick ratings never reach here (no review row).
  */
 export async function initializeReviewCounting(review: ReviewForCounting): Promise<CountState> {
+  const statusOk = Boolean(review.watchStatusAtReview && BADGE_RULES.eligibleWatchStatuses.includes(review.watchStatusAtReview));
   const result = evaluateSubmission({
     body: review.body,
     reviewType: review.reviewType,
     watchStatus: review.watchStatusAtReview,
+    watchedEpisodes: statusOk ? undefined : await hasWatchedEpisodes(review.userId, review.animeId),
   });
   const prev = review.countState as CountState | null;
 
@@ -309,6 +348,8 @@ interface MaturationOptions {
   batchSize?: number;
   /** Off only for the one-off legacy backfill (reviews that pre-date badges). */
   enforceDailyCap?: boolean;
+  /** Only this member's reviews (on-demand counting, no worker needed). */
+  userId?: string;
 }
 
 /**
@@ -323,7 +364,7 @@ export async function runMaturationBatch(opts: MaturationOptions = {}): Promise<
   const summary: MaturationSummary = { examined: 0, counted: 0, removed: 0, ineligible: 0, deferredByCap: 0, tiersChanged: 0 };
 
   const due = await prisma.review.findMany({
-    where: { countState: 'PENDING', createdAt: { lte: cutoff } },
+    where: { countState: 'PENDING', createdAt: { lte: cutoff }, ...(opts.userId ? { userId: opts.userId } : {}) },
     orderBy: { createdAt: 'asc' },
     take: opts.batchSize ?? BADGE_RULES.job.batchSize,
     select: { id: true, userId: true, animeId: true, body: true, createdAt: true, status: true, deletedAt: true, reviewType: true, watchStatusAtReview: true },
@@ -350,7 +391,13 @@ export async function runMaturationBatch(opts: MaturationOptions = {}): Promise<
         }
         if (r.status !== 'PUBLISHED') continue; // hidden/under review: wait, don't decide
 
-        const submission = evaluateSubmission({ body: r.body, reviewType: r.reviewType, watchStatus: r.watchStatusAtReview });
+        const statusOk = Boolean(r.watchStatusAtReview && BADGE_RULES.eligibleWatchStatuses.includes(r.watchStatusAtReview));
+        const submission = evaluateSubmission({
+          body: r.body,
+          reviewType: r.reviewType,
+          watchStatus: r.watchStatusAtReview,
+          watchedEpisodes: statusOk ? undefined : await hasWatchedEpisodes(userId, r.animeId),
+        });
         if (!submission.eligible) {
           await prisma.review.update({
             where: { id: r.id },
@@ -425,4 +472,38 @@ export async function backfillReviewCounting(limit = 5000): Promise<{ pending: n
     else ineligible++;
   }
   return { pending, ineligible };
+}
+
+// ---------------------------------------------------------------------------
+// On-demand refresh (2026-10-27)
+// ---------------------------------------------------------------------------
+
+const lastRefresh = new Map<string, number>();
+const REFRESH_EVERY_MS = 20_000;
+
+/**
+ * Brings one member's badge up to date right now: matures their due reviews
+ * (same checks and daily cap as the recurring job) and recounts reviews,
+ * rated anime and helpful votes. Called when a profile's badges are loaded
+ * and after a rating/review, so counting doesn't wait for the queue worker
+ * (which needs Redis). Throttled per member, per process; never throws.
+ */
+export async function refreshUserBadges(userId: string, opts: { force?: boolean } = {}): Promise<void> {
+  const now = Date.now();
+  if (!opts.force && now - (lastRefresh.get(userId) ?? 0) < REFRESH_EVERY_MS) return;
+  lastRefresh.set(userId, now);
+  try {
+    // Reviews turned away as NOT_WATCHED get another look once the member has
+    // ticked/rated episodes (or tracked the show) — that evidence often comes later.
+    const notWatched = await prisma.review.findMany({
+      where: { userId, countState: 'INELIGIBLE', countRemovalReason: 'NOT_WATCHED', status: 'PUBLISHED', deletedAt: null },
+      select: { id: true, userId: true, animeId: true, body: true, reviewType: true, watchStatusAtReview: true, countState: true },
+      take: 200,
+    });
+    for (const r of notWatched) if (await hasWatchedEpisodes(userId, r.animeId)) await initializeReviewCounting(r);
+    await runMaturationBatch({ userId });
+    await recalculateUser(userId);
+  } catch (err) {
+    logger.error('badge refresh failed', { component: 'badges/counting', userId, err });
+  }
 }

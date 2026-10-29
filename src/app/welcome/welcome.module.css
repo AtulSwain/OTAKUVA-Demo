@@ -1,0 +1,134 @@
+/* Landing page (2026-10-28). Full screen (AppShell immersive): a tilted
+   wall of posters drifting up / down behind a centred glass sign-in card. */
+.landing {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The card centres itself with margin:auto (see .card). */
+  justify-content: flex-start;
+  padding: max(24px, env(safe-area-inset-top)) var(--page-gutter, 16px) max(24px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  background: var(--bg-primary, #141416);
+  isolation: isolate;
+  transition: opacity 0.35s ease;
+}
+.leaving { opacity: 0.4; }
+
+/* ── Poster wall ─────────────────────────────────────────────── */
+.wall { position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none; }
+/* A square on the screen's longest side × 1.6, tilted: it covers every
+   corner of any screen shape (the old 150vw × 190vh left the corners bare). */
+.wallTilt {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 160vmax;
+  height: 160vmax;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  transform: translate3d(-50%, -50%, 0) rotate(-10deg);
+}
+.column { flex: none; width: clamp(120px, 10.5vw, 168px); height: 100%; overflow: hidden; }
+.track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: wallUp var(--speed, 80s) linear infinite;
+}
+.down .track { animation-name: wallDown; }
+/* Each track holds two identical copies (every poster carries its own bottom
+   margin), so moving by exactly half its height loops seamlessly. */
+@keyframes wallUp { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, -50%, 0); } }
+@keyframes wallDown { from { transform: translate3d(0, -50%, 0); } to { transform: translate3d(0, 0, 0); } }
+.poster {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: #1c1c20;
+  box-shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.9);
+  opacity: 0.82;
+  user-select: none;
+}
+
+/* Darken the middle (where the card is) and the edges, keep the art visible between. */
+.shade {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(ellipse 42% 58% at 50% 50%, rgba(12, 12, 14, 0.9) 0%, rgba(12, 12, 14, 0.7) 45%, rgba(12, 12, 14, 0.25) 100%),
+    linear-gradient(180deg, rgba(12, 12, 14, 0.85) 0%, rgba(12, 12, 14, 0) 22%, rgba(12, 12, 14, 0) 78%, rgba(12, 12, 14, 0.9) 100%);
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.card {
+  position: relative;
+  width: min(100%, 460px);
+  /* Centred on screen when it fits; starts at the top (and the page
+     scrolls) when a long form doesn't. */
+  margin: auto 0;
+  padding: 32px 30px 24px;
+  border-radius: 28px;
+  /* Mostly solid: a heavy blur over moving posters repaints every frame and
+     made the card shimmer; this keeps a hint of the art with no flicker. */
+  background: rgba(20, 20, 23, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 40px 90px -30px rgba(0, 0, 0, 0.95),
+    0 12px 30px -12px rgba(0, 0, 0, 0.7);
+  animation: cardIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+.brand img { width: 40px; height: auto; }
+.title { margin: 22px 0 6px; font-size: clamp(28px, 4vw, 34px); font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; }
+.lede { min-height: 2.9em; margin: 0 0 20px; color: var(--text-secondary, #a1a1aa); font-size: 14.5px; line-height: 1.5; }
+.form { display: flex; flex-direction: column; }
+.guest {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%;
+  margin-top: 18px; padding: 12px 0 2px;
+  border: 0; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: var(--text-secondary, #a1a1aa);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+.guest:hover { color: var(--text-primary, #f5f5f7); }
+.guest:hover svg { transform: translateX(2px); }
+.guest svg { transition: transform 0.18s ease; }
+
+@media (max-width: 640px) {
+  .wallTilt { width: 220vw; gap: 12px; }
+  .column { width: 104px; }
+  .poster { margin-bottom: 12px; border-radius: 11px; }
+  .card { padding: 26px 20px 20px; border-radius: 24px; }
+  .title { margin-top: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track { animation: none; }
+  .card { animation: none; }
+}
+
+/* The shared form carries the pop-up's side padding; on this card the
+   fields line up with the tabs and the card edge instead. */
+.form > div:nth-child(2) { padding-left: 0; padding-right: 0; }
+
+/* Card content changes (tabs, code step) fade in instead of popping. */
+.form > div:nth-child(2) { animation: formIn 0.28s ease both; }
+@keyframes formIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.title, .lede { transition: opacity 0.2s ease; }
+@media (max-width: 640px) {
+  .wallTilt { gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .form > div:nth-child(2) { animation: none; } }

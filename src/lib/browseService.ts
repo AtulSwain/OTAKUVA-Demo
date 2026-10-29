@@ -19,6 +19,7 @@ import {
   tabLimit,
 } from './browse';
 import { formatAnimeStatus } from './anime/animeStatus';
+import { getPublishedChoice } from '@control/lib/charts';
 
 const include = {
   animeGenres: { include: { genre: true } },
@@ -157,6 +158,24 @@ export async function getBrowseList(tab: BrowseTabId, filters: BrowseFilters, li
     return rows.flatMap((a: any, i: number) => toItem(a, String(i + 1)) ?? []);
   }
 
+  // OTAKUVA Choice made in the control center (2026-10-28) replaces the
+  // hand-edited list in curated.ts once it's published with entries.
+  if (tab === 'choice') {
+    const published = await getPublishedChoice();
+    if (published) {
+      const rows = await prisma.anime.findMany({ where: { id: { in: published.map((p) => p.animeId) } }, include });
+      const byId = new Map(rows.map((r: any) => [r.id, r]));
+      const out: BrowseItem[] = [];
+      for (const p of published) {
+        const a = byId.get(p.animeId);
+        if (!a || !passesFilters(a, filters)) continue;
+        const item = toItem(a, String(out.length + 1), { note: p.note ?? undefined });
+        if (item) out.push(item);
+      }
+      return out.slice(0, take);
+    }
+  }
+
   const entries: Array<{ entry: CuratedEntry; label?: string; caption?: string }> =
     tab === 'choice'
       ? OTAKUVA_CHOICE.map((entry) => ({ entry }))
@@ -192,6 +211,10 @@ async function imageLoads(url: string): Promise<boolean> {
 }
 
 let genreCache: { at: number; value: GenreArtwork[] } | null = null;
+/** Drops the cached genre artwork (the control center calls this after a change). */
+export function resetGenreArtworkCache() {
+  genreCache = null;
+}
 const GENRE_CACHE_MS = 60 * 60 * 1000;
 
 /**
@@ -237,4 +260,10 @@ export async function getGenreArtwork(): Promise<GenreArtwork[]> {
   }
   genreCache = { at: Date.now(), value: out };
   return out;
+}
+
+/** One anime as a BrowseItem (e.g. the homepage's daily OTAKUVA Choice pick). */
+export async function getBrowseItemById(id: string, extra: Partial<BrowseItem> = {}): Promise<BrowseItem | null> {
+  const a = await prisma.anime.findUnique({ where: { id }, include });
+  return a ? toItem(a, '1', extra) : null;
 }

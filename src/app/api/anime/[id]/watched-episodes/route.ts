@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { awardCompletionMilestones } from '../../../../../lib/library/completionMilestones';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
 import { logger } from '../../../../../lib/logger';
 import { EpisodeWatchError, getWatchedEpisodes, setEpisodeWatched } from '../../../../../lib/library/episodeWatch';
@@ -28,7 +29,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const user = await getAuthUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Sign in to save episode progress.' }, { status: 401 });
     const body = await request.json().catch(() => ({}));
-    return NextResponse.json(await setEpisodeWatched(user.id, params.id, body?.episodeNumber, body?.watched));
+    const saved = await setEpisodeWatched(user.id, params.id, body?.episodeNumber, body?.watched);
+    // Ticking the last episode completes the anime — check milestones now.
+    if (String((saved as { status?: string })?.status || '').toUpperCase() === 'COMPLETED') await awardCompletionMilestones(user.id);
+    return NextResponse.json(saved);
   } catch (error) {
     return fail(error, 'POST');
   }

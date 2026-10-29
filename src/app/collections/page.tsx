@@ -19,9 +19,6 @@ export default async function CollectionsPage() {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>Collections</h1>
-        <p className={styles.subtitle}>
-          Collections made by members, and lists built straight from the catalog.
-        </p>
       </header>
 
       {/* Members' PUBLIC collections (2026-10-22) — private ones never show. */}

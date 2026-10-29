@@ -27,6 +27,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import styles from './reader.module.css';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 export default function NewsReaderPage() {
   const params = useParams();
@@ -142,9 +143,11 @@ export default function NewsReaderPage() {
   const displaySummary = article.displaySummary || article.summary;
   const displayCategory = article.displayCategory || article.category;
   const targetUrl = article.canonicalUrl || article.sourceUrl || '#';
+  const isOwnStory = article.provider === 'INTERNAL';
 
   return (
     <div className={styles.readerWrapper}>
+      <ViewBeacon kind="news" id={article.id} />
       {/* 1. Top Reader Navigation Header */}
       <header className={styles.readerHeader}>
         <div className={styles.headerLeft}>
@@ -281,9 +284,21 @@ export default function NewsReaderPage() {
           )}
 
           {/* The source's summary is already shown under the headline; no body
-              text is written in its place (the full story is linked below). */}
+              text is written in its place (the full story is linked below).
+              OTAKUVA's own stories (written in the control center, provider
+              INTERNAL) show their full text here instead, with no source link. */}
+          {isOwnStory && article.content && (
+            <div className={styles.ownStoryBody}>
+              {String(article.content)
+                .split(/\n{2,}/)
+                .map((para: string, i: number) => (
+                  <p key={i}>{para}</p>
+                ))}
+            </div>
+          )}
 
           {/* Canonical "Read Original Article" Action Card */}
+          {!isOwnStory && (
           <div className={styles.readOriginalBanner}>
             <div className={styles.readOriginalInfo}>
               <h3 className={styles.readOriginalTitle}>Read Full Original Coverage</h3>
@@ -305,6 +320,7 @@ export default function NewsReaderPage() {
               <ExternalLink size={13} />
             </a>
           </div>
+          )}
 
           {/* Syndicated Coverage (if clustered) */}
           {article.syndicatedReports && article.syndicatedReports.length > 0 && (

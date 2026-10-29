@@ -26,5 +26,23 @@
 }
 
 .contentBleed { width: 100%; }
-.contentInner { padding-left: clamp(20px, 4vw, 56px); padding-right: clamp(20px, 4vw, 56px); }
+.contentInner { padding-left: var(--page-gutter); padding-right: var(--page-gutter); }
 .contentWide { max-width: var(--max-wide-width, 1800px); }
+
+/* Clean pass (2026-10-25, owner: "clean and minimal"): every page's content
+   starts and ends on the same edges as the header (full width, same side
+   padding) instead of a capped, centred column that sat a little inside the
+   header on some pages and not others. Pages that need a narrow reading or
+   form column still set their own max-width inside this. */
+.contentInner, .contentWide { max-width: none; }
+
+/* Page frame (2026-10-28, owner: "same left and right padding on every tab,
+   centred"). One width + one gutter for every non-bleed page; catalog pages
+   no longer get a wider frame than the rest. Full-bleed pages (home, anime,
+   profile, shared list) use the same tokens for their inner content. */
+.contentInner, .contentWide {
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-left: var(--page-gutter);
+  padding-right: var(--page-gutter);
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../../../lib/prisma';
+import { milestoneProgress } from '../../../../../lib/library/completionMilestones';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function GET(_request: NextRequest, { params }: { params: { usernam
     });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    const [entries, ratings] = await Promise.all([
+    const [entries, ratings, retentionByAnime, reviewCount] = await Promise.all([
       prisma.userAnime.findMany({
         where: { userId: user.id },
         select: { status: true, episodesWatched: true, anime: { select: { duration: true } } },
@@ -39,6 +40,13 @@ export async function GET(_request: NextRequest, { params }: { params: { usernam
         _avg: { rating: true },
         _count: { _all: true },
       }),
+      // "Rated" = anime they rated episodes of (retention), since 1–10 stars are off.
+      prisma.episodeRating.groupBy({
+        by: ['animeId'],
+        where: { userId: user.id, animeId: { not: null }, episodeNumber: { not: null }, retention: { gte: 1, lte: 100 } },
+        _avg: { retention: true },
+      }),
+      prisma.review.count({ where: { userId: user.id, status: 'PUBLISHED', deletedAt: null } }),
     ]);
 
     const byStatus = (s: string) => entries.filter((e) => e.status === s).length;
@@ -56,6 +64,16 @@ export async function GET(_request: NextRequest, { params }: { params: { usernam
       watchMinutes: minutes,
       meanScore: ratings._count._all > 0 ? ratings._avg.rating : null,
       ratedCount: ratings._count._all,
+      /** Everything in their library, any status. */
+      tracking: entries.length,
+      /** Anime they rated episodes of. */
+      rated: retentionByAnime.length,
+      /** Their average retention across those anime (whole %), or null. */
+      meanRetention: retentionByAnime.length
+        ? Math.round(retentionByAnime.reduce((a, r) => a + (r._avg.retention ?? 0), 0) / retentionByAnime.length)
+        : null,
+      reviews: reviewCount,
+      milestones: milestoneProgress(byStatus('COMPLETED')),
     });
   } catch (error) {
     console.error('Error loading profile stats:', error);

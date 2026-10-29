@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import '../styles/globals.css';
 import { AppShell } from '../components/shell/AppShell';
 import { inter } from './fonts';
+import { THEME_INIT_SCRIPT } from '../lib/theme/themes';
 
 export const metadata: Metadata = {
   title: 'OTAKUVA — Track what you watch.',
@@ -36,7 +37,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    // suppressHydrationWarning: the theme script may set data-theme before React loads.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* Applies a saved colour theme before first paint (fixed list only). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className={inter.className}>
         <AppShell>{children}</AppShell>
       </body>

@@ -6,7 +6,10 @@ import { ChevronLeft, ChevronRight, Star, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { promptPhoneVerification } from '../auth/VerifyPhonePrompt';
-import { retentionColor } from '../../lib/rating/retentionTone';
+import { retentionColor, retentionLabel } from '../../lib/rating/retentionTone';
+import { RETENTION_MAX, RETENTION_MIN } from '../../lib/rating/retentionScore';
+import { RetentionSegments } from './RetentionSegments';
+import type { RetentionBadgeKey, RetentionStatus } from '../../lib/rating/retentionScore';
 import styles from './RatingModal.module.css';
 import own from './EpisodeRetentionModal.module.css';
 
@@ -15,10 +18,20 @@ export interface EpisodeRetentionSummary {
   released: number;
   isOpen?: boolean;
   next?: { number: number; airingAt: string } | null;
-  retention?: { value: number | null; members: number };
+  /** The anime's community retention (see retentionScore.ts). */
+  retention?: {
+    value: number | null;
+    members: number;
+    raw?: number | null;
+    ratedEpisodes?: number;
+    totalRatings?: number;
+    status?: RetentionStatus;
+    badge?: RetentionBadgeKey | null;
+    needs?: { raters: number; ratedEpisodes: number };
+  };
   myRetention?: { value: number | null; episodes: number };
-  episodes: { number: number; title: string | null; retention: number | null; retentionCount: number }[];
-  mine: Record<number, { retention: number | null }>;
+  episodes: { number: number; title: string | null; airedAt?: string | null; retention: number | null; retentionCount: number }[];
+  mine: Record<number, { retention: number | null; note?: string | null }>;
 }
 
 interface Props {
@@ -34,17 +47,6 @@ interface Props {
   onRateAnime?: () => void;
   /** Called with the fresh summary after a save or removal. */
   onChanged?: (summary: EpisodeRetentionSummary) => void;
-}
-
-const QUICK = [25, 50, 75, 90, 100];
-
-/** A word for the retention being set — UI copy only, never stored. */
-function retentionLabel(r: number) {
-  if (r >= 90) return "Couldn't stop watching";
-  if (r >= 70) return 'Hooked';
-  if (r >= 50) return 'Kept watching';
-  if (r >= 30) return 'Drifting';
-  return 'Lost me';
 }
 
 /**
@@ -110,7 +112,6 @@ export function EpisodeRetentionModal({ isOpen, onClose, animeId, animeTitle, ep
         .map(([n, r]) => [Number(n), r.retention as number] as const)
         .sort((a, b) => a[0] - b[0])
     : [];
-  const pct = retention ?? 0;
 
   const save = async () => {
     if (retention === null) {
@@ -219,57 +220,51 @@ export function EpisodeRetentionModal({ isOpen, onClose, animeId, animeTitle, ep
             )}
           </div>
           <span className={styles.scoreLabel}>{retention !== null ? retentionLabel(retention).toUpperCase() : 'EPISODE RETENTION'}</span>
-          <span className={styles.scoreHint}>How much did this episode keep you watching?</span>
+          <span className={styles.scoreHint}>How well did this episode keep you watching? Pick 1–100, then save.</span>
           {row && row.retentionCount > 0 && (
             <span className={own.community}>
-              Members: <strong style={row.retention !== null ? { color: retentionColor(row.retention) } : undefined}>{row.retention}%</strong> · {row.retentionCount} {row.retentionCount === 1 ? 'rating' : 'ratings'}
+              Community: <strong>{row.retention}%</strong> · {row.retentionCount} {row.retentionCount === 1 ? 'rating' : 'ratings'}
             </span>
           )}
         </div>
 
         <div className={styles.sliderSection}>
           <div className={styles.sliderControlsRow}>
-            <button type="button" className={styles.stepperBtn} onClick={() => setRetention(Math.max(0, (retention ?? 50) - 5))} title="Decrease by 5%">
-              −5
+            <button
+              type="button"
+              className={styles.stepperBtn}
+              onClick={() => setRetention(Math.max(RETENTION_MIN, (retention ?? 50) - 1))}
+              title="Decrease by 1"
+              aria-label="Decrease by 1"
+            >
+              −1
             </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={retention ?? 50}
-              onChange={(e) => setRetention(Number(e.target.value))}
-              className={styles.scoreSlider}
-              style={{
-                background:
-                  retention === null
-                    ? 'rgba(255,255,255,0.10)'
-                    : `linear-gradient(${retentionColor(retention)}, ${retentionColor(retention)}) 0 0 / ${pct}% 100% no-repeat, rgba(255,255,255,0.10)`,
-                accentColor: retention === null ? '#888' : retentionColor(retention),
-              }}
-              aria-label="Episode retention, 0 to 100 percent"
-              aria-valuetext={retention === null ? 'Not set' : `${retention}% — ${retentionLabel(retention)}`}
-            />
-            <button type="button" className={styles.stepperBtn} onClick={() => setRetention(Math.min(100, (retention ?? 50) + 5))} title="Increase by 5%">
-              +5
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <RetentionSegments
+                value={retention}
+                onChange={setRetention}
+                onEnter={save}
+                size="md"
+                label={`Episode ${episode} retention, 1 to 100`}
+                color={retention !== null ? retentionColor(retention) : null}
+              />
+            </div>
+            <button
+              type="button"
+              className={styles.stepperBtn}
+              onClick={() => setRetention(Math.min(RETENTION_MAX, (retention ?? 50) + 1))}
+              title="Increase by 1"
+              aria-label="Increase by 1"
+            >
+              +1
             </button>
           </div>
           <div className={styles.sliderTicks}>
-            <span>0%</span>
-            <span>25%</span>
-            <span>50%</span>
-            <span>75%</span>
-            <span>100%</span>
-          </div>
-          <div className={styles.quickChipsRow}>
-            <span className={styles.quickChipsLabel}>Quick Select:</span>
-            <div className={styles.quickChips}>
-              {QUICK.map((v) => (
-                <button key={v} type="button" className={`${styles.chipBtn} ${retention === v ? styles.chipBtnActive : ''}`} onClick={() => setRetention(v)}>
-                  {v}%
-                </button>
-              ))}
-            </div>
+            <span>1</span>
+            <span>25</span>
+            <span>50</span>
+            <span>75</span>
+            <span>100</span>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../lib/auth';
+import { notifyHypePremieres } from '../../../lib/hype/hypePremiere';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,10 @@ export async function GET(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ notifications: [], unreadCount: 0 });
     }
+
+    // Anything this member hyped that has premiered since: send its notice
+    // now, so it's in the list below (once only — see hypePremiere.ts).
+    await notifyHypePremieres({ userId: authUser.id }).catch(() => 0);
 
     const notifications = await prisma.notification.findMany({
       where: { userId: authUser.id },

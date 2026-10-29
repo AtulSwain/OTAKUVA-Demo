@@ -81,9 +81,6 @@ export default function UpcomingPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Upcoming Anime Releases</h1>
-        <p className={styles.subtitle}>
-          Future anime broadcasts, confirmed release dates, announced seasons, and upcoming productions.
-        </p>
       </div>
 
       {loading ? (

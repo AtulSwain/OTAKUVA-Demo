@@ -1,7 +1,7 @@
 /**
  * Hype Meter (2026-10-20): members say how they feel about an anime before it
- * premieres — Hyped / Not interested (Excited and Curious retired 2026-10-22,
- * see hypeLevels.ts). One vote each, open
+ * premieres — Hyped (Excited / Curious retired 2026-10-22, Not interested
+ * 2026-10-25, see hypeLevels.ts). One vote each, open
  * until episode 1 airs (same release rule as rating: getEpisodeReleaseState),
  * then frozen as "hype before premiere". Never feeds the OTAKUVA Score.
  */
@@ -12,6 +12,7 @@ import { classifyAnimeStatus } from '../anime/animeStatus';
 import { getAnimeDisplayTitle } from '../animeTitleResolver';
 import { HYPE_LEVELS, emptyHypeCounts, hypePercent, isHypeLevel, isRetiredHypeLevel, type HypeCounts, type HypeLevel } from './hypeLevels';
 import { notifyFollowersOfCreatorHype } from '../social/followService';
+import { addHypedAnimeToLibrary } from './hypePremiere';
 
 export class HypeError extends Error {
   constructor(message: string, public status: number) {
@@ -71,7 +72,7 @@ export async function getHypeSummary(animeIdOrSlug: string, viewerId?: string | 
 }
 
 export async function setHype(userId: string, animeIdOrSlug: string, level: unknown) {
-  if (!isHypeLevel(level)) throw new HypeError('Pick Hyped or Not interested.', 400);
+  if (!isHypeLevel(level)) throw new HypeError('Unknown hype level.', 400);
   const animeId = await resolveAnimeId(animeIdOrSlug);
   const state = await getEpisodeReleaseState(animeId);
   if (state.isOpen) throw new HypeError("It's out now — rate it instead of hyping it.", 409);
@@ -80,12 +81,15 @@ export async function setHype(userId: string, animeIdOrSlug: string, level: unkn
   const existing = await prisma.animeHype.findUnique({ where: { userId_animeId: { userId, animeId } }, select: { level: true } });
   if (existing) {
     if (existing.level === level) return;
-    // A vote for a retired level (Excited / Curious) isn't counted any more,
+    // A vote for a retired level (Excited / Curious / Not interested) isn't counted any more,
     // so its owner gets one vote on the current choices — their own action.
     if (isRetiredHypeLevel(existing.level)) {
       await prisma.animeHype.update({ where: { userId_animeId: { userId, animeId } }, data: { level } });
       refreshBoards();
-      if (level === 'HYPED') await notifyFollowersOfCreatorHype(userId, animeId);
+      if (level === 'HYPED') {
+        await addHypedAnimeToLibrary(userId, animeId);
+        await notifyFollowersOfCreatorHype(userId, animeId);
+      }
       return;
     }
     throw new HypeError('Your hype is locked in — it can’t be changed.', 409);
@@ -98,8 +102,14 @@ export async function setHype(userId: string, animeIdOrSlug: string, level: unkn
     throw error;
   }
   refreshBoards();
-  // Creators only: their followers hear they're hyped (no-op for others).
-  if (level === 'HYPED') await notifyFollowersOfCreatorHype(userId, animeId);
+  if (level === 'HYPED') {
+    // Hyped → "You are tracking" (Plan to Watch, only if not already in the
+    // library); a premiere notification follows once episode 1 airs
+    // (hypePremiere.ts). Owner, 2026-10-25.
+    await addHypedAnimeToLibrary(userId, animeId);
+    // Creators only: their followers hear they're hyped (no-op for others).
+    await notifyFollowersOfCreatorHype(userId, animeId);
+  }
 }
 
 /** Votes are final (2026-10-21): taking one back is refused. Kept so the

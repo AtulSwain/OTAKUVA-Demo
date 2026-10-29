@@ -120,3 +120,10 @@
 .grid { grid-template-columns: repeat(auto-fill, minmax(min(160px, calc(50% - 8px)), 1fr)); gap: 16px 12px; }
 .card { border-radius: var(--radius-lg); }
 .cardTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Clean pass (2026-10-25): line up with the header like the other catalog pages. */
+.container { max-width: none; }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.container { max-width: none; padding-left: 0; padding-right: 0; }

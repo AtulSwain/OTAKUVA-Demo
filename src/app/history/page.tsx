@@ -72,9 +72,6 @@ export default function HistoryPage() {
           <span>CANONICAL ANIME ARCHIVE &amp; TIMELINE</span>
         </div>
         <h1 className={styles.pageTitle}>Anime History &amp; Decades Archive</h1>
-        <p className={styles.pageSubtitle}>
-          Journey through six decades of Japanese animation history — from early hand-drawn milestones to modern cinematic masterworks.
-        </p>
       </div>
 
       {/* Decade Navigation Tabs */}

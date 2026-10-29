@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { awardCompletionMilestones } from '../../../../../../../lib/library/completionMilestones';
 import { getAuthUserFromRequest } from '../../../../../../../lib/auth';
 import { toggleEpisodeWatchStatus } from '../../../../../../../lib/engine/watch/watchEngine';
 import { prisma } from '../../../../../../../lib/prisma';
@@ -55,16 +56,18 @@ export async function POST(
       status,
     });
 
+    await awardCompletionMilestones(authUser.id);
+
     return NextResponse.json({
       success: true,
       episodeId: result.episodeId,
       episodeNumber: result.episodeNumber,
       isWatched: result.isWatched,
       totalCompleted: result.totalCompleted,
-      userTracking: {
-        status: result.userAnime.status,
-        episodesWatched: result.userAnime.episodesWatched,
-      },
+      // null = not in the library (ticks don't add it there).
+      userTracking: result.userAnime
+        ? { status: result.userAnime.status, episodesWatched: result.userAnime.episodesWatched }
+        : null,
     });
   } catch (error: any) {
     console.error('Error updating episode progress:', error);

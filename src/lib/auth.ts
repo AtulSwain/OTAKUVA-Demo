@@ -55,6 +55,40 @@ export function verifyJwtToken(token: string): TokenPayload | null {
   }
 }
 
+// ── Phone-verified passes (2026-10-28) ─────────────────────────────────
+// After an SMS code checks out, the client gets a short-lived signed pass
+// that says "this phone was verified for <purpose>" — then it sets the
+// password and sends the pass along. Signed with the session secret but a
+// distinct audience, so a pass can never be used as a session (it has no
+// userId) and a session token can never be used as a pass (no audience).
+const PHONE_PASS_AUDIENCE = 'otakuva-phone-pass';
+export const PHONE_PASS_TTL_SEC = 10 * 60;
+export type PhonePassPurpose = 'register' | 'reset';
+
+export function signPhonePass(phone: string, purpose: PhonePassPurpose): string {
+  return jwt.sign({ phone, purpose }, getJwtSecret(), {
+    expiresIn: PHONE_PASS_TTL_SEC,
+    algorithm: JWT_ALGORITHM,
+    audience: PHONE_PASS_AUDIENCE,
+  });
+}
+
+/** The verified phone and when the pass was issued, or null if invalid/expired/wrong purpose. */
+export function verifyPhonePass(pass: unknown, purpose: PhonePassPurpose): { phone: string; issuedAt: Date } | null {
+  if (typeof pass !== 'string' || !pass) return null;
+  try {
+    const p = jwt.verify(pass, getJwtSecret(), { algorithms: [JWT_ALGORITHM], audience: PHONE_PASS_AUDIENCE }) as {
+      phone?: unknown;
+      purpose?: unknown;
+      iat?: number;
+    };
+    if (p.purpose !== purpose || typeof p.phone !== 'string' || typeof p.iat !== 'number') return null;
+    return { phone: p.phone, issuedAt: new Date(p.iat * 1000) };
+  } catch {
+    return null;
+  }
+}
+
 export interface AuthenticatedUser {
   id: string;
   username: string;

@@ -155,7 +155,7 @@ export function CreatorReviewEditor({ reviewId }: { reviewId?: string }) {
     setBusy(true);
     setError(null);
     try {
-      const payload = { animeId: anime.id, title, body, spoilerLevel, score: withScore ? score : undefined, publish };
+      const payload = { animeId: anime.id, title, body, spoilerLevel, publish };
       const r = await fetch(reviewId ? `/api/creator/reviews/${encodeURIComponent(reviewId)}` : '/api/creator/reviews', {
         method: reviewId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,32 +209,8 @@ export function CreatorReviewEditor({ reviewId }: { reviewId?: string }) {
         </label>
 
         <div className={styles.formRow}>
-          <div className={styles.field}>
-            <span className={styles.label}>Score (optional)</span>
-            {withScore ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <input
-                  type="range"
-                  min={0.5}
-                  max={10}
-                  step={0.1}
-                  value={score}
-                  onChange={(e) => setScore(Math.round(parseFloat(e.target.value) * 10) / 10)}
-                  style={{ flex: 1, accentColor: getScoreColor(score) }}
-                  aria-label="Score"
-                />
-                <strong style={{ minWidth: 44, color: getScoreColor(score), fontVariantNumeric: 'tabular-nums' }}>{score.toFixed(1)}</strong>
-                <button type="button" className={`${styles.btn} ${styles.btnSm}`} onClick={() => setWithScore(false)} aria-label="Remove score">
-                  <X size={13} aria-hidden="true" />
-                </button>
-              </div>
-            ) : (
-              <button type="button" className={styles.btn} onClick={() => setWithScore(true)} style={{ alignSelf: 'flex-start' }}>
-                Add a score
-              </button>
-            )}
-            {tier && <span className={styles.small}>{tier.label} · it becomes your rating of this anime when you publish</span>}
-          </div>
+          {/* The 1–10 "Score (optional)" was removed with the star ratings
+              (owner, 2026-10-25); a creator's verdict is their episode retention. */}
           <label className={styles.field}>
             <span className={styles.label}>Spoilers</span>
             <select className={styles.select} value={spoilerLevel} onChange={(e) => setSpoilerLevel(e.target.value)}>

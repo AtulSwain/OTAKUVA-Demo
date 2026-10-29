@@ -5,6 +5,7 @@ import { AuthenticatedUser } from '../auth';
 import { sanitizePublicEntityName } from '../normalizers';
 import { ensureFreshNews } from '../engine/news/newsFreshness';
 import { ensureFreshSchedule } from '../engine/schedule/scheduleFreshness';
+import { ensureHypePremiereNotifications } from '../hype/hypePremiere';
 import { readableDiscussionsFilter } from '../engine/community/communityEngine';
 import { getFrontPageSections } from './frontPage';
 
@@ -305,7 +306,8 @@ const getPublicHomeSections = unstable_cache(
               animeStudios: {
                 take: 4,
                 include: { anime: { include: animeInclude } },
-                orderBy: { anime: { score: { sort: 'desc', nulls: 'last' } } },
+                // Most-watched first, so "Known for" is the show people know.
+                orderBy: { anime: { members: { sort: 'desc', nulls: 'last' } } },
               },
             },
           });
@@ -321,6 +323,12 @@ const getPublicHomeSections = unstable_cache(
               name,
               description: studio.adminOverrideDescription || studio.shortDescription || studio.about || '',
               imageUrl: studio.adminOverrideImageUrl || studio.imageUrl || studio.bannerUrl || null,
+              /** The logo alone (imageUrl above falls back to the banner). */
+              logoUrl: studio.adminOverrideImageUrl || studio.imageUrl || null,
+              nativeName: studio.nativeName || null,
+              foundedYear: studio.adminOverrideFoundedYear ?? studio.foundedYear ?? null,
+              city: studio.city || null,
+              closed: studio.status === 'CLOSED' || studio.status === 'INACTIVE',
               knownFor,
               projectCount: studio._count.animeStudios,
             }];
@@ -552,6 +560,7 @@ async function getTrackingSection(authUser: AuthenticatedUser | null) {
 export async function getHomeData(authUser: AuthenticatedUser | null) {
   ensureFreshNews();
   ensureFreshSchedule();
+  ensureHypePremiereNotifications();
   const [publicSections, continueWatching, tracking, frontPage] = await Promise.all([
     getPublicHomeSections(),
     getContinueWatchingSection(authUser),

@@ -9,7 +9,7 @@
 .footerInner {
   max-width: var(--max-content-width);
   margin: 0 auto;
-  padding: 48px clamp(16px, 4vw, 56px) 32px;
+  padding: 48px var(--page-gutter) 32px;
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -72,3 +72,21 @@
 }
 .brandTitle { display: inline-flex; align-items: center; gap: 10px; }
 .brandMark { display: block; width: 40px; height: auto; }
+
+/* Clean pass (2026-10-25): same edges as the header (full width, same side padding). */
+@media (min-width: 800px) {
+  .footerInner { max-width: none; padding-left: var(--page-gutter); padding-right: var(--page-gutter); }
+}
+
+/* Simplified footer (2026-10-25, owner): brand, "Made in India", copyright. */
+.madeIn { display: flex; flex-direction: column; gap: 4px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
+.madeInKicker { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.madeWith { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 600; }
+.heart { color: #E5564E; }
+
+/* Theme picker (2026-10-26) — also here so signed-out visitors can switch. */
+.themeRow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.themeLabel { color: var(--text-muted); font-size: 11.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* Page frame (2026-10-28): same centred width and side gutter as every page. */
+.footerInner { max-width: var(--page-max); margin-inline: auto; padding-left: var(--page-gutter); padding-right: var(--page-gutter); }

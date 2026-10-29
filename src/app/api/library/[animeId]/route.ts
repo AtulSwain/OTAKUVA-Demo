@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { awardCompletionMilestones } from '../../../../lib/library/completionMilestones';
+import { starRatingsEnabled } from '../../../../lib/rating/starRatings';
 import { prisma } from '../../../../lib/prisma';
 import { getAuthUserFromRequest } from '../../../../lib/auth';
 import { recalculateAnimeAggregates } from '../../../../lib/rating/ratingService';
@@ -169,7 +171,8 @@ export async function PATCH(
       }
 
       // Handle Rating update
-      if (personalRating !== undefined) {
+      // A library "personal rating" is a 1–10 star — ignored while stars are off.
+      if (personalRating !== undefined && starRatingsEnabled()) {
         if (personalRating !== null && personalRating >= 0.5 && personalRating <= 10) {
           const cleanScore = Math.round(personalRating * 10) / 10;
           await tx.animeRating.upsert({
@@ -240,6 +243,9 @@ export async function PATCH(
         console.error('Error recalculating aggregates on library update:', err);
       });
     }
+
+    // Reaching 10 / 25 / 50 … completed earns its milestone right now.
+    if (result?.item?.status === 'completed') await awardCompletionMilestones(userId);
 
     return NextResponse.json(result);
   } catch (error: any) {

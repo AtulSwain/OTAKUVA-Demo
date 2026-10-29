@@ -297,3 +297,6 @@
 .categoryPill { min-height: 38px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-weight: 600; font-size: 13px; }
 .categoryPill:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
 .categoryPillActive, .categoryPillActive:hover { background: #fff; color: #000; }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter. */
+.page { padding-left: 0; padding-right: 0; }

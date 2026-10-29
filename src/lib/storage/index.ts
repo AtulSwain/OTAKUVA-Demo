@@ -9,12 +9,39 @@ let storageInstance: StorageProvider | null = null;
  * rolled token) switch this process to local storage instead of failing
  * every profile/banner/community upload. Production never uses this — a
  * bad token there must fail loudly, not quietly write to ephemeral disk.
+ *
+ * Also (2026-10-28): if the public image address (MEDIA_PUBLIC_URL, e.g. a
+ * custom domain that isn't set up yet) can't be reached at all, uploads
+ * would succeed but every image link would be broken — so this dev server
+ * stores them locally instead and they show up on localhost.
  */
 export class DevR2WithLocalFallback implements StorageProvider {
   public name = 'r2';
   private local: LocalStorageProvider | null = null;
 
-  constructor(private readonly r2: Pick<R2StorageProvider, 'upload' | 'delete' | 'getPublicUrl'>) {}
+  constructor(
+    private readonly r2: Pick<R2StorageProvider, 'upload' | 'delete' | 'getPublicUrl'>,
+    /** How to tell whether the public image address answers (swappable for tests). */
+    private readonly isReachable: (url: string) => Promise<boolean> = (url) =>
+      fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) }).then(
+        () => true,
+        () => false,
+      ),
+  ) {}
+
+  private publicReachable: Promise<boolean> | null = null;
+
+  /** Does the public image address answer at all? (any HTTP status counts; a DNS/connection failure doesn't) */
+  private publicUrlWorks(): Promise<boolean> {
+    if (!this.publicReachable) {
+      const base = this.r2.getPublicUrl('');
+      this.publicReachable = this.isReachable(base).then((ok) => {
+        if (!ok) console.warn(`[Storage] Public image address ${base} is not reachable (check MEDIA_PUBLIC_URL). Using local storage (public/uploads) for this dev server.`);
+        return ok;
+      });
+    }
+    return this.publicReachable;
+  }
 
   private fallback(): LocalStorageProvider {
     if (!this.local) {
@@ -26,6 +53,7 @@ export class DevR2WithLocalFallback implements StorageProvider {
 
   async upload(options: UploadOptions): Promise<UploadResult> {
     if (this.local) return this.local.upload(options);
+    if (!(await this.publicUrlWorks())) return this.fallback().upload(options);
     try {
       return await this.r2.upload(options);
     } catch (err) {

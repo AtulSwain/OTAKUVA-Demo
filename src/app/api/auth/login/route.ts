@@ -21,11 +21,13 @@ const ROUTE = 'login';
 /**
  * POST /api/auth/login
  *
- *   { phone, country?, code }  — the sign-in method. Code requested first
- *                                via POST /api/auth/phone/send-otp (purpose "login").
- *   { identifier, password }   — legacy email/password accounts only, and
- *                                only until they link a phone; after that
- *                                the account signs in by phone like any other.
+ *   { identifier, password }   — THE sign-in (2026-10-28): username (or a
+ *                                legacy account's email) + password, for
+ *                                every account.
+ *   { phone, country?, code }  — only for older phone accounts that have
+ *                                no password yet; refused once a password
+ *                                is set, so the code can't bypass it. Those
+ *                                accounts are pointed to "Forgot password".
  */
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +41,7 @@ export async function POST(request: NextRequest) {
     if (user instanceof NextResponse) return user;
 
     const effectiveRole = await syncSuperAdminBootstrap(user.id, user.email, user.role);
+    await prisma.$executeRaw`UPDATE "User" SET "lastLoginAt" = NOW(), "lastSeenAt" = NOW() WHERE id = ${user.id}`;
     const token = signJwtToken({ userId: user.id, username: user.username, email: user.email });
     const response = NextResponse.json({ user: toSessionUser(user, effectiveRole), token, message: 'Signed in successfully.' });
     setSessionCookie(response, token);
@@ -57,10 +60,14 @@ async function phoneSignIn(body: any) {
   const otpFailure = await verifyOtpOrRespond(phone, body.code);
   if (otpFailure) return otpFailure;
 
-  const user = await prisma.user.findUnique({ where: { phone }, select: SESSION_USER_SELECT });
-  if (!user) {
+  const found = await prisma.user.findUnique({ where: { phone }, select: { ...SESSION_USER_SELECT, passwordHash: true } });
+  if (!found) {
     return NextResponse.json({ error: 'No account uses this number yet. Create an account instead.' }, { status: 401 });
   }
+  if (found.passwordHash) {
+    return NextResponse.json({ error: 'Sign in with your username and password.', code: 'USE_PASSWORD' }, { status: 400 });
+  }
+  const { passwordHash: _ph, ...user } = found;
   if (!user.phoneVerifiedAt) {
     // Possession of the number was just proven by the OTP.
     return prisma.user.update({ where: { id: user.id }, data: { phoneVerifiedAt: new Date() }, select: SESSION_USER_SELECT });
@@ -72,7 +79,7 @@ async function legacyPasswordSignIn(body: any) {
   const identifier = typeof body?.identifier === 'string' ? body.identifier.trim() : '';
   const password = body?.password;
   if (!identifier || !password) {
-    return NextResponse.json({ error: 'Enter your phone number to sign in.' }, { status: 400 });
+    return NextResponse.json({ error: 'Enter your username and password.' }, { status: 400 });
   }
 
   const accountLimit = await checkAccountRateLimit(ROUTE, identifier);
@@ -81,22 +88,26 @@ async function legacyPasswordSignIn(body: any) {
   }
 
   const user = await prisma.user.findFirst({
-    where: { OR: [{ email: identifier.toLowerCase() }, { username: identifier }] },
+    where: {
+      OR: [
+        { username: { equals: identifier, mode: 'insensitive' } },
+        { email: identifier.toLowerCase() },
+      ],
+    },
     select: { ...SESSION_USER_SELECT, passwordHash: true },
   });
-  if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
-    await recordAccountFailure(ROUTE, identifier);
-    return NextResponse.json({ error: 'Invalid username/email or password.' }, { status: 401 });
-  }
-  await resetAccountRateLimit(ROUTE, identifier);
-
-  // Only checked after the password matched, so it reveals nothing to a guesser.
-  if (user.phoneVerifiedAt) {
+  if (user && !user.passwordHash) {
+    // A phone account from before passwords: it has to create one first.
     return NextResponse.json(
-      { error: 'This account now signs in with its phone number. Use "Sign in with phone" instead.', code: 'USE_PHONE_SIGN_IN' },
+      { error: "This account doesn't have a password yet. Use \"Forgot password\" to create one with your phone number.", code: 'NO_PASSWORD' },
       { status: 400 }
     );
   }
+  if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
+    await recordAccountFailure(ROUTE, identifier);
+    return NextResponse.json({ error: 'Wrong username or password.' }, { status: 401 });
+  }
+  await resetAccountRateLimit(ROUTE, identifier);
   const { passwordHash: _omit, ...safe } = user;
   return safe;
 }

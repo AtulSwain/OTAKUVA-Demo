@@ -529,3 +529,7 @@
   .streamChip:hover { transform: none; }
   .streamChip:active, .iconBtn:active, .trackBtn:active, .chip:active, .dayChip:active { transform: scale(0.95); }
 }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.schedulePage { max-width: none; padding-left: 0; padding-right: 0; }

@@ -17,6 +17,7 @@ import {
 import {
   initializeReviewCounting,
   recalculateUser,
+  refreshUserBadges,
   removeReviewFromCount,
   runMaturationBatch,
   withdrawIfUnpublished,
@@ -33,11 +34,18 @@ const DAY = 24 * HOUR;
 const words = (n: number, seed = 'a') => Array.from({ length: n }, (_, i) => `${seed}word${i}`).join(' ');
 
 describe('submission rules', () => {
-  test('minimum length: 39 words fails, 40 passes', () => {
+  test('minimum length: 4 words fails, 5 passes (owner, 2026-10-27)', () => {
     const base = { reviewType: 'ANIME_REVIEW', watchStatus: 'COMPLETED' };
-    assert.equal(evaluateSubmission({ ...base, body: words(39) }).reason, 'TOO_SHORT');
-    assert.equal(evaluateSubmission({ ...base, body: words(40) }).eligible, true);
-    assert.equal(BADGE_RULES.minWords, 40);
+    assert.equal(evaluateSubmission({ ...base, body: words(4) }).reason, 'TOO_SHORT');
+    assert.equal(evaluateSubmission({ ...base, body: words(5) }).eligible, true);
+    assert.equal(BADGE_RULES.minWords, 5);
+  });
+
+  test('ticked or rated episodes count as watched without a library entry', () => {
+    const base = { body: words(10), reviewType: 'ANIME_REVIEW' };
+    assert.equal(evaluateSubmission({ ...base, watchStatus: null, watchedEpisodes: true }).eligible, true);
+    assert.equal(evaluateSubmission({ ...base, watchStatus: 'PLAN_TO_WATCH', watchedEpisodes: true }).eligible, true);
+    assert.equal(evaluateSubmission({ ...base, watchStatus: null, watchedEpisodes: false }).reason, 'NOT_WATCHED');
   });
 
   test('needs a watched or in-progress entry; plan-to-watch and none do not count', () => {
@@ -66,8 +74,8 @@ describe('submission rules', () => {
 describe('maturity, daily cap, spam', () => {
   test('mature only after the window', () => {
     const created = new Date('2026-01-01T00:00:00Z');
-    assert.equal(isMature(created, new Date(created.getTime() + 47 * HOUR)), false);
-    assert.equal(isMature(created, new Date(created.getTime() + 48 * HOUR)), true);
+    assert.equal(isMature(created, new Date(created.getTime() + 0.5 * HOUR)), false);
+    assert.equal(isMature(created, new Date(created.getTime() + 1 * HOUR)), true);
   });
 
   test('daily cap arithmetic', () => {
@@ -187,21 +195,21 @@ describe('counting pipeline', () => {
     });
     assert.equal(await initializeReviewCounting({ ...good, countState: good.countState }), 'PENDING');
     const short = await prisma.review.create({
-      data: { userId: u.id, animeId: a2.id, title: 't', body: words(10), watchStatusAtReview: 'WATCHING' },
+      data: { userId: u.id, animeId: a2.id, title: 't', body: words(3), watchStatusAtReview: 'WATCHING' },
     });
     assert.equal(await initializeReviewCounting({ ...short, countState: short.countState }), 'INELIGIBLE');
     const row = await prisma.review.findUniqueOrThrow({ where: { id: short.id } });
     assert.equal(row.countRemovalReason, 'TOO_SHORT');
-    assert.equal(row.wordCount, 10);
+    assert.equal(row.wordCount, 3);
   });
 
-  test('pending stays pending inside the 48h window, then becomes counted', async () => {
+  test('pending stays pending inside the 1h window, then becomes counted', async () => {
     const u = await createUser();
     const a = await createAnime();
-    const r = await makeReview(u.id, a.id, { createdAt: new Date(Date.now() - 40 * HOUR) });
+    const r = await makeReview(u.id, a.id, { createdAt: new Date(Date.now() - 0.5 * HOUR) });
     await runMaturationBatch();
     assert.equal((await prisma.review.findUniqueOrThrow({ where: { id: r.id } })).countState, 'PENDING');
-    await runMaturationBatch({ now: new Date(Date.now() + 10 * HOUR) });
+    await runMaturationBatch({ now: new Date(Date.now() + 1 * HOUR) });
     const done = await prisma.review.findUniqueOrThrow({ where: { id: r.id } });
     assert.equal(done.countState, 'COUNTED');
     assert.ok(done.countedAt);
@@ -328,5 +336,52 @@ describe('counting pipeline', () => {
     await runMaturationBatch();
     const rows = await prisma.review.findMany({ where: { userId: u.id } });
     assert.ok(rows.every((r) => r.countState === 'COUNTED'));
+  });
+
+  test('rated anime count toward the level (reviews + anime rated)', async () => {
+    const u = await createUser();
+    const [a1, a2, a3] = await makeAnime(3);
+    await makeReview(u.id, a1.id, { countState: 'COUNTED', countedAt: new Date() });
+    await prisma.episodeRating.createMany({
+      data: [
+        { userId: u.id, animeId: a2.id, episodeNumber: 1, retention: 80 },
+        { userId: u.id, animeId: a2.id, episodeNumber: 2, retention: 60 },
+        { userId: u.id, animeId: a3.id, episodeNumber: 1, retention: 40 },
+      ],
+    });
+    const r = await recalculateUser(u.id);
+    assert.equal(r.countedReviewCount, 3); // 1 review + 2 anime rated (a2 once)
+  });
+
+  test('a review on an anime with ticked episodes is eligible without a library entry', async () => {
+    const u = await createUser();
+    const a = await createAnime();
+    await prisma.userEpisodeWatch.create({ data: { userId: u.id, animeId: a.id, episodeNumber: 1 } });
+    const rev = await prisma.review.create({ data: { userId: u.id, animeId: a.id, title: 't', body: words(8) } });
+    assert.equal(await initializeReviewCounting({ ...rev, countState: rev.countState }), 'PENDING');
+  });
+
+  test('refreshUserBadges counts one member now, without the worker', async () => {
+    const u = await createUser();
+    const a = await createAnime();
+    const r = await makeReview(u.id, a.id, { createdAt: new Date(Date.now() - 2 * HOUR) });
+    await refreshUserBadges(u.id, { force: true });
+    assert.equal((await prisma.review.findUniqueOrThrow({ where: { id: r.id } })).countState, 'COUNTED');
+    const stats = await prisma.userBadgeStats.findUniqueOrThrow({ where: { userId: u.id } });
+    assert.equal(stats.countedReviewCount, 1);
+  });
+});
+
+describe('re-check after the member watches', () => {
+  test('a NOT_WATCHED review counts once the member ticks an episode', async () => {
+    const u = await createUser();
+    const a = await createAnime();
+    const rev = await prisma.review.create({
+      data: { userId: u.id, animeId: a.id, title: 't', body: words(9, 'late'), createdAt: new Date(Date.now() - 3 * HOUR) },
+    });
+    assert.equal(await initializeReviewCounting({ ...rev, countState: rev.countState }), 'INELIGIBLE');
+    await prisma.userEpisodeWatch.create({ data: { userId: u.id, animeId: a.id, episodeNumber: 1 } });
+    await refreshUserBadges(u.id, { force: true });
+    assert.equal((await prisma.review.findUniqueOrThrow({ where: { id: rev.id } })).countState, 'COUNTED');
   });
 });
