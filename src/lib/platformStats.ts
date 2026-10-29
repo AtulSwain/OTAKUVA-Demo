@@ -25,4 +25,4 @@ async function buildPlatformStats(): Promise<PlatformStats> {
   return { anime, people, members, articles, reviews };
 }
 
-export const getPlatformStats = unstable_cache(buildPlatformStats, ['platform-stats'], { revalidate: 600 });
+export const getPlatformStats = unstable_cache(buildPlatformStats, ['platform-stats'], { revalidate: 600, tags: ['platform-stats'] });

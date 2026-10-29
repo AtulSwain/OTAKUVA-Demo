@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 const ROUTE = 'otp-send';
 
-type Purpose = 'register' | 'login' | 'link' | 'reauth';
+type Purpose = 'register' | 'login' | 'link' | 'reauth' | 'reset';
 
 /**
  * POST /api/auth/phone/send-otp { phone, country?, purpose, username? }
@@ -29,6 +29,7 @@ type Purpose = 'register' | 'login' | 'link' | 'reauth';
  * for a request that can't succeed:
  *   - register: `username` must be valid and free, and the number unused.
  *   - login:    the number must belong to an account.
+ *   - reset:    same as login — "Forgot password" (2026-10-28).
  *   - link:     signed in, and the number not on another account.
  *   - reauth:   signed in; always texts the account's OWN stored number
  *               (the `phone` field is ignored) — used to confirm sensitive
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const purpose = body?.purpose as Purpose;
-    if (purpose !== 'register' && purpose !== 'login' && purpose !== 'link' && purpose !== 'reauth') {
+    if (purpose !== 'register' && purpose !== 'login' && purpose !== 'link' && purpose !== 'reauth' && purpose !== 'reset') {
       return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
     }
 
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-    } else if (purpose === 'login') {
+    } else if (purpose === 'login' || purpose === 'reset') {
       if (!ownerId) {
         return NextResponse.json(
           { error: 'No account uses this number yet. Create an account instead.', code: 'PHONE_NOT_REGISTERED' },

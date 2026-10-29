@@ -62,11 +62,12 @@ export const TIERS: readonly Tier[] = [
   { key: 'shoshinsha', name: 'Shoshinsha', kanji: '初', kanjiFull: '初心者', min: 0, fill: null, ink: null, stroke: null, special: false, glossKey: 'shoshinsha' },
   { key: 'kohai', name: 'Kōhai', kanji: '後輩', kanjiFull: '後輩', min: 10, fill: '#3F8F68', ink: '#FFFFFF', stroke: null, special: false, chipFill: '#357A57', glossKey: 'kohai' },
   { key: 'senpai', name: 'Senpai', kanji: '先輩', kanjiFull: '先輩', min: 100, fill: '#2B6CA3', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'senpai' },
-  { key: 'buchou', name: 'Buchō', kanji: '部長', kanjiFull: '部長', min: 200, fill: '#1E8C93', ink: '#FFFFFF', stroke: null, special: false, chipFill: '#1B7A80', glossKey: 'buchou' },
+  // Copper (2026-10-27, was teal — too close to Kōhai green / Senpai blue).
+  { key: 'buchou', name: 'Buchō', kanji: '部長', kanjiFull: '部長', min: 200, fill: '#B4612A', ink: '#FFFFFF', stroke: null, special: false, chipFill: '#9C5323', glossKey: 'buchou' },
   { key: 'mekiki', name: 'Mekiki', kanji: '目利', kanjiFull: '目利き', min: 300, fill: '#6A3F9C', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'mekiki' },
   { key: 'sensei', name: 'Sensei', kanji: '先生', kanjiFull: '先生', min: 500, fill: '#B7282E', ink: '#FFFFFF', stroke: null, special: false, glossKey: 'sensei' },
-  // Iron navy vanishes into a dark surface: lighten the fill and add a stroke there.
-  { key: 'tatsujin', name: 'Tatsujin', kanji: '達人', kanjiFull: '達人', min: 700, fill: '#1F2F4A', ink: '#FFFFFF', stroke: null, special: false, dark: { fill: '#2A4066', stroke: '#6F8BB8' }, glossKey: 'tatsujin' },
+  // Steel (2026-10-27, was iron navy, which vanished on dark surfaces). Colours → metals → legend.
+  { key: 'tatsujin', name: 'Tatsujin', kanji: '達人', kanjiFull: '達人', min: 700, fill: '#56637A', ink: '#FFFFFF', stroke: null, special: false, dark: { fill: '#64728A', stroke: '#AEBBD0' }, glossKey: 'tatsujin' },
   // Black lacquer disappears on a dark surface: keep it, but outline it in gold.
   { key: 'meijin', name: 'Meijin', kanji: '名人', kanjiFull: '名人', min: 1000, fill: '#1C1C1E', ink: '#E3C15A', stroke: '#E3C15A', special: true, dark: { stroke: '#E3C15A', outline: '#E3C15A' }, glossKey: 'meijin' },
   { key: 'densetsu', name: 'Densetsu', kanji: '伝説', kanjiFull: '伝説', min: 1500, fill: '#F4EFE3', ink: '#C8321F', stroke: '#C9A227', special: true, glossKey: 'densetsu' },

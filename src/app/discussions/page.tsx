@@ -141,9 +141,6 @@ export default function PublicDiscussionsPage() {
             <MessageSquare size={20} className={styles.icon} />
             <h1 className={styles.title}>Discussions</h1>
           </div>
-          <p className={styles.subtitle}>
-            Share theories, questions, opinions, and episode reactions with the entire OTAKUVA community.
-          </p>
         </div>
 
         <button

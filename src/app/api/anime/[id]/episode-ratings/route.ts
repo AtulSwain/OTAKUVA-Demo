@@ -10,6 +10,7 @@ import {
   submitEpisodeRating,
   submitEpisodeRetention,
 } from '../../../../../lib/rating/episodeRatings';
+import { refreshUserBadges } from '../../../../../lib/badges/countingService';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,8 +36,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 /**
- * POST { episodeNumber, retention } — how much an aired episode kept you hooked
- * (0–100%, verified members). The legacy { episodeNumber, score, … } form is
+ * POST { episodeNumber, retention } — how well an aired, watched episode kept
+ * you watching: a whole number 1–100 (verified members; always the signed-in
+ * member's own rating — rating again replaces it). The legacy { episodeNumber, score, … } form is
  * still accepted for contract stability.
  */
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -47,7 +49,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (!rate.allowed) return NextResponse.json({ error: 'You are rating too quickly. Please wait a moment.' }, { status: 429 });
     const body = await request.json().catch(() => ({}));
     if (body && Object.prototype.hasOwnProperty.call(body, 'retention')) {
-      const saved = await submitEpisodeRetention({ userId: user.id, animeId: params.id, episodeNumber: body.episodeNumber, retention: body.retention });
+      const saved = await submitEpisodeRetention({ userId: user.id, animeId: params.id, episodeNumber: body.episodeNumber, retention: body.retention, comment: body.comment });
+      // A rated anime counts toward the member's badge (2026-10-27).
+      await refreshUserBadges(user.id, { force: true });
       return NextResponse.json({ rating: saved, summary: await getEpisodeRatingSummary(params.id, user.id) });
     }
     const saved = await submitEpisodeRating({
@@ -73,6 +77,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (!Number.isInteger(n) || n < 1) return NextResponse.json({ error: 'episodeNumber is required.' }, { status: 400 });
     if (request.nextUrl.searchParams.get('what') === 'retention') await deleteEpisodeRetention(user.id, params.id, n);
     else await deleteEpisodeRating(user.id, params.id, n);
+    await refreshUserBadges(user.id, { force: true });
     return NextResponse.json({ summary: await getEpisodeRatingSummary(params.id, user.id) });
   } catch (error) {
     return fail(error, '/api/anime/[id]/episode-ratings', 'DELETE');

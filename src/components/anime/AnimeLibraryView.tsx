@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { SlidersHorizontal, ArrowLeft, ArrowRight, X, LayoutGrid, Grid3x3, List } from 'lucide-react';
+import { SlidersHorizontal, X, LayoutGrid, Grid3x3, List } from 'lucide-react';
 import { AnimeCard, AnimeCardItem } from './AnimeCard';
 import { ExploreSearch } from './ExploreSearch';
 import Link from 'next/link';
@@ -112,7 +112,8 @@ export const AnimeLibraryView: React.FC = () => {
   const searchParams = useSearchParams();
 
   // URL States
-  const initialPage = parseInt(searchParams?.get('page') || '1', 10);
+  // Infinite scroll (owner, 2026-10-26): always start at the top of the list.
+  const initialPage = 1;
   const initialQ = searchParams?.get('q') || '';
   const initialGenre = searchParams?.get('genre') || 'All';
   const initialTheme = searchParams?.get('theme') || 'All';
@@ -164,7 +165,9 @@ export const AnimeLibraryView: React.FC = () => {
   );
 
   // Fetch data
+  const fetchSeq = useRef(0);
   const fetchAnime = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     setIsLoading(true);
     try {
       const p = new URLSearchParams();
@@ -183,22 +186,42 @@ export const AnimeLibraryView: React.FC = () => {
       p.set('sortBy', sortBy);
 
       const res = await fetch(`/api/anime?${p.toString()}`);
-      if (res.ok) {
+      if (res.ok && seq === fetchSeq.current) {
         const data = await res.json();
-        setAnimeList(data.animes || data.items || data.anime || []); // GET /api/anime returns `animes`
+        const items: any[] = data.animes || data.items || data.anime || []; // GET /api/anime returns `animes`
+        // Page 1 = a fresh list; later pages are appended as you scroll.
+        setAnimeList((prev: any[]) => {
+          if (page <= 1) return items;
+          const seen = new Set(prev.map((a) => a.id));
+          return [...prev, ...items.filter((a) => !seen.has(a.id))];
+        });
         setTotalItems(data.pagination?.total || data.total || 0);
         setTotalPages(data.pagination?.totalPages || data.totalPages || 1);
       }
     } catch (err) {
       console.error('Failed to load anime library:', err);
     } finally {
-      setIsLoading(false);
+      if (seq === fetchSeq.current) setIsLoading(false);
     }
   }, [page, query, genre, theme, type, status, season, year, sortBy]);
 
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || isLoading || page >= totalPages) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setPage((p) => Math.min(totalPages, p + 1));
+      },
+      { rootMargin: '800px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [isLoading, page, totalPages, animeList.length]);
+
   useEffect(() => {
     fetchAnime();
-    updateUrl(page);
+    updateUrl(1);
   }, [fetchAnime, updateUrl, page]);
 
   useEffect(() => {
@@ -267,36 +290,8 @@ export const AnimeLibraryView: React.FC = () => {
             </>
           )}
         </p>
-        <div className={styles.greeting}>
-          {user ? (
-            <>
-              <Link href={`/profile/${user.username}`} className={styles.avatar} aria-label="Your profile">
-                {resolveAvatarUrl(user.avatarUrl) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={resolveAvatarUrl(user.avatarUrl) as string} alt="" />
-                ) : (
-                  <span>{user.username.slice(0, 1).toUpperCase()}</span>
-                )}
-              </Link>
-              <div className={styles.greetingText}>
-                <h1 className={styles.mastheadTitle}>
-                  Welcome back, <em>{user.displayName || `@${user.username}`}</em>
-                </h1>
-                <p className={styles.handle}>
-                  {user.displayName ? <span>@{user.username}</span> : null}
-                  {!user.displayName && (
-                    <Link href={`/profile/${user.username}`}>Add your name</Link>
-                  )}
-                  <span className={styles.handleNote}>What are we watching today?</span>
-                </p>
-              </div>
-            </>
-          ) : (
-            <h1 className={styles.mastheadTitle}>
-              Find your next <em>anime</em>.
-            </h1>
-          )}
-        </div>
+        {/* Welcome back / profile is homepage-only (owner, 2026-10-26). */}
+        <h1 className={styles.mastheadTitle}>Explore anime</h1>
         {/* Search + sort + more filters */}
         <div className={styles.searchSortRow}>
           <ExploreSearch
@@ -542,34 +537,10 @@ export const AnimeLibraryView: React.FC = () => {
         </div>
       )}
 
-      {/* Server/API Pagination */}
-      {totalPages > 1 && (
-        <div className={styles.paginationRow}>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={page <= 1 || isLoading}
-            onClick={() => {
-              setPage((prev) => Math.max(1, prev - 1));
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          >
-            <ArrowLeft size={14} aria-hidden="true" /> Previous
-          </button>
-          <span className={styles.pageIndicator}>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className={styles.pageBtn}
-            disabled={page >= totalPages || isLoading}
-            onClick={() => {
-              setPage((prev) => Math.min(totalPages, prev + 1));
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          >
-            Next <ArrowRight size={13} aria-hidden="true" />
-          </button>
+      {/* Infinite scroll: the next page loads as this comes into view. */}
+      {page < totalPages && animeList.length > 0 && (
+        <div ref={sentinelRef} className={styles.loadMore} aria-live="polite">
+          {isLoading ? 'Loading more…' : ''}
         </div>
       )}
     </div>

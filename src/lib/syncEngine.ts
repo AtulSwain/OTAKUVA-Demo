@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { linkStaffToAnime, resolveStaffPerson } from './people/personResolver';
 import { anilistProvider, jikanProvider, getFailoverProvider } from './providers';
@@ -182,9 +183,7 @@ export class SyncEngine {
       animeId = existingAnime.id;
       // Perform field-level sync only if changed
       if (existingAnime.metadataHash !== normalized.metadataHash) {
-        await prisma.anime.update({
-          where: { id: animeId },
-          data: {
+        const syncData: Record<string, unknown> = {
             canonicalTitle: overrideMap.has('canonicalTitle') ? undefined : finalTitle,
             synopsis: overrideMap.has('synopsis') ? undefined : finalSynopsis,
             background: normalized.background || undefined,
@@ -215,14 +214,19 @@ export class SyncEngine {
             popularity: normalized.popularity || undefined,
             members: normalized.members || undefined,
             favoritesCount: normalized.favoritesCount || undefined,
-            posterUrl: normalized.posterUrl || undefined,
-            largePosterUrl: normalized.largePosterUrl || undefined,
-            bannerUrl: normalized.bannerUrl || undefined,
-            trailerUrl: normalized.trailerUrl || undefined,
+            // Images/trailer set in the control center (EditorialOverride) win
+            // over provider data — sync never replaces them (2026-10-28).
+            posterUrl: overrideMap.has('posterUrl') ? undefined : normalized.posterUrl || undefined,
+            largePosterUrl: overrideMap.has('posterUrl') || overrideMap.has('largePosterUrl') ? undefined : normalized.largePosterUrl || undefined,
+            bannerUrl: overrideMap.has('bannerUrl') ? undefined : normalized.bannerUrl || undefined,
+            trailerUrl: overrideMap.has('trailerUrl') ? undefined : normalized.trailerUrl || undefined,
             metadataHash: normalized.metadataHash,
             lastSyncedAt: new Date(),
-          },
-        });
+        };
+        // Any field an editor set in the control center (EditorialOverride)
+        // is never replaced by provider data (CLAUDE.md rule 1).
+        for (const field of overrideMap.keys()) delete syncData[field];
+        await prisma.anime.update({ where: { id: animeId }, data: syncData as Prisma.AnimeUpdateInput });
       }
     }
 

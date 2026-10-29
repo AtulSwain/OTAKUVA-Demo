@@ -458,3 +458,7 @@
 .stateAction { border: 0; border-radius: 9999px; padding: 10px 22px; font-size: 14px; font-weight: 600; background: #fff; color: #141416; }
 .stateTitle { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .action:focus-visible, .stateAction:focus-visible { outline: 2px solid var(--accent-primary-hover); outline-offset: 3px; }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.page { max-width: none; padding-left: 0; padding-right: 0; }

@@ -45,13 +45,17 @@ describe('pinned reviews', () => {
   });
 });
 
-describe('retention colours', () => {
-  test('green from 40%, yellow under 40%, red at 20% and below', () => {
-    assert.equal(retentionTone(100), 'good');
-    assert.equal(retentionTone(40), 'good');
-    assert.equal(retentionTone(35), 'low');
-    assert.equal(retentionTone(25), 'low');
-    assert.equal(retentionTone(20), 'poor');
-    assert.equal(retentionTone(0), 'poor');
+describe('retention colours follow the badge bands (2026-10-25)', () => {
+  test('raw value → band', () => {
+    assert.equal(retentionTone(100), 'HOOKED');
+    assert.equal(retentionTone(90), 'HOOKED');
+    assert.equal(retentionTone(89.6), 'PEAKING');
+    assert.equal(retentionTone(70), 'PEAKING');
+    assert.equal(retentionTone(69.9), 'SOLID');
+    assert.equal(retentionTone(40), 'SOLID');
+    assert.equal(retentionTone(39), 'SLEEPER');
+    assert.equal(retentionTone(20), 'SLEEPER');
+    assert.equal(retentionTone(19.9), 'DROPPED');
+    assert.equal(retentionTone(1), 'DROPPED');
   });
 });

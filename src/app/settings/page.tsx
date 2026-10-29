@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { ThemePicker } from '../../components/ui/ThemePicker';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Download, LogOut, ShieldCheck, ShieldAlert, Trash2, UserRound, ChevronRight } from 'lucide-react';
@@ -63,8 +64,14 @@ export default function SettingsPage() {
     <div className={styles.settingsPage}>
       <header className={styles.header}>
         <h1 className={styles.title}>Settings</h1>
-        <p className={styles.subtitle}>Your account, your data.</p>
       </header>
+
+      {/* Appearance (2026-10-26) — saved on this device only. */}
+      <section className={styles.card} aria-labelledby="settings-theme">
+        <h2 id="settings-theme" className={styles.cardTitle}>Theme</h2>
+        <span className={styles.muted}>Pick the site&apos;s colours. Saved on this device.</span>
+        <ThemePicker />
+      </section>
 
       {/* Account */}
       <section className={styles.card} aria-labelledby="settings-account">

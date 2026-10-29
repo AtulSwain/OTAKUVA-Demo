@@ -19,6 +19,7 @@ describe('watched ticks, one episode at a time (anime without Episode rows)', ()
   test('ticking episode 5 marks only 5; the library count follows; unaired / guests refused', async () => {
     const user = await createUser();
     const show = await createAnime({ status: 'Finished Airing', episodes: 12 });
+    await prisma.userAnime.create({ data: { userId: user.id, animeId: show.id, status: 'PLAN_TO_WATCH' } });
 
     const r = await tick(user, show.id, 5, true);
     assert.equal(r.status, 200);
@@ -57,6 +58,7 @@ describe('watched ticks, one episode at a time (anime without Episode rows)', ()
   test('two ticks at the same moment both stick (ep 1 then ep 2 — no tick lost)', async () => {
     const user = await createUser();
     const show = await createAnime({ status: 'Finished Airing', episodes: 12 });
+    await prisma.userAnime.create({ data: { userId: user.id, animeId: show.id, status: 'PLAN_TO_WATCH' } });
     const results = await Promise.all([1, 2, 3, 4].map((n) => tick(user, show.id, n, true)));
     assert.ok(results.every((r) => r.status === 200));
     const got = await read(await watchedGET(request('GET', `/api/anime/${show.id}/watched-episodes`, { as: user }), p(show.id)));
@@ -67,9 +69,20 @@ describe('watched ticks, one episode at a time (anime without Episode rows)', ()
     assert.equal(lib.episodesWatched, 4);
   });
 
+  test('ticking never adds the anime to the library', async () => {
+    const user = await createUser();
+    const show = await createAnime({ status: 'Finished Airing', episodes: 12 });
+    const r = await tick(user, show.id, 1, true);
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.numbers, [1], 'the tick itself is saved');
+    assert.equal(r.body.inLibrary, false);
+    assert.equal(await prisma.userAnime.count({ where: { userId: user.id, animeId: show.id } }), 0);
+  });
+
   test('ticking every episode completes the show', async () => {
     const user = await createUser();
     const show = await createAnime({ status: 'Finished Airing', episodes: 2 });
+    await prisma.userAnime.create({ data: { userId: user.id, animeId: show.id, status: 'PLAN_TO_WATCH' } });
     await tick(user, show.id, 1, true);
     const r = await tick(user, show.id, 2, true);
     assert.equal(r.body.status, 'COMPLETED');

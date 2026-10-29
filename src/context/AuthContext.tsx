@@ -32,7 +32,7 @@ export type AuthIntent =
   | { type: 'START_DISCUSSION'; animeId?: string; animeTitle?: string }
   | { type: 'CUSTOM'; animeId?: string; animeTitle?: string; callback?: () => void; description?: string };
 
-export type OtpPurpose = 'register' | 'login' | 'link';
+export type OtpPurpose = 'register' | 'login' | 'link' | 'reset';
 
 /** `code` is the API's machine-readable error code (e.g. PHONE_IN_USE), when there is one. */
 export interface AuthResult {
@@ -51,9 +51,14 @@ interface AuthContextType {
   /** Texts a one-time code. `username` is required for 'register'. */
   requestOtp: (args: { purpose: OtpPurpose; phone: string; country: string; username?: string }) => Promise<AuthResult & { devMode?: boolean; mockCode?: string }>;
   loginWithPhone: (phone: string, country: string, code: string) => Promise<AuthResult>;
-  /** Legacy email/password accounts that haven't linked a phone yet. */
+  /** The sign-in: username (or a legacy account's email) + password. */
   loginWithPassword: (identifier: string, password: string) => Promise<AuthResult>;
-  register: (username: string, phone: string, country: string, code: string) => Promise<AuthResult>;
+  /** Checks an SMS code; returns a short-lived pass proving the phone (sign-up / forgot password). */
+  verifyPhoneCode: (purpose: 'register' | 'reset', phone: string, country: string, code: string) => Promise<AuthResult & { pass?: string }>;
+  /** Creates the account from a verified phone pass + password, and signs in. */
+  register: (username: string, password: string, pass: string) => Promise<AuthResult>;
+  /** Sets a new password from a verified phone pass ("Forgot password"), and signs in. */
+  resetPasswordWithPhone: (pass: string, password: string) => Promise<AuthResult>;
   /** Replaces the signed-in user after a server-side change (e.g. phone linked). */
   setSessionUser: (user: AuthUser) => void;
   logout: () => Promise<void>;
@@ -198,9 +203,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return finishSignIn(ok, data, 'Failed to sign in.');
   };
 
-  const register = async (username: string, phone: string, country: string, code: string) => {
-    const { ok, data } = await postAuth('/api/auth/register', { username, phone, country, code });
+  const verifyPhoneCode: AuthContextType['verifyPhoneCode'] = async (purpose, phone, country, code) => {
+    const { ok, data } = await postAuth('/api/auth/phone/verify-code', { purpose, phone, country, code });
+    if (!ok || typeof data.pass !== 'string') return { success: false, error: data.error || "That code didn't work.", code: data.code };
+    return { success: true, pass: data.pass };
+  };
+
+  const register = async (username: string, password: string, pass: string) => {
+    const { ok, data } = await postAuth('/api/auth/register', { username, password, pass });
     return finishSignIn(ok, data, 'Failed to create account.');
+  };
+
+  const resetPasswordWithPhone = async (pass: string, password: string) => {
+    const { ok, data } = await postAuth('/api/auth/password-reset/phone', { pass, password });
+    return finishSignIn(ok, data, 'Could not save the new password.');
   };
 
   const logout = async () => {
@@ -272,7 +288,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requestOtp,
         loginWithPhone,
         loginWithPassword,
+        verifyPhoneCode,
         register,
+        resetPasswordWithPhone,
         setSessionUser: applySession,
         logout,
         showAuthModal,

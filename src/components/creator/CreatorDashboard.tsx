@@ -27,6 +27,7 @@ interface Dashboard {
   };
   communities: Array<{ id: string; slug: string; name: string; description: string; visibility: string; membersOnly: boolean; memberCount: number; activeInvitations: number }>;
   activity: Array<{ kind: 'JOIN' | 'POST' | 'FOLLOW'; at: string; text: string; href: string }>;
+  pendingRequests: Array<{ id: string; userId: string; username: string; communityName: string; communitySlug: string; message: string | null; createdAt: string }>;
 }
 interface ReviewRow {
   id: string;
@@ -150,6 +151,11 @@ export function CreatorDashboard({ embedded = false }: { embedded?: boolean }) {
       load();
     } else showToast('Could not delete the community.', 'error');
   };
+  const reviewRequest = async (request: Dashboard['pendingRequests'][number], action: 'APPROVE' | 'REJECT') => {
+    const res = await fetch(`/api/communities/${encodeURIComponent(request.communitySlug)}/requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: request.userId, action }) });
+    if (res.ok) { showToast(action === 'APPROVE' ? `@${request.username} joined ${request.communityName}` : `Request from @${request.username} rejected`, 'success'); load(); }
+    else { const out = await res.json().catch(() => ({})); showToast(out.error || 'Could not update the join request.', 'error'); }
+  };
 
   const { stats } = data;
   const actions = (
@@ -214,6 +220,17 @@ export function CreatorDashboard({ embedded = false }: { embedded?: boolean }) {
           </button>
         ))}
       </div>
+
+      {tab === 'overview' && <YourAnime username={user.username} />}
+
+      {tab === 'overview' && data.pendingRequests.length > 0 && (
+        <section className={styles.card}>
+          <div className={styles.sectionHead}><h2 className={styles.cardTitle}>Join requests <span className={styles.pill}>{data.pendingRequests.length}</span></h2><span className={styles.small}>Private and request-to-join communities</span></div>
+          <ul className={styles.list}>
+            {data.pendingRequests.map((request) => <li key={request.id} className={styles.row}><div className={styles.rowMain}><Link href={`/profile/${encodeURIComponent(request.username)}`} className={styles.rowTitle}>@{request.username}</Link><span className={styles.small}>wants to join {request.communityName} · {new Date(request.createdAt).toLocaleString()}</span>{request.message && <span className={styles.small}>“{request.message}”</span>}</div><div className={styles.rowActions}><button type="button" className={`${styles.btnPrimary} ${styles.btnSm}`} onClick={() => void reviewRequest(request, 'APPROVE')}>Accept</button><button type="button" className={`${styles.btnDanger} ${styles.btnSm}`} onClick={() => void reviewRequest(request, 'REJECT')}>Reject</button></div></li>)}
+          </ul>
+        </section>
+      )}
 
       {tab === 'overview' && (
         <section className={styles.card}>
@@ -365,5 +382,67 @@ export function CreatorDashboard({ embedded = false }: { embedded?: boolean }) {
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * "Your anime & people" (owner, 2026-10-25): the creator's own library at a
+ * glance — completed, watching, plan to watch, dropped, rated, reviews — and
+ * who they follow. Every number opens its list on their profile (the
+ * dashboard is a tab of that profile, so the links switch tabs in place).
+ */
+function YourAnime({ username }: { username: string }) {
+  const [stats, setStats] = useState<null | {
+    completed: number; watching: number; planToWatch: number; dropped: number; onHold: number;
+    rated?: number; reviews?: number; meanRetention?: number | null;
+    milestones?: { earned: number[]; next: number | null; toNext: number };
+  }>(null);
+  const [following, setFollowing] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    const u = encodeURIComponent(username);
+    fetch(`/api/users/${u}/stats`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && d && setStats(d))
+      .catch(() => {});
+    fetch(`/api/users/${u}/follow`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && d && setFollowing(d.followingCount ?? null))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [username]);
+  if (!stats) return null;
+  const base = `/profile/${encodeURIComponent(username)}`;
+  const items: Array<[string, number | string, string]> = [
+    ['Completed', stats.completed, `${base}?tab=library&status=completed`],
+    ['Watching', stats.watching, `${base}?tab=library&status=watching`],
+    ['Plan to watch', stats.planToWatch, `${base}?tab=library&status=plan_to_watch`],
+    ['Dropped', stats.dropped, `${base}?tab=library&status=dropped`],
+    ['Rated', stats.rated ?? 0, `${base}?tab=rated`],
+    ['Reviews', stats.reviews ?? 0, `${base}?tab=reviews`],
+    ...(following !== null ? ([['Following', following, `${base}?tab=overview&list=following`]] as Array<[string, number, string]>) : []),
+  ];
+  return (
+    <section className={styles.card}>
+      <h2 className={styles.cardTitle}>Your anime &amp; people</h2>
+      <div className={styles.miniStats}>
+        {items.map(([label, value, href]) => (
+          <Link key={label} href={href} className={styles.miniStat}>
+            <strong>{typeof value === 'number' ? value.toLocaleString('en-US') : value}</strong>
+            <span>{label}</span>
+          </Link>
+        ))}
+      </div>
+      {stats.milestones && (
+        <p className={styles.small}>
+          {stats.milestones.earned.length > 0
+            ? `Completion stamps: ${stats.milestones.earned.join(' · ')}`
+            : 'No completion stamp yet'}
+          {stats.milestones.next !== null && ` — next at ${stats.milestones.next} (${stats.milestones.toNext} to go)`}
+        </p>
+      )}
+    </section>
   );
 }

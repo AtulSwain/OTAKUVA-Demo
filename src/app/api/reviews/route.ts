@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hasMinRole } from '../../../lib/roles';
 import { currentRating, getReviewerRatings, reviewerRatingFrom } from '../../../lib/reviews/reviewerRatings';
+import { getReviewerRetention } from '../../../lib/reviews/reviewerRetention';
 import { prisma } from '../../../lib/prisma';
 import { getAuthUserFromRequest, requireVerifiedUser } from '../../../lib/auth';
 import { createAndAnalyzeReview } from '../../../lib/engine/review/reviewIntelligence';
@@ -156,6 +157,9 @@ export async function GET(request: NextRequest) {
     const briefs = await getTierBriefs(everyone.map((r) => r.user.id));
     // Each review shows its author's score from the rating section (read live).
     const reviewerRatings = await getReviewerRatings(everyone.map((r) => ({ userId: r.user.id, animeId: r.anime.id })));
+    // Each reviewer's own retention for the anime (their episode average) —
+    // shown as their verdict pill ("Hooked", "Peaking"…), 2026-10-25.
+    const reviewerRetention = await getReviewerRetention(everyone.map((r) => ({ userId: r.user.id, animeId: r.anime.id })));
     const now = new Date();
     const reviews = isRecommended
       ? [...fetched]
@@ -220,6 +224,10 @@ export async function GET(request: NextRequest) {
             title: existingOwnReview.title,
             body: existingOwnReview.body,
             rating: await currentRating(authUser.id, existingOwnReview.anime.id),
+            retention:
+              (await getReviewerRetention([{ userId: authUser.id, animeId: existingOwnReview.anime.id }])).get(
+                `${authUser.id}|${existingOwnReview.anime.id}`
+              ) ?? null,
             spoilerLevel: existingOwnReview.spoilerLevel,
             containsSpoiler: existingOwnReview.containsSpoiler,
             watchStatusAtReview: existingOwnReview.watchStatusAtReview,
@@ -263,6 +271,7 @@ export async function GET(request: NextRequest) {
       title: r.title,
       body: r.body,
       rating: reviewerRatingFrom(reviewerRatings, r.user.id, r.anime.id),
+      retention: reviewerRetention.get(`${r.user.id}|${r.anime.id}`) ?? null,
       spoilerLevel: r.spoilerLevel,
       containsSpoiler: r.containsSpoiler,
       watchStatusAtReview: r.watchStatusAtReview,

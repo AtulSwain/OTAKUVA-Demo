@@ -481,27 +481,22 @@ export async function toggleEpisodeWatchStatus(input: ToggleEpisodeWatchInput) {
     const isFullyCompleted =
       !isCurrentlyAiring && Boolean(anime.episodes) && totalCompleted >= (anime.episodes || 0);
 
-    const userAnime = await tx.userAnime.upsert({
-      where: {
-        userId_animeId: {
-          userId,
-          animeId: resolvedAnimeId,
-        },
-      },
-      update: {
-        episodesWatched: totalCompleted,
-        status: isFullyCompleted ? 'COMPLETED' : totalCompleted > 0 ? 'WATCHING' : undefined,
-        finishDate: isFullyCompleted ? new Date() : undefined,
-      },
-      create: {
-        userId,
-        animeId: resolvedAnimeId,
-        episodesWatched: totalCompleted,
-        status: isFullyCompleted ? 'COMPLETED' : 'WATCHING',
-        startDate: new Date(),
-        finishDate: isFullyCompleted ? new Date() : null,
-      },
+    // Ticking an episode never adds the anime to the library (owner,
+    // 2026-10-26: "let the user decide") — only an existing entry is updated.
+    const existingEntry = await tx.userAnime.findUnique({
+      where: { userId_animeId: { userId, animeId: resolvedAnimeId } },
+      select: { id: true },
     });
+    const userAnime = existingEntry
+      ? await tx.userAnime.update({
+          where: { userId_animeId: { userId, animeId: resolvedAnimeId } },
+          data: {
+            episodesWatched: totalCompleted,
+            status: isFullyCompleted ? 'COMPLETED' : totalCompleted > 0 ? 'WATCHING' : undefined,
+            finishDate: isFullyCompleted ? new Date() : undefined,
+          },
+        })
+      : null;
 
     return {
       episodeId: episode.id,

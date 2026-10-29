@@ -21,22 +21,29 @@ after(async () => {
 });
 
 describe('public profile sections', () => {
-  test('ratings: newest first, deleted ones hidden, reviewed flag set', async () => {
+  test("rated tab: anime the member rated episodes of, with their retention; star ratings don't show", async () => {
     const member = await createUser();
     const [a, b, c] = [await createAnime(), await createAnime(), await createAnime()];
-    await prisma.animeRating.create({ data: { userId: member.id, animeId: a.id, rating: 8.5 } });
-    await prisma.animeRating.create({ data: { userId: member.id, animeId: b.id, rating: 6 } });
-    await prisma.animeRating.create({ data: { userId: member.id, animeId: c.id, rating: 9, deletedAt: new Date() } });
+    await prisma.episodeRating.createMany({
+      data: [
+        { userId: member.id, animeId: a.id, episodeNumber: 1, retention: 80 },
+        { userId: member.id, animeId: a.id, episodeNumber: 2, retention: 91 },
+        { userId: member.id, animeId: b.id, episodeNumber: 1, retention: 40 },
+      ],
+    });
+    // A 1–10 star rating alone (stars are off) is not listed.
+    await prisma.animeRating.create({ data: { userId: member.id, animeId: c.id, rating: 9 } });
     await prisma.review.create({ data: { userId: member.id, animeId: b.id, title: '', body: 'Solid but slow.' } });
 
     const res = await read(await ratingsGET(request('GET', `/api/users/${member.username}/ratings`), { params: { username: member.username } }));
     assert.equal(res.status, 200);
     assert.equal(res.body.total, 2);
     const bySlug = Object.fromEntries(res.body.items.map((i: any) => [i.anime.slug, i]));
-    assert.equal(bySlug[a.slug].score, 8.5);
+    assert.equal(bySlug[a.slug].retention, 86, '(80 + 91) / 2 rounded');
+    assert.equal(bySlug[a.slug].episodes, 2);
     assert.equal(bySlug[a.slug].reviewed, false);
     assert.equal(bySlug[b.slug].reviewed, true);
-    assert.equal(bySlug[c.slug], undefined, 'a removed rating never shows');
+    assert.equal(bySlug[c.slug], undefined);
 
     const missing = await ratingsGET(request('GET', '/api/users/nobody_at_all/ratings'), { params: { username: 'nobody_at_all' } });
     assert.equal(missing.status, 404);

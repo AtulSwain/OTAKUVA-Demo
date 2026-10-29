@@ -76,9 +76,6 @@ export default function ActivityPage() {
           <Activity size={20} className={styles.headerIcon} />
           <h1 className={styles.title}>Your activity</h1>
         </div>
-        <p className={styles.subtitle}>
-          Everything you&apos;ve logged on OTAKUVA — library changes, episodes, ratings, reviews and posts — newest first.
-        </p>
       </div>
 
       {/* GitHub-style 365-Day Heatmap */}

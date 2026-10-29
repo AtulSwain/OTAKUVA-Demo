@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { awardCompletionMilestones } from '../../../../../../lib/library/completionMilestones';
 import { getAuthUserFromRequest } from '../../../../../../lib/auth';
 import { markAllEpisodesWatched } from '../../../../../../lib/engine/watch/watchEngine';
 import { prisma } from '../../../../../../lib/prisma';
@@ -28,6 +29,8 @@ export async function POST(
       userId: authUser.id,
       animeId: anime.id,
     });
+
+    await awardCompletionMilestones(authUser.id);
 
     return NextResponse.json({
       success: true,

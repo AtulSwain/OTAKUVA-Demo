@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Rocket, Ban, BookmarkPlus, Check, Flame, type LucideIcon } from 'lucide-react';
+import { BellRing, Sparkles, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useLibrary } from '../../context/LibraryContext';
@@ -11,15 +11,15 @@ import { HypeFx } from './HypeFx';
 import styles from './Hype.module.css';
 import hx from './HypeMeter.module.css';
 
+/** The hype icon everywhere (sparkles since 2026-10-27, owner; was Zap). */
+export const HypeIcon: LucideIcon = Sparkles;
 export const HYPE_ICONS: Record<HypeLevel, LucideIcon> = {
-  HYPED: Rocket,
-  SKIP: Ban,
+  HYPED: HypeIcon,
 };
 
 /** What a member sees once they've voted. */
 const VOTED_LINE: Record<HypeLevel, string> = {
-  HYPED: 'You are hyped for this one',
-  SKIP: 'Not interested — got it',
+  HYPED: "You're hyped for this anime",
 };
 
 interface Summary {
@@ -48,21 +48,25 @@ export function HypeBar({ counts, total, height = 8 }: { counts: HypeCounts; tot
  * One question, one button since 2026-10-24 (owner): "Are you hyped for
  * this anime?" → I'm hyped (flame, embers running). No "not interested"
  * choice here. One vote, final once cast (2026-10-21): afterwards it reads
- * "You are hyped for this one". Members who voted Not interested before
- * still see that answer. The homepage Hype board still shows counts.
+ * "You are hyped for this one". "Not interested" was retired 2026-10-25:
+ * those stored votes aren't counted, so those members see the question
+ * again. The homepage Hype board still shows counts.
  */
 export function HypeMeter({
   animeId,
   animeTitle,
+  compact = false,
 }: {
   animeId: string;
   animeTitle: string;
+  /** Hero version (2026-10-27, owner): one pill under Add to Library, same shape and size. */
+  compact?: boolean;
   /** Accepted for compatibility; no longer shown here. */
   premiereDate?: string | null;
 }) {
   const { user, openAuthModal } = useAuth();
   const { showToast } = useToast();
-  const { getItem, updateStatus } = useLibrary();
+  const { getItem, applyTracking } = useLibrary();
   const [data, setData] = useState<Summary | null>(null);
   const [busy, setBusy] = useState(false);
   const [justVoted, setJustVoted] = useState<HypeLevel | null>(null);
@@ -101,6 +105,10 @@ export function HypeMeter({
       }
       setData(body);
       setJustVoted(level);
+      // The server added it to the library as Plan to Watch (only if it wasn't
+      // there) — show it as tracked straight away.
+      if (level === 'HYPED' && !getItem(animeId)) applyTracking(animeId, { status: 'plan_to_watch' });
+      if (compact) showToast("You're hyped! It's in your library — we'll tell you when episode 1 is live.");
     } catch (err) {
       showToast((err as Error).message, 'error');
       load();
@@ -109,12 +117,35 @@ export function HypeMeter({
     }
   };
 
-  const inLibrary = Boolean(getItem(animeId));
-  const offerPlan = justVoted && justVoted === 'HYPED' && !inLibrary;
-
   // Just the choice (2026-10-23, owner: "remove all the unnecessary
   // information") — no heading, dates, counts or split bar.
   if (!data.open && !data.mine) return null;
+
+  if (compact) {
+    return data.mine ? (
+      <div
+        className={`${hx.pill} ${hx.pillOn} ${justVoted ? hx.answerFresh : ''}`}
+        role="status"
+        title={data.open ? "In your library — we'll notify you when episode 1 is live" : undefined}
+      >
+        <HypeFx level={data.mine} active />
+        <HypeIcon size={15} aria-hidden="true" className={hx.choiceIcon} />
+        <span className={hx.choiceLabel}>You&apos;re hyped</span>
+      </div>
+    ) : (
+      <button
+        type="button"
+        className={`${hx.pill} ${hx.pillAsk}`}
+        onClick={() => vote('HYPED')}
+        disabled={busy}
+        aria-label={`I'm hyped for ${animeTitle}`}
+      >
+        <HypeFx level="HYPED" active />
+        <HypeIcon size={15} aria-hidden="true" className={hx.choiceIcon} />
+        <span className={hx.choiceLabel}>I&apos;m hyped</span>
+      </button>
+    );
+  }
 
   return (
     <section className={hx.card} aria-label={`Are you hyped for ${animeTitle}?`}>
@@ -125,43 +156,26 @@ export function HypeMeter({
           <span className={hx.question}>Are you hyped for this anime?</span>
           <button type="button" className={`${hx.choice} ${hx.hype}`} onClick={() => vote('HYPED')} disabled={busy}>
             <HypeFx level="HYPED" active />
-            <Flame size={18} aria-hidden="true" className={hx.choiceIcon} />
+            <HypeIcon size={18} aria-hidden="true" className={hx.choiceIcon} />
             <span className={hx.choiceLabel}>I&apos;m hyped</span>
           </button>
         </div>
       )}
 
       {data.mine && (
-        <div
-          className={`${hx.answer} ${data.mine === 'HYPED' ? hx.answerHype : hx.answerSkip} ${justVoted ? hx.answerFresh : ''}`}
-          role="status"
-        >
+        <div className={`${hx.answer} ${hx.answerHype} ${justVoted ? hx.answerFresh : ''}`} role="status">
           <HypeFx level={data.mine} active />
-          {data.mine === 'HYPED' ? (
-            <Flame size={17} aria-hidden="true" className={hx.choiceIcon} />
-          ) : (
-            <Check size={16} strokeWidth={3} aria-hidden="true" className={hx.choiceIcon} />
-          )}
+          <HypeIcon size={17} aria-hidden="true" className={hx.choiceIcon} />
           <span className={hx.choiceLabel}>{VOTED_LINE[data.mine]}</span>
         </div>
       )}
 
-      {offerPlan && (
-        <div className={hx.plan}>
-          <button
-            type="button"
-            className={hx.planBtn}
-            onClick={async () => {
-              const ok = await updateStatus(animeId, 'plan_to_watch');
-              if (ok) {
-                showToast('Added to Plan to Watch', 'success');
-                setJustVoted(null);
-              }
-            }}
-          >
-            <BookmarkPlus size={14} aria-hidden="true" /> Add to Plan to Watch
-          </button>
-        </div>
+      {/* Hyped = tracked + told at the premiere (owner, 2026-10-25). */}
+      {data.mine === 'HYPED' && data.open && (
+        <p className={hx.tracking}>
+          <BellRing size={13} aria-hidden="true" />
+          {justVoted ? 'Added to your library.' : 'In your library.'} We&apos;ll notify you the moment episode 1 is live.
+        </p>
       )}
     </section>
   );

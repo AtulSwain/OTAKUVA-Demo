@@ -24,7 +24,7 @@ export interface CreatorFeedItem {
   kind: 'RATED' | 'REVIEWED' | 'HYPED';
   at: string;
   creator: { username: string; name: string; avatarUrl: string | null };
-  anime: { slug: string; title: string; posterUrl: string | null };
+  anime: { id: string; slug: string; title: string; posterUrl: string | null };
   score: number | null;
   review: { id: string; title: string } | null;
 }
@@ -89,9 +89,9 @@ export async function getCreatorDirectory(opts: { limit?: number; feedLimit?: nu
     .slice(0, limit);
 
   type U = { username: string; displayName: string | null; avatarUrl: string | null; creatorChannelName: string | null };
-  type A = { slug: string; canonicalTitle: string; posterUrl: string; titles?: unknown };
+  type A = { id: string; slug: string; canonicalTitle: string; posterUrl: string; titles?: unknown };
   const who = (u: U) => ({ username: u.username, name: u.creatorChannelName || u.displayName || u.username, avatarUrl: resolveAvatarUrl(u.avatarUrl) });
-  const what = (a: A) => ({ slug: a.slug, title: getAnimeDisplayTitle(a as any), posterUrl: a.posterUrl || null });
+  const what = (a: A) => ({ id: a.id, slug: a.slug, title: getAnimeDisplayTitle(a as any), posterUrl: a.posterUrl || null });
   // A review already shows its score — skip the matching rating row.
   const reviewed = new Set(reviews.map((r) => `${r.user.username}|${r.anime.slug}`));
 

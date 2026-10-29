@@ -20,7 +20,13 @@ export interface ProfileCardData {
   avatarUrl: string | null;
   bannerUrl: string | null;
   tier: TierKey;
+  /** Level points (counted reviews + rated anime) — drives the level/progress. */
   countedReviews: number;
+  /** Shown as separate stats when known (2026-10-27). */
+  reviewCount?: number;
+  ratedCount?: number;
+  /** Creator account: blue tick chip after the level chip (2026-10-27). */
+  isCreator?: boolean;
   /** Optional stats; each is shown only when provided. */
   stats: { label: string; value: string }[];
   profileUrl: string;
@@ -254,53 +260,9 @@ export async function renderProfileCard(canvas: HTMLCanvasElement, data: Profile
     ctx.fillStyle = fade;
     ctx.fillRect(0, ART_H * 0.35, CARD_W, ART_H * 0.65 + 1);
   } else if (theme === 'manga') {
-    // Manga speed lines bursting from behind the seal, in the tier colour.
-    // Same point the seal is stamped at below.
-    const cx = CARD_W - PAD - 110;
-    const cy = 560;
-    const burst = ctx.createRadialGradient(cx, cy, 20, cx, cy, 900);
-    burst.addColorStop(0, rgba(accent, 0.55));
-    burst.addColorStop(0.45, rgba(accent, 0.14));
-    burst.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = burst;
-    ctx.fillRect(0, 0, CARD_W, 780);
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, CARD_W, 760);
-    ctx.clip();
-    ctx.translate(cx, cy);
-    for (let i = 0; i < 72; i++) {
-      const a = (i / 72) * Math.PI * 2 + (i % 3) * 0.013;
-      const spread = 0.012 + ((i * 7) % 5) * 0.004;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * 150, Math.sin(a) * 150);
-      ctx.lineTo(Math.cos(a - spread) * 1400, Math.sin(a - spread) * 1400);
-      ctx.lineTo(Math.cos(a + spread) * 1400, Math.sin(a + spread) * 1400);
-      ctx.closePath();
-      ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.05)' : rgba(accent, 0.1);
-      ctx.fill();
-    }
-    ctx.restore();
-    const fade = ctx.createLinearGradient(0, 380, 0, 780);
-    fade.addColorStop(0, 'rgba(8,8,12,0)');
-    fade.addColorStop(1, BG);
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, 380, CARD_W, 401);
+    drawMangaArt(ctx, banner, accent, family);
   } else {
-    // Minimal: dark with a fine dot grid and one line of the tier colour.
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    for (let y = 40; y < CARD_H; y += 36) for (let x = 40; x < CARD_W; x += 36) ctx.fillRect(x, y, 2, 2);
-    const line = ctx.createLinearGradient(0, 0, CARD_W, 0);
-    line.addColorStop(0, rgba(accent, 0));
-    line.addColorStop(0.5, rgba(accent, 0.9));
-    line.addColorStop(1, rgba(accent, 0));
-    ctx.fillStyle = line;
-    ctx.fillRect(0, 0, CARD_W, 6);
-    const halo = ctx.createRadialGradient(CARD_W / 2, 0, 10, CARD_W / 2, 0, 700);
-    halo.addColorStop(0, rgba(accent, 0.18));
-    halo.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = halo;
-    ctx.fillRect(0, 0, CARD_W, 700);
+    drawMinimalArt(ctx, tier, accent, family);
   }
 
   // A soft glow of the tier colour along the bottom.
@@ -325,7 +287,7 @@ export async function renderProfileCard(canvas: HTMLCanvasElement, data: Profile
   ctx.letterSpacing = '6px';
   ctx.fillText('OTAKUVA', lx, 98);
   ctx.letterSpacing = '3px';
-  const chip = `LV ${level} · REVIEWER`;
+  const chip = `LV ${level} · ${data.isCreator ? 'CREATOR' : 'REVIEWER'}`;
   ctx.font = `800 22px ${family}`;
   const cw = ctx.measureText(chip).width + 44;
   ctx.fillStyle = 'rgba(8,8,12,0.55)';
@@ -434,8 +396,34 @@ export async function renderProfileCard(canvas: HTMLCanvasElement, data: Profile
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.fillText(sub, PAD + 30 + tw + 4, 938);
 
+  // Creator: the same blue tick as on creator reviews, right after the level chip.
+  if (data.isCreator) {
+    const cx0 = PAD + pillW + 16;
+    ctx.font = `800 28px ${family}`;
+    ctx.letterSpacing = '1px';
+    const label = 'Creator';
+    const lw0 = ctx.measureText(label).width;
+    const cwid = 62 + lw0 + 26;
+    ctx.fillStyle = 'rgba(79,156,249,0.16)';
+    roundRect(ctx, cx0, 906, cwid, 62, 31);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(79,156,249,0.55)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, cx0, 906, cwid, 62, 31);
+    ctx.stroke();
+    drawVerifiedTick(ctx, cx0 + 36, 937, 19);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, cx0 + 62, 938);
+    ctx.letterSpacing = '0px';
+  }
+
   // ── Stats, big numbers between thin dividers
-  const stats = [{ label: 'Reviews', value: data.countedReviews.toLocaleString('en-US') }, ...data.stats].slice(0, 4);
+  const stats = [
+    { label: 'Reviews', value: (data.reviewCount ?? data.countedReviews).toLocaleString('en-US') },
+    ...(data.ratedCount != null ? [{ label: 'Rated', value: data.ratedCount.toLocaleString('en-US') }] : []),
+    ...data.stats,
+  ].slice(0, 4);
   const top = 996;
   const colW = (CARD_W - PAD * 2) / stats.length;
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -480,7 +468,7 @@ export async function renderProfileCard(canvas: HTMLCanvasElement, data: Profile
   ctx.font = `600 26px ${family}`;
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.fillText(
-    progress.next ? `${progress.remaining.toLocaleString('en-US')} more reviews to ${progress.next.name}` : 'Every level unlocked',
+    progress.next ? `${progress.remaining.toLocaleString('en-US')} more to ${progress.next.name}` : 'Every level unlocked',
     CARD_W - PAD,
     ty - 22
   );
@@ -520,6 +508,272 @@ export async function renderProfileCard(canvas: HTMLCanvasElement, data: Profile
   ctx.letterSpacing = '2px';
   ctx.fillText('TRACK · RATE · DISCOVER', CARD_W - PAD, 1292);
   ctx.letterSpacing = '0px';
+}
+
+// ───────────────────────── Theme art (2026-10-27) ─────────────────────────
+
+/** Where the seal is stamped (same point as in renderProfileCard). */
+const SEAL_X = CARD_W - PAD - 110;
+const SEAL_Y = 560;
+const PAPER = '#ECE8DE';
+const INK = '#0B0B0E';
+const STARTER_ACCENT = '#7C7C86';
+
+/** The blue scalloped tick used for creators (lucide BadgeCheck look). */
+function drawVerifiedTick(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.save();
+  ctx.beginPath();
+  const lobes = 8;
+  for (let i = 0; i <= lobes * 2; i++) {
+    const a = (i / (lobes * 2)) * Math.PI * 2 - Math.PI / 2;
+    const rr = i % 2 ? r * 0.84 : r;
+    const x = cx + Math.cos(a) * rr;
+    const y = cy + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#4F9CF9';
+  ctx.strokeStyle = '#4F9CF9';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = r * 0.22;
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.42, cy + r * 0.02);
+  ctx.lineTo(cx - r * 0.1, cy + r * 0.32);
+  ctx.lineTo(cx + r * 0.44, cy - r * 0.3);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = r * 0.24;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
+}
+
+function poly(ctx: CanvasRenderingContext2D, pts: [number, number][]) {
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+}
+
+/** Screentone: a dot grid whose dot radius follows `size(u, v)` (u, v in 0..1 across the box). */
+function screentone(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  step: number,
+  size: (u: number, v: number) => number,
+  color: string
+) {
+  ctx.fillStyle = color;
+  for (let j = 0, yy = y; yy < y + h + step; yy += step, j++) {
+    for (let xx = x + (j % 2 ? step / 2 : 0); xx < x + w + step; xx += step) {
+      const r = size((xx - x) / w, (yy - y) / h);
+      if (r <= 0.15) continue;
+      ctx.beginPath();
+      ctx.arc(xx, yy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** Manga focus lines (集中線): thin ink wedges aimed at (cx, cy), leaving the middle clear. */
+function focusLines(ctx: CanvasRenderingContext2D, cx: number, cy: number, inner: number, outer: number, count: number, color: string) {
+  ctx.fillStyle = color;
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + ((i * 37) % 11) * 0.004;
+    const len = inner + ((i * 53) % 7) * 18;
+    const w = 0.004 + ((i * 29) % 5) * 0.0022;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+    ctx.lineTo(cx + Math.cos(a - w) * outer, cy + Math.sin(a - w) * outer);
+    ctx.lineTo(cx + Math.cos(a + w) * outer, cy + Math.sin(a + w) * outer);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** A photo turned to ink: greyscale + contrast, a paper tint, then a fine halftone. */
+function inkedPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusY: number) {
+  const canFilter = typeof (ctx as unknown as { filter?: unknown }).filter === 'string';
+  ctx.save();
+  if (canFilter) ctx.filter = 'grayscale(1) contrast(1.6) brightness(1.1)';
+  coverDraw(ctx, img, x, y, w, h, focusY);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  if (!canFilter) {
+    // No canvas filters (older Safari): drop the colour with a blend instead.
+    ctx.globalCompositeOperation = 'saturation';
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(x, y, w, h);
+  screentone(ctx, x, y, w, h, 6, () => 1.1, 'rgba(0,0,0,0.2)');
+  ctx.restore();
+}
+
+/** Bold sound-effect lettering: white keyline, ink outline, spot-colour fill. */
+function sfx(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, angle: number, fill: string, family: string) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.font = `900 ${size}px ${family}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = size * 0.22;
+  ctx.strokeText(text, 0, 0);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = size * 0.1;
+  ctx.strokeText(text, 0, 0);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
+}
+
+/**
+ * Manga page (owner, 2026-10-27): an ink title band, then paper with
+ * black-bordered panels. With a banner, the banner is inked (greyscale,
+ * contrast, halftone) into the panels; without one they get screentone,
+ * speed lines and a sound effect. Focus lines burst from behind the seal;
+ * the tier colour is the page's one spot colour.
+ */
+function drawMangaArt(ctx: CanvasRenderingContext2D, banner: HTMLImageElement | null, accent: string, family: string) {
+  const BAND = 150;
+  const BOTTOM = 732;
+  const M = 30; // page margin
+  const G = 14; // gutter
+  const MID = 452; // bottom of the top row
+  const spot = accent === STARTER_ACCENT ? '#ffffff' : accent;
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, CARD_W, BAND);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, BAND, CARD_W, BOTTOM - BAND);
+
+  const top = BAND + 18;
+  const A: [number, number][] = [[M, top], [646, top], [600, MID], [M, MID]];
+  const B: [number, number][] = [[646 + G, top], [CARD_W - M, top], [CARD_W - M, MID], [600 + G, MID]];
+  const C: [number, number][] = [[M, MID + G], [CARD_W - M, MID + G], [CARD_W - M, BOTTOM - 14], [M, BOTTOM - 14]];
+
+  // Panel A
+  ctx.save();
+  poly(ctx, A);
+  ctx.clip();
+  if (banner) inkedPhoto(ctx, banner, M, top, 646 - M, MID - top, 0.3);
+  else {
+    screentone(ctx, M, top, 646 - M, MID - top, 9, (u, v) => 0.5 + 3.4 * Math.max(0, 1 - (u * 0.75 + (1 - v) * 0.55)), 'rgba(11,11,14,0.85)');
+    ctx.strokeStyle = 'rgba(11,11,14,0.8)';
+    for (let i = 0; i < 24; i++) {
+      const yy = top + 20 + i * 12 + ((i * 7) % 5);
+      ctx.lineWidth = 1 + ((i * 3) % 3);
+      ctx.beginPath();
+      ctx.moveTo(M + 160 + ((i * 41) % 160), yy + 30);
+      ctx.lineTo(660, yy - 30);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Panel B
+  ctx.save();
+  poly(ctx, B);
+  ctx.clip();
+  if (banner) inkedPhoto(ctx, banner, 600 + G, top, CARD_W - M - (600 + G), MID - top, 0.15);
+  else {
+    screentone(ctx, 600 + G, top, CARD_W - M - 600 - G, MID - top, 8, (u, v) => 0.6 + 2.4 * v, 'rgba(11,11,14,0.6)');
+    focusLines(ctx, 860, top + 140, 60, 600, 70, 'rgba(11,11,14,0.55)');
+  }
+  ctx.restore();
+  sfx(ctx, 'ドン！', 860, top + 130, banner ? 92 : 124, -0.16, spot, family);
+
+  // Panel C: screentone floor + focus lines on the seal (the avatar and seal pop out over it).
+  ctx.save();
+  poly(ctx, C);
+  ctx.clip();
+  if (banner) {
+    inkedPhoto(ctx, banner, M, MID + G, CARD_W - 2 * M, BOTTOM - 14 - MID - G, 0.75);
+    ctx.fillStyle = 'rgba(236,232,222,0.6)';
+    ctx.fillRect(M, MID + G, CARD_W - 2 * M, BOTTOM - MID);
+  }
+  screentone(ctx, M, MID + G, CARD_W - 2 * M, BOTTOM - MID, 10, (u) => 0.3 + 2.4 * (1 - u), 'rgba(11,11,14,0.32)');
+  focusLines(ctx, SEAL_X, SEAL_Y, 150, 1300, 130, 'rgba(11,11,14,0.85)');
+  ctx.restore();
+
+  // Ink panel borders
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 7;
+  ctx.lineJoin = 'miter';
+  for (const p of [A, B, C]) {
+    poly(ctx, p);
+    ctx.stroke();
+  }
+  // Paper edge into the dark lower half
+  const fade = ctx.createLinearGradient(0, BOTTOM - 10, 0, BOTTOM + 30);
+  fade.addColorStop(0, 'rgba(8,8,12,0)');
+  fade.addColorStop(1, BG);
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, BOTTOM - 10, CARD_W, 40);
+}
+
+/**
+ * Minimal (owner, 2026-10-27: "not a blank background"): a soft wash of the
+ * tier colour, fine pinstripes, ink ripples around the seal and the level's
+ * kanji as a large outlined watermark.
+ */
+function drawMinimalArt(ctx: CanvasRenderingContext2D, tier: Tier, accent: string, family: string) {
+  const tint = accent === STARTER_ACCENT ? '#B9B9C4' : accent;
+  const wash = ctx.createLinearGradient(0, 0, CARD_W, CARD_H * 0.75);
+  wash.addColorStop(0, rgba(tint, 0.26));
+  wash.addColorStop(0.5, rgba(tint, 0.05));
+  wash.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = wash;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 2;
+  for (let x = -CARD_H; x < CARD_W; x += 26) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + CARD_H, CARD_H);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Kanji watermark, outlined, top right above the seal.
+  ctx.save();
+  ctx.font = `900 220px ${family}`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = rgba(tint, 0.24);
+  ctx.strokeText(tier.kanjiFull, CARD_W - PAD + 10, 380);
+  ctx.restore();
+
+  // Ripples around the seal.
+  [150, 196, 250, 314, 390].forEach((r, i) => {
+    ctx.beginPath();
+    ctx.arc(SEAL_X, SEAL_Y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = rgba(tint, Math.max(0.05, 0.32 - i * 0.065));
+    ctx.lineWidth = i === 0 ? 3 : 2;
+    ctx.stroke();
+  });
+
+  // Top hairline in the tier colour.
+  const line = ctx.createLinearGradient(0, 0, CARD_W, 0);
+  line.addColorStop(0, rgba(tint, 0));
+  line.addColorStop(0.5, rgba(tint, 0.95));
+  line.addColorStop(1, rgba(tint, 0));
+  ctx.fillStyle = line;
+  ctx.fillRect(0, 0, CARD_W, 6);
 }
 
 /**

@@ -1,78 +1,87 @@
-/* Episode retention "signal ramp" (v5, 2026-10-22): 20 slim bars, each 5%,
-   rising left to right. Lit bars take the band colour of your value (green
-   ≥40%, yellow <40%, red ≤20% — retentionTone.ts), the top lit bar is capped
-   white, everyone's average is a small caret under the ramp. */
-.wrap { display: flex; align-items: center; gap: 14px; width: 100%; min-width: 0; }
+/* Episode row retention (2026-10-25): segmented bar, your number beside it,
+   an explicit Submit, and the community figure in small muted text below. */
+.wrap { display: flex; flex-direction: column; gap: 3px; width: 100%; min-width: 0; }
+.row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bar { flex: 1 1 auto; min-width: 0; }
 
-/* Hit area = the ramp itself plus a little room for the caret */
-.track {
-  --tone: #fff; --ptone: #fff;
-  position: relative; flex: 1; min-width: 130px; height: 30px; padding-bottom: 6px;
-  cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none;
-  outline: none; border-radius: 6px;
+.value {
+  flex: none;
+  min-width: 2.4ch;
+  text-align: right;
+  color: var(--text-primary, #f5f5f7);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.track:focus-visible { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.valueEmpty { color: var(--text-muted, #71717a); font-weight: 500; }
 
-.ramp { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
-.bar {
-  flex: 1; min-width: 2px; height: var(--h); border-radius: 2px;
-  background: rgba(255, 255, 255, 0.09);
-  transform-origin: bottom;
-  transition: background-color 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+.actions { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.submit {
+  height: 26px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 6px;
+  background: #D4D7DC;
+  color: #141416;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
-.track:hover .bar:not(.barLit):not(.barGhost) { background: rgba(255, 255, 255, 0.13); }
-.barLit { background: var(--tone); }
-.barCap { background: #fff; box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 60%, transparent); }
-.barGhost { background: color-mix(in srgb, var(--ptone) 45%, transparent); }
-.barDim { opacity: 0.35; }
-.trackActive .barCap { transform: scaleY(1.18); }
-
-/* Saved: a quick wave through the lit bars */
-.barWave { animation: wave 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; animation-delay: calc(var(--i) * 18ms); }
-@keyframes wave { 0% { transform: scaleY(1); } 45% { transform: scaleY(1.35); } 100% { transform: scaleY(1); } }
-
-/* Everyone's average: a small caret under the ramp, in its band colour */
-.avg {
-  position: absolute; bottom: 0; z-index: 1; width: 0; height: 0; pointer-events: none;
-  transform: translateX(-50%);
-  border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-bottom: 5px solid var(--avgc, #fff);
+.submit:hover { background: #ECEEF1; }
+.submit:disabled { opacity: 0.6; cursor: default; }
+.iconBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted, #71717a);
+  cursor: pointer;
 }
+.iconBtn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-primary, #f5f5f7); }
+.actionSpacer { width: 24px; flex: none; }
+.saved { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--text-secondary, #a1a1aa); font-size: 12px; font-weight: 600; }
 
-.readout {
-  flex: none; display: inline-flex; flex-direction: column; align-items: flex-start; justify-content: center;
-  min-width: 92px; line-height: 1.15; font-variant-numeric: tabular-nums;
+.meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--text-muted, #71717a); font-size: 11px; line-height: 1.3; }
+.you { color: var(--text-secondary, #a1a1aa); font-weight: 600; }
+.locked { display: inline-flex; align-items: center; gap: 4px; }
+
+.compact .value { font-size: 13px; }
+
+/* Optional comment with an episode rating (2026-10-25). */
+.commentLink { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--text-secondary, #a1a1aa); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.commentLink:hover { color: #fff; }
+.commentBox { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.commentInput { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: rgba(255, 255, 255, 0.03); color: var(--text-primary); font: inherit; font-size: 12.5px; }
+.commentInput:focus { outline: none; border-color: rgba(255, 255, 255, 0.28); }
+.comment { margin: 2px 0 0; color: var(--text-secondary, #a1a1aa); font-size: 12px; font-style: italic; line-height: 1.4; overflow-wrap: anywhere; }
+
+/* Phone polish (2026-10-25): no empty dash, community shown beside the title in rows. */
+.valueEmpty { min-width: 0; }
+.compact .communityInline { display: none; }
+
+/* Edit — unlocks a saved rating (2026-10-27). */
+.editBtn {
+  flex: none; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px;
+  border: 0; border-radius: var(--radius-pill, 999px); background: var(--pill-bg, rgba(255, 255, 255, 0.08));
+  color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.readout strong { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; transition: color 0.2s ease; }
-.readout .previewValue { opacity: 0.75; }
-.word { font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
-.avgNote { color: var(--text-muted); font-weight: 500; }
-.saved { display: inline-flex; align-items: center; gap: 3px; color: #22C55E; }
-.empty { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
-.empty .avgNote { font-size: 11px; }
-.lockedNote { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.editBtn:hover { background: var(--pill-bg-hover, rgba(255, 255, 255, 0.16)); color: var(--text-primary); }
+.submit:disabled { opacity: 0.5; cursor: default; }
 
-.clear {
-  display: grid; place-items: center; flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
-  background: transparent; color: var(--text-muted); cursor: pointer; opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
-}
-.wrap:hover .clear, .clear:focus-visible { opacity: 0.7; }
-.clear:hover { opacity: 1; color: var(--text-primary); background: rgba(255, 255, 255, 0.08); }
-@media (hover: none) { .clear { opacity: 0.6; } }
-
-.compact .track { max-width: 220px; }
-
-/* Watched first (2026-10-21): until the episode is ticked the ramp is dimmed
-   and can't be dragged; a tap gives a small shake + a hint. */
-.trackLocked { cursor: not-allowed; opacity: 0.4; }
-.trackLocked .bar, .track.trackLocked:hover .bar:not(.barLit) { background: rgba(255, 255, 255, 0.07); }
-.trackLocked .barLit { background: rgba(255, 255, 255, 0.4); }
-.trackLocked .barCap { box-shadow: none; }
-.trackNudge { animation: nudge 0.4s ease; }
-@keyframes nudge { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .bar { transition: none; }
-  .barWave, .trackNudge { animation: none; }
-  .trackActive .barCap { transform: none; }
+/* Phones (2026-10-28): when bar + value + buttons don't fit one line, the
+   buttons drop to their own line (right-aligned) instead of overflowing. */
+@media (max-width: 720px) {
+  .row { flex-wrap: wrap; row-gap: 8px; }
+  .bar { flex: 1 1 150px; }
+  .actions, .saved, .editBtn { margin-left: auto; }
+  .saved + .editBtn { margin-left: 0; }
+  .commentBox { flex-wrap: wrap; }
+  .commentInput { flex: 1 1 100%; height: 36px; }
 }

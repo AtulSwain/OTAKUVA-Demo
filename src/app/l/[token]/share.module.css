@@ -134,7 +134,7 @@
 .ghostBtn:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* Titles */
-.titles { position: relative; z-index: 1; max-width: var(--max-content-width); margin: 0 auto; padding: 48px clamp(16px, 4vw, 56px) 96px; }
+.titles { position: relative; z-index: 1; max-width: var(--page-max); margin: 0 auto; padding: 48px var(--page-gutter) 96px; }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(160px, calc(50% - 8px)), 1fr));

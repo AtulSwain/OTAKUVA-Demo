@@ -83,7 +83,6 @@ export default function MyListsPage() {
     <div className={styles.page}>
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>My Library</h1>
-        <p className={styles.pageSubtitle}>Make lists like playlists — a mood, a genre, a weekend binge — and share them with friends.</p>
       </header>
       <LibrarySwitch />
 

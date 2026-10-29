@@ -635,7 +635,7 @@ a.notifItem:hover {
   box-shadow: none;
 }
 .headerScrolled { background-color: rgba(20, 20, 22, 0.82); }
-.headerInner { max-width: none; padding: 0 clamp(20px, 4vw, 56px); gap: 32px; }
+.headerInner { max-width: none; padding: 0 var(--page-gutter); gap: 32px; }
 .leftGroup { gap: 40px; }
 .brandWordmark { font-size: 22px; font-weight: 800; letter-spacing: -0.04em; text-transform: none; }
 .navlinks { gap: 4px; margin-right: auto; }
@@ -871,3 +871,44 @@ a.notifItem:hover {
 .creatorBtnActive, .creatorBtnActive:hover { background: #fff; color: #141416; }
 .creatorBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (max-width: 899px) { .creatorBtn { width: 40px; height: 40px; } }
+
+/* Theme picker in the user menu (2026-10-26). */
+.themeRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
+.themeLabel { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+
+/* ── Phones: notification tray + account menu fit the screen (2026-10-27) ──
+   The bell isn't at the screen edge, so a 320px panel anchored to it ran off
+   the left side and past the bottom bar. On phones both panels open as a
+   full-width sheet under the header; only the list scrolls. The wrappers
+   go static so the panels anchor to the (sticky, full-width) header itself:
+   `top: 100%` = the header's bottom edge, left/right = the screen edges. */
+@media (max-width: 640px) {
+  .headerInner, .rightGroup, .notifWrapper, .userMenuWrapper { position: static; }
+  .notifDropdown,
+  .userDropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: calc(100dvh - var(--header-offset, 64px) - 96px - env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    border-radius: 18px;
+    padding: 8px;
+    overflow: hidden;
+  }
+  .userDropdown { overflow-y: auto; overscroll-behavior: contain; }
+  .notifHeader { flex: none; padding: 10px 10px 12px; font-size: 15px; }
+  .notifHeaderMeta { font-size: 11.5px; }
+  .notifList { flex: 1; min-height: 0; max-height: none; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .notifItem { gap: 4px; padding: 13px 10px; border-radius: 12px; }
+  .notifItemTitle { font-size: 14px; line-height: 1.35; }
+  .notifItemBody { font-size: 13px; line-height: 1.5; }
+  .notifItemTime { font-size: 12px; }
+  .notifEmpty { padding: 28px 10px; font-size: 14px; }
+  .dropdownLink { min-height: 44px; font-size: 14px; }
+}
+
+/* Page frame (2026-10-28): same centred width and side gutter as every page. */
+.headerInner { width: 100%; max-width: var(--page-max); margin-inline: auto; padding-left: var(--page-gutter); padding-right: var(--page-gutter); }

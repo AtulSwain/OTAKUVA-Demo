@@ -248,3 +248,7 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.container { max-width: none; padding-left: 0; padding-right: 0; }

@@ -48,9 +48,6 @@ export default function LibraryStatusPage() {
     <div className={styles.libraryPage}>
       <div className={styles.header}>
         <h1 className={styles.title}>My Library</h1>
-        <p className={styles.subtitle}>
-          Your personal anime archive. Organize what you are currently watching, completed, or planning for later.
-        </p>
       </div>
 
       {/* Library Tabs */}

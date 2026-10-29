@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AnimeImage } from '../anime/AnimeImage';
 import { SectionHead } from '../ui/SectionHead';
 import { useAuth } from '../../context/AuthContext';
-import { HYPE_LEVELS, HYPE_LEVEL_INFO, type HypeCounts, type HypeLevel } from '../../lib/hype/hypeLevels';
+import { HYPE_LEVEL_INFO, type HypeCounts, type HypeLevel } from '../../lib/hype/hypeLevels';
 import { HYPE_ICONS, HypeBar } from './HypeMeter';
 import { HypeFx } from './HypeFx';
 import styles from './Hype.module.css';
@@ -65,55 +65,39 @@ function useNow() {
 /** Plain-language copy per level, so nobody has to decode colours. */
 const COPY: Record<HypeLevel, { people: string; you: string; tab: string }> = {
   HYPED: { people: 'hyped', you: "You're hyped", tab: 'Upcoming anime people are counting down to' },
-  SKIP: { people: 'not hyped', you: "You're not hyped", tab: 'Upcoming anime people are not hyped for' },
 };
 
 /** One upcoming anime: poster, premiere, the hype bar and (signed in) your pick. */
-export function HypeCard({ item, mine, focus, rank }: { item: BoardItem; mine?: HypeLevel; focus?: HypeLevel; rank?: number }) {
+/**
+ * One upcoming anime (homepage "Upcoming anime"). Slim since 2026-10-26
+ * (owner: "too packed"): premiere date top-left, a small round hype badge
+ * bottom-left (sparkles + how many are hyped; filled when you are), then just the
+ * title and one meta line. No bar, no extra lines.
+ */
+export function HypeCard({ item, mine, rank }: { item: BoardItem; mine?: HypeLevel; focus?: HypeLevel; rank?: number }) {
   const now = useNow();
-  const MineIcon = mine ? HYPE_ICONS[mine] : null;
-  const FocusIcon = focus ? HYPE_ICONS[focus] : null;
-  const n = focus ? item.counts[focus] : 0;
-  const share = focus && item.total > 0 ? Math.round((n / item.total) * 100) : 0;
+  const hyped = item.counts.HYPED ?? 0;
+  const youHyped = mine === 'HYPED';
+  const Icon = HYPE_ICONS.HYPED;
   return (
     <Link href={`/anime/${item.slug || item.id}`} className={styles.card}>
       <div className={styles.poster}>
         <AnimeImage src={item.posterUrl} alt={item.title} fill sizes="180px" />
         {rank !== undefined && <span className={styles.rank}>#{rank}</span>}
-        <span className={styles.premiereChip}>{premiereLabel(item, now)}</span>
+        <span className={`${styles.premiereChip} ${styles.premiereChipTop}`}>{premiereLabel(item, now)}</span>
+        {(hyped > 0 || youHyped) && (
+          <span
+            className={`${styles.hypeDot} ${youHyped ? styles.hypeDotMine : ''}`}
+            title={youHyped ? `You and ${Math.max(0, hyped - 1)} others are hyped` : `${hyped} ${hyped === 1 ? 'member is' : 'members are'} hyped`}
+          >
+            <Icon size={12} aria-hidden={true} />
+            {hyped > 0 && <strong>{hyped.toLocaleString('en-US')}</strong>}
+          </span>
+        )}
       </div>
       <div className={styles.cardBody}>
         <strong className={styles.cardTitle}>{item.title}</strong>
-        {focus && FocusIcon ? (
-          <>
-            <span className={styles.voteLine} style={{ color: HYPE_LEVEL_INFO[focus].color }}>
-              <FocusIcon size={13} aria-hidden={true} />
-              <strong>{n}</strong> {n === 1 ? 'person is' : 'people are'} {COPY[focus].people}
-            </span>
-            <span className={styles.shareBar} aria-hidden="true">
-              <span style={{ width: `${share}%`, background: HYPE_LEVEL_INFO[focus].color }} />
-            </span>
-            <span className={styles.cardMeta}>
-              {share}% of {item.total} {item.total === 1 ? 'voter' : 'voters'}
-            </span>
-          </>
-        ) : (
-          <>
-            <HypeBar counts={item.counts} total={item.total} height={5} />
-            <span className={styles.cardMeta}>
-              {item.percent !== null
-                ? `${item.percent}% hype · ${item.total} votes`
-                : item.total > 0
-                  ? `${item.total} ${item.total === 1 ? 'vote' : 'votes'} so far`
-                  : 'Be the first to vote'}
-            </span>
-          </>
-        )}
-        {mine && MineIcon && (
-          <span className={styles.youLine} style={{ color: HYPE_LEVEL_INFO[mine].color }}>
-            <MineIcon size={12} aria-hidden={true} /> {COPY[mine].you}
-          </span>
-        )}
+        <span className={styles.cardMeta}>{[item.type, item.year].filter(Boolean).join(' · ') || 'Upcoming'}</span>
       </div>
     </Link>
   );
@@ -143,7 +127,6 @@ const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFra
 
 const BOARD_TITLE: Record<HypeLevel, string> = {
   HYPED: 'Most Hyped',
-  SKIP: 'Not Hyped',
 };
 
 /** "Oct 22, 2026 · TV" — exact date when known, else month/year/season. */
@@ -220,15 +203,15 @@ function LeaderCard({ item, rank, level, mine }: { item: BoardItem; rank: number
 }
 
 /**
- * Homepage hype leaderboard (2026-10-20; two levels since 2026-10-22): "Most Hyped / Not Hyped"
- * in the site's own section style — a row of level buttons and tall
+ * Homepage hype leaderboard (2026-10-20; Hyped only since 2026-10-25): "Most Hyped"
+ * in the site's own section style — tall
  * poster cards (gradient rank tag, countdown tag, ten-segment gauge of how
  * much of that show's vote is this feeling). Sits straight on the page, no
  * panel. Only anime that got that vote appear; blank until someone votes.
  */
 export function HypeBoard() {
-  const [level, setLevel] = useState<HypeLevel>('HYPED');
-  const board = useBoard(level, 20);
+  const level: HypeLevel = 'HYPED';
+  const board = useBoard(level, 10); // top 10 — shorter board (owner, 2026-10-26)
   const railRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: true });
   const measure = () => {
@@ -254,44 +237,8 @@ export function HypeBoard() {
           <h2 className={styles.lbHeading} id="hype-leaderboard">
             {BOARD_TITLE[level]}
           </h2>
-          <p className={styles.lbSummary}>
-            <i style={{ background: HYPE_LEVEL_INFO[level].color }} aria-hidden="true" />
-            {HYPE_LEVEL_INFO[level].hint}
-            {board && board.items.length > 0 && (
-              <>
-                {' · '}
-                {board.items.length} anime ·{' '}
-                {(() => {
-                  const votes = board.items.reduce((sum, it) => sum + it.counts[level], 0);
-                  return `${votes.toLocaleString('en-US')} ${HYPE_LEVEL_INFO[level].label.toLowerCase()} ${votes === 1 ? 'vote' : 'votes'}`;
-                })()}
-              </>
-            )}
-          </p>
         </div>
         <div className={styles.lbControls}>
-        <div className={styles.lbLevels} role="tablist" aria-label="Rank by">
-          {HYPE_LEVELS.map((l) => {
-            const Icon = HYPE_ICONS[l];
-            const on = l === level;
-            return (
-              <button
-                key={l}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                className={`${styles.lbLevel} ${on ? styles.lbLevelOn : ''}`}
-                style={{ ['--c' as string]: HYPE_LEVEL_INFO[l].color }}
-                onClick={() => setLevel(l)}
-                title={HYPE_LEVEL_INFO[l].label}
-              >
-                <HypeFx level={l} active={on} />
-                <Icon size={15} aria-hidden={true} className={styles.lbLevelIcon} />
-                <span className={styles.lbLevelText}>{HYPE_LEVEL_INFO[l].label}</span>
-              </button>
-            );
-          })}
-        </div>
         {board && board.items.length > 0 && !(edges.start && edges.end) && (
           <span className={styles.lbArrows}>
             <button type="button" className={styles.lbArrow} onClick={() => scrollBy(-1)} disabled={edges.start} aria-label="Scroll back">
@@ -312,7 +259,7 @@ export function HypeBoard() {
           ))}
         </div>
       ) : board.items.length > 0 ? (
-        <div className={styles.rail} ref={railRef} onScroll={measure} key={level}>
+        <div className={`${styles.rail} ${styles.lbShort}`} ref={railRef} onScroll={measure} key={level}>
           {board.items.map((item, i) => (
             <LeaderCard key={item.id} item={item} rank={i + 1} level={level} mine={board.mine[item.id]} />
           ))}

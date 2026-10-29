@@ -89,3 +89,33 @@
 @media (prefers-reduced-motion: reduce) {
   .keyCard, .photo, .avatarWrapper { transition: none; }
 }
+
+/* ── 2026-10-27 (owner): everyone else as ROUND avatars in a wrapping grid
+   (no hidden sideways strip), roles readable, "Show all"; key creators fit
+   three across on phones instead of a swipe strip. ── */
+.restLabel { margin: 6px 0 0; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.restLabel span { margin-left: 6px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.staffGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 22px 14px; }
+.avatarWrapper { border-radius: 50%; width: 76px; height: 76px; }
+.staffCard:hover .avatarWrapper { border-radius: 50%; }
+.staffRole { -webkit-line-clamp: 2; }
+.staffMore { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.showAllBtn {
+  align-self: center; min-height: 40px; padding: 0 20px; border: 0; border-radius: 999px;
+  background: var(--pill-bg, rgba(255, 255, 255, 0.08)); color: var(--text-primary);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.showAllBtn:hover { background: var(--pill-bg-hover, rgba(255, 255, 255, 0.14)); }
+@media (max-width: 640px) {
+  .keyRail { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; gap: 8px; }
+  .keyCard { border-radius: 14px; }
+  .keyText { left: 8px; right: 8px; bottom: 8px; gap: 2px; }
+  .keyRole { height: 17px; padding: 0 6px; font-size: 8.5px; }
+  .keyName { font-size: 12.5px; }
+  .keyMore { font-size: 10px; }
+  .keyPhoto .initials { font-size: 24px; }
+  .staffGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 8px; }
+  .avatarWrapper { width: 64px; height: 64px; border-radius: 50%; }
+  .staffName { font-size: 12.5px; }
+  .staffRole { font-size: 11px; }
+}

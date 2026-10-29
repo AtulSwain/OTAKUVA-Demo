@@ -37,7 +37,7 @@ describe('dev storage fallback when R2 rejects credentials', () => {
   // Revoked/rolled R2 tokens made every avatar/banner upload fail in dev.
   test('an R2 auth failure switches to local storage, and stays switched', async () => {
     const r2 = fakeR2('auth-error');
-    const storage = new DevR2WithLocalFallback(r2 as any);
+    const storage = new DevR2WithLocalFallback(r2 as any, async () => true);
     const first = await storage.upload(file);
     assert.equal(first.provider, 'local');
     assert.match(first.url, /^\/uploads\//);
@@ -47,12 +47,24 @@ describe('dev storage fallback when R2 rejects credentials', () => {
   });
 
   test('other R2 errors are not masked by the fallback', async () => {
-    const storage = new DevR2WithLocalFallback(fakeR2('network-error') as any);
+    const storage = new DevR2WithLocalFallback(fakeR2('network-error') as any, async () => true);
     await assert.rejects(storage.upload(file), /socket hang up/);
   });
 
   test('a working R2 is used as-is', async () => {
-    const storage = new DevR2WithLocalFallback(fakeR2('ok') as any);
+    const storage = new DevR2WithLocalFallback(fakeR2('ok') as any, async () => true);
     assert.equal((await storage.upload(file)).provider, 'r2');
+  });
+});
+
+describe('dev storage fallback when the public image address is down', () => {
+  // MEDIA_PUBLIC_URL pointed at a domain that wasn't set up: uploads "worked"
+  // but every image link was broken (2026-10-28).
+  test('an unreachable public address stores uploads locally, without touching R2', async () => {
+    const r2 = fakeR2('ok');
+    const storage = new DevR2WithLocalFallback(r2 as any, async () => false);
+    const res = await storage.upload(file);
+    assert.match(res.url, /^\/uploads\//);
+    assert.equal(r2.calls, 0);
   });
 });

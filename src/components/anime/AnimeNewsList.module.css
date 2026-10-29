@@ -15,7 +15,7 @@
 .category { position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 999px; background: rgba(12, 12, 14, 0.82); color: #fff; font-size: 11px; font-weight: 700; }
 
 /* No picture: a text card instead of an empty box. */
-.cardText { padding: 16px; border-radius: 14px; background: #1b1b1e; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.cardText { padding: 16px; border-radius: 14px; background: var(--surface-base); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
 .cardText:hover { background: #202024; }
 .textTop { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
 .categoryPlain { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }

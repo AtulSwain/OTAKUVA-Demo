@@ -132,6 +132,7 @@ model Anime {
   chatRoomConversation      Conversation[]
 
   hypes AnimeHype[]
+  vibes AnimeVibe[]
 
   @@unique([externalSource, externalId])
   @@index([year, season])
@@ -142,6 +143,10 @@ model Anime {
   @@index([startYear])
   @@index([status])
   @@index([type])
+  // Control center (2026-10-28)
+  chartEntries CuratedChartEntry[]
+  dailyPicks   DailyPick[]
+  commissionProducts CommissionProduct[]
 }
 
 model AnimeExternalId {
@@ -1090,8 +1095,15 @@ model User {
   // OTP have no email. Legacy email/password accounts keep theirs (used for
   // the one-time legacy sign-in and password reset).
   email                 String?   @unique
-  // Legacy email/password accounts only. Phone accounts never set one.
+  // Every account signs in with username + password (2026-10-28). Null only
+  // for phone accounts made before that — they set one via "Forgot password".
   passwordHash          String?
+  // Set whenever the password changes; phone-verified passes issued earlier
+  // are refused, so a reset pass works once.
+  passwordChangedAt     DateTime?
+  lastLoginAt           DateTime?
+  // Touched (at most every few minutes) by GET /api/auth/me — "active users".
+  lastSeenAt            DateTime?
   // E.164 (e.g. "+919876543210"). One account per number — that's the point:
   // it is what stops one person running many accounts to move ratings.
   phone                 String?   @unique
@@ -1172,6 +1184,7 @@ model User {
   studioMergesInitiated  StudioMerge[]           @relation("StudioMergeInitiator")
   pollVotes              PollVote[]
   passwordResetTokens    PasswordResetToken[]
+  sponsorAds              SponsorAd[]
 
   // Reviewer badges (src/lib/badges). Volume tiers are derived from
   // badgeStats.countedReviewCount; UserBadge is for future specialty/seasonal badges.
@@ -1195,8 +1208,10 @@ model User {
   scheduleReminders         ScheduleReminder[]
 
   hypes AnimeHype[]
+  vibes AnimeVibe[]
 
   @@index([role])
+  @@index([lastSeenAt])
 }
 
 // Records sensitive/privileged actions (role changes today; extend as more
@@ -2562,6 +2577,19 @@ model StreamingAvailability {
   @@index([provider])
 }
 
+/// Official icon + brand colour for a streaming site (from AniList's
+/// external-link sources). Keyed by the site name used in
+/// StreamingAvailability.provider. (2026-10-26)
+model StreamingPlatform {
+  id            String   @id @default(cuid())
+  site          String   @unique
+  anilistSiteId Int?
+  iconUrl       String?
+  color         String?
+  source        String   @default("anilist")
+  fetchedAt     DateTime @default(now())
+}
+
 model UserTasteProfile {
   id                         String   @id @default(cuid())
   userId                     String   @unique
@@ -2947,4 +2975,129 @@ model AnimeHype {
 
   @@unique([userId, animeId])
   @@index([animeId, level])
+}
+
+/// "What's your vibe about this anime?" (2026-10-25): one grade per member,
+/// per anime, per aspect (Story, Characters … — ACTIVE_RATING_CATEGORIES).
+/// Grades only (WORST / AVERAGE / DECENT / GOOD / GREAT), no 1–10 needed.
+/// Feeds the OTAKUVA Vibe chart together with older aspect scores given in
+/// the 1–10 rating window (src/lib/rating/vibe.ts).
+model AnimeVibe {
+  id        String   @id @default(cuid())
+  userId    String
+  animeId   String
+  category  String // STORY | CHARACTERS | ANIMATION | MUSIC | PACING | WORLD_BUILDING | ENJOYMENT
+  grade     String // WORST | AVERAGE | DECENT | GOOD | GREAT
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId, category])
+  @@index([animeId])
+}
+
+// Control center (2026-10-28): owner-made ranked lists — "Top 10 …",
+// "Top 100 …", and the OTAKUVA Choice list itself (slug "otakuva-choice",
+// which replaces the hand-edited src/lib/curated.ts list once it has entries).
+// Published charts show at /charts/<slug>. Read/written with plain SQL in
+// "Control Center/lib/charts.ts" (newer than some running Prisma clients).
+model CuratedChart {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  size        Int      @default(10)
+  isPublished Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  entries CuratedChartEntry[]
+}
+
+model CuratedChartEntry {
+  id        String   @id @default(cuid())
+  chartId   String
+  animeId   String
+  position  Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  chart CuratedChart @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  anime Anime        @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([chartId, animeId])
+  @@index([chartId, position])
+}
+
+// The homepage's OTAKUVA Choice spotlight for one (UTC) day, chosen in the
+// control center. Days without a row fall back to the daily rotation.
+model DailyPick {
+  id          String   @id @default(cuid())
+  day         DateTime @unique @db.Date
+  animeId     String
+  headline    String?
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+}
+
+// Page views per page per day (control center analytics, 2026-10-28). Counts
+// only — no user id, IP or cookie. Written by POST /api/track/view (plain SQL).
+model PageViewDaily {
+  kind     String // "anime" | "news" | "article" | "collection" | "chart" | "studio" | "person"
+  entityId String
+  day      DateTime @db.Date
+  views    Int      @default(0)
+
+  @@id([kind, entityId, day])
+  @@index([kind, day])
+}
+
+model SponsorAd {
+  id          String   @id @default(cuid())
+  title       String
+  imageUrl    String?
+  videoUrl    String?
+  clickUrl    String
+  altText     String?
+  placement   String   @default("HOME_ABOVE_HYPE")
+  enabled     Boolean  @default(false)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  @@index([enabled, placement, startsAt, endsAt])
+}
+
+model CommissionProduct {
+  id          String   @id @default(cuid())
+  animeId     String
+  title       String
+  merchant    String
+  url         String
+  imageUrl    String?
+  price       String?
+  disclosure  String?  @default("As an affiliate, OTAKUVA may earn from qualifying purchases.")
+  position    Int      @default(0)
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  anime Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  @@index([animeId, enabled, position])
+}
+
+model MonetizationSetting {
+  id                 String   @id @default("main")
+  sponsorAdsEnabled  Boolean  @default(false)
+  commissionsEnabled Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
 }

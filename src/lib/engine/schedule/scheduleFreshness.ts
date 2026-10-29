@@ -16,6 +16,7 @@ import { prisma } from '../../prisma';
 import { logger } from '../../logger';
 import { syncEngine } from '../../syncEngine';
 import { syncStreamingLinksForUpcomingSchedule } from '../../catalog/streamingLinks';
+import { notifyHypePremieres } from '../../hype/hypePremiere';
 
 const REFRESH_INTERVAL_MS = Number(process.env.SCHEDULE_REFRESH_INTERVAL_MS) || 3 * 60 * 60 * 1000;
 /** Minimum gap between attempts in this process, even when attempts fail. */
@@ -46,6 +47,8 @@ export function ensureFreshSchedule(): void {
     await syncStreamingLinksForUpcomingSchedule().catch((err: unknown) =>
       logger.warn('streaming-link refresh failed', { error: err instanceof Error ? err.message : String(err) })
     );
+    // Fresh air times can mean a hyped show just premiered — tell its fans.
+    await notifyHypePremieres().catch(() => 0);
   })()
     .catch((err: unknown) => {
       // A failed refresh never touches stored rows — just try again later.

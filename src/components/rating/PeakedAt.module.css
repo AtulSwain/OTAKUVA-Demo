@@ -1,0 +1,2 @@
+.peak { display: inline-flex; align-items: baseline; gap: 4px; flex: none; color: var(--text-muted, #8a8a94); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.peak strong { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }

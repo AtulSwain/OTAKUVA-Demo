@@ -151,9 +151,6 @@ export default function CommunityPage() {
             <Users size={20} className={styles.icon} />
             <h1 className={styles.title}>Community</h1>
           </div>
-          <p className={styles.subtitle}>
-            Join organized spaces built around the anime you watch, genres you love, and topics you care about.
-          </p>
         </div>
 
         <Link href="/community/create" className={styles.createBtn}>

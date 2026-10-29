@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SecurityHeaders } from '@/lib/security/securityHeaders';
+import { GUEST_COOKIE } from '@/lib/landing/guest';
 
 export function middleware(request: NextRequest) {
   // Generate or preserve incoming Request ID for end-to-end tracing
@@ -12,6 +13,21 @@ export function middleware(request: NextRequest) {
     SecurityHeaders.applyHeaders(preflightResponse);
     SecurityHeaders.applyCors(preflightResponse, request.headers.get('origin'));
     return preflightResponse;
+  }
+
+  // Landing page: a visitor with no session and no "browse as guest" cookie
+  // opening the homepage goes to /welcome first. Cookie presence only (no JWT
+  // check on the edge); the homepage itself re-checks the session properly.
+  if (
+    request.method === 'GET' &&
+    request.nextUrl.pathname === '/' &&
+    !request.cookies.get('anilog_token') &&
+    !request.cookies.get(GUEST_COOKIE)
+  ) {
+    const redirect = NextResponse.redirect(new URL('/welcome', request.url), 307);
+    redirect.headers.set('X-Request-Id', requestId);
+    SecurityHeaders.applyHeaders(redirect);
+    return redirect;
   }
 
   // Clone response and apply security headers + request tracking ID

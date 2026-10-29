@@ -77,3 +77,39 @@
   .ask { gap: 12px; }
   .ask .choice { flex: 1; }
 }
+
+/* Hyped = tracked + premiere notification (2026-10-25). */
+.tracking { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--text-secondary, #a1a1aa); font-size: 13px; }
+
+/* Hero pill (2026-10-27, owner): sits under Add to Library with the same
+   shape and size — 46px pill on desktop, 50px full width on phones. */
+.pill {
+  --flame: #ff5a36;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 46px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--radius-pill, 9999px);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.pillAsk { background: linear-gradient(180deg, #ff6a3d 0%, #e8431f 100%); color: #fff; cursor: pointer; }
+.pillAsk:hover:not(:disabled) { transform: translateY(-1px); }
+.pillAsk:active:not(:disabled) { transform: scale(0.97); }
+.pillAsk:disabled { cursor: progress; opacity: 0.75; }
+.pillAsk:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.pillOn { background: rgba(255, 90, 54, 0.18); color: #ffd3c7; backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.4); }
+.pillOn .choiceIcon { color: var(--flame); }
+@media (max-width: 767px) {
+  .pill { height: 50px; font-size: 16px; }
+}

@@ -1,10 +1,12 @@
 'use client';
 
+import { PeakedAt } from '../../../components/rating/PeakedAt';
+import { retentionColor } from '../../../lib/rating/retentionTone';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Star, Edit3, MessageSquare, FileText, PenLine, Check, X, CalendarDays, Share2, Clapperboard, ExternalLink } from 'lucide-react';
+import { Star, Trophy, Edit3, MessageSquare, FileText, PenLine, Check, X, CalendarDays, Share2, Clapperboard, ExternalLink } from 'lucide-react';
 import { useLibrary } from '../../../context/LibraryContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -70,10 +72,14 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [badge, setBadge] = useState<{ tier: TierKey; countedReviewCount: number } | null>(null);
+  const [badge, setBadge] = useState<{ tier: TierKey; countedReviewCount: number; reviewCount?: number; ratedCount?: number } | null>(null);
   const [articles, setArticles] = useState<ArticleCardData[]>([]);
   const [articleTotal, setArticleTotal] = useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
+  // The real number of published reviews (the list above is only the first page).
+  const [reviewTotal, setReviewTotal] = useState(0);
+  // Library tab status filter (?status=completed etc.).
+  const [libraryStatus, setLibraryStatus] = useState<'all' | 'watching' | 'completed' | 'plan_to_watch' | 'on_hold' | 'dropped'>('all');
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -88,9 +94,20 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // and the header's creator button — which can fire while already here).
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab') as ProfileTab | null;
+  const statusParam = searchParams?.get('status');
+  const listParam = searchParams?.get('list');
   useEffect(() => {
     if (tabParam && TAB_KEYS.includes(tabParam)) setActiveTab(tabParam);
   }, [tabParam]);
+  // ?list=followers|following opens that list (links from the creator dashboard).
+  useEffect(() => {
+    if (listParam === 'followers' || listParam === 'following') setFollowList(listParam);
+  }, [listParam]);
+  useEffect(() => {
+    if (statusParam && ['all', 'watching', 'completed', 'plan_to_watch', 'on_hold', 'dropped'].includes(statusParam)) {
+      setLibraryStatus(statusParam as typeof libraryStatus);
+    }
+  }, [statusParam]);
 
   // Profile record (bio, images, join date) — always from the server, so a
   // stale cached session can't show old details.
@@ -142,7 +159,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
     const u = encodeURIComponent(rawUsername);
     fetch(`/api/users/${u}/badges`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => !cancelled && d?.tier && setBadge({ tier: d.tier, countedReviewCount: d.countedReviewCount ?? 0 }))
+      .then((d) => !cancelled && d?.tier && setBadge({ tier: d.tier, countedReviewCount: d.countedReviewCount ?? 0, reviewCount: d.reviewCount, ratedCount: d.ratedCount }))
       .catch(() => {});
     fetch(`/api/articles?author=${u}&limit=24`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -163,7 +180,11 @@ export default function ProfilePage({ params }: { params: { username: string } }
     setIsReviewsLoading(true);
     fetch(`/api/reviews?${isSelf && user?.id ? `userId=${user.id}` : `username=${encodeURIComponent(rawUsername)}`}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => !cancelled && data?.reviews && setReviews(data.reviews))
+      .then((data) => {
+        if (cancelled || !data?.reviews) return;
+        setReviews(data.reviews);
+        setReviewTotal(typeof data.pagination?.total === 'number' ? data.pagination.total : data.reviews.length);
+      })
       .catch(() => {})
       .finally(() => !cancelled && setIsReviewsLoading(false));
     return () => {
@@ -174,7 +195,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // Stats come from the server so they are correct for any profile, and are
   // re-fetched whenever the viewer's own library changes.
   const [serverStats, setServerStats] = useState<{
-    completed: number; watching: number; total: number; episodes: number; watchMinutes: number; meanScore: number | null;
+    completed: number; watching: number; planToWatch: number; onHold: number; dropped: number; total: number;
+    episodes: number; watchMinutes: number; meanScore: number | null;
+    tracking?: number; rated?: number; meanRetention?: number | null; reviews?: number;
+    milestones?: { earned: number[]; next: number | null; toNext: number };
   } | null>(null);
   const librarySignature = useMemo(
     () => Object.values(library).map((i) => `${i.animeId}:${i.status}:${i.episodesWatched}:${i.personalRating ?? ''}`).sort().join('|'),
@@ -203,6 +227,20 @@ export default function ProfilePage({ params }: { params: { username: string } }
     () => (isSelf ? (Object.values(library).map((i) => i.anime).filter(Boolean) as Anime[]) : []),
     [library, isSelf]
   );
+  const filteredLibrary = useMemo(
+    () =>
+      isSelf
+        ? (Object.values(library)
+            .filter((i) => libraryStatus === 'all' || i.status === libraryStatus)
+            .map((i) => i.anime)
+            .filter(Boolean) as Anime[])
+        : [],
+    [library, isSelf, libraryStatus]
+  );
+  const openLibrary = (status: typeof libraryStatus) => {
+    setLibraryStatus(status);
+    setActiveTab('library');
+  };
 
   const saveBio = async () => {
     const next = bioDraft.trim();
@@ -261,13 +299,28 @@ export default function ProfilePage({ params }: { params: { username: string } }
   const name = profile?.displayName || rawUsername;
   const handle = profile?.username || rawUsername;
 
-  const stats: Array<[string | number, string]> = [
-    [fmt(serverStats?.completed ?? 0), 'Completed'],
-    [fmt(serverStats?.watching ?? 0), 'Watching'],
-    [fmt(serverStats?.episodes ?? 0), 'Episodes'],
-    [`${((serverStats?.watchMinutes ?? 0) / 60).toFixed(1)}h`, 'Watch time'],
-    [serverStats?.meanScore != null ? serverStats.meanScore.toFixed(1) : '—', 'Mean score'],
-  ];
+  // Compact, tappable numbers (owner, 2026-10-25): each opens the anime
+  // behind it. Library lists are private, so for visitors only Rated and
+  // Reviews open a list; the other numbers are shown as plain counts.
+  const statChips: Array<{ label: string; value: string; onClick?: () => void; tone?: string }> = serverStats
+    ? [
+        { label: 'Tracking', value: fmt(serverStats.tracking ?? serverStats.total ?? 0), onClick: isSelf ? () => openLibrary('all') : undefined },
+        { label: 'Completed', value: fmt(serverStats.completed), onClick: isSelf ? () => openLibrary('completed') : undefined },
+        { label: 'Watching', value: fmt(serverStats.watching), onClick: isSelf ? () => openLibrary('watching') : undefined },
+        ...(serverStats.dropped > 0 ? [{ label: 'Dropped', value: fmt(serverStats.dropped), onClick: isSelf ? () => openLibrary('dropped') : undefined }] : []),
+        { label: 'Rated', value: fmt(serverStats.rated ?? 0), onClick: () => setActiveTab('rated') },
+        { label: 'Reviews', value: fmt(serverStats.reviews ?? reviewTotal), onClick: () => setActiveTab('reviews') },
+        ...(isSelf
+          ? [
+              { label: 'Episodes', value: fmt(serverStats.episodes) },
+              { label: 'Watch time', value: `${((serverStats.watchMinutes ?? 0) / 60).toFixed(0)}h` },
+            ]
+          : []),
+        ...(serverStats.meanRetention != null
+          ? [{ label: 'Avg retention', value: `${serverStats.meanRetention}%`, tone: retentionColor(serverStats.meanRetention) }]
+          : []),
+      ]
+    : [];
 
   // Visitors see a member's public record; the owner also sees their own
   // library, favourites and full activity.
@@ -277,8 +330,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
   const tabs: Array<{ key: ProfileTab; label: string; count?: number }> = [
     ...(ownCreatorProfile ? ([{ key: 'dashboard', label: 'Creator dashboard' }] as const) : []),
     { key: 'overview', label: 'Overview' },
-    { key: 'reviews', label: 'Reviews', count: reviews.length },
-    { key: 'rated', label: 'Rated' },
+    { key: 'reviews', label: 'Reviews', count: serverStats?.reviews ?? reviewTotal },
+    { key: 'rated', label: 'Rated', count: serverStats?.rated },
     { key: 'collections', label: 'Collections' },
     { key: 'articles', label: 'Articles', count: articleTotal },
     { key: 'communities', label: 'Communities' },
@@ -309,12 +362,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
               <Link href={`/anime/${rev.anime?.slug || rev.anime?.id}`} className={styles.reviewAnime}>
                 {rev.anime?.title || 'Anime'}
               </Link>
-              {typeof rev.rating === 'number' && (
-                <span className={styles.reviewScore}>
-                  <Star size={12} fill="currentColor" stroke="none" aria-hidden="true" />
-                  {rev.rating.toFixed(1)}
-                </span>
-              )}
+              {/* The anime's community retention (was the reviewer's 1–10 star, 2026-10-25). */}
+              <PeakedAt animeId={rev.anime?.id} />
               {rev.spoilerLevel && rev.spoilerLevel !== 'SPOILER_FREE' && (
                 <span className={styles.reviewSpoiler}>{rev.spoilerLevel.replace('_', ' ').toLowerCase()}</span>
               )}
@@ -403,7 +452,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 <strong>{fmt(follow?.followingCount ?? 0)}</strong> following
               </button>
               <button type="button" className={styles.countBtn} onClick={() => setActiveTab('reviews')}>
-                <strong>{fmt(reviews.length)}</strong> {reviews.length === 1 ? 'review' : 'reviews'}
+                <strong>{fmt(serverStats?.reviews ?? reviewTotal)}</strong> {(serverStats?.reviews ?? reviewTotal) === 1 ? 'review' : 'reviews'}
               </button>
               <button type="button" className={styles.countBtn} onClick={() => setActiveTab('articles')}>
                 <strong>{fmt(articleTotal)}</strong> {articleTotal === 1 ? 'article' : 'articles'}
@@ -529,6 +578,9 @@ export default function ProfilePage({ params }: { params: { username: string } }
             bannerUrl: bannerSrc,
             tier: tier.key,
             countedReviews: badge?.countedReviewCount ?? 0,
+            reviewCount: badge?.reviewCount,
+            ratedCount: badge?.ratedCount,
+            isCreator: Boolean(follow?.isCreator),
             // Only real, loaded numbers go on the card — nothing while stats are still loading.
             stats: serverStats
               ? [
@@ -553,16 +605,45 @@ export default function ProfilePage({ params }: { params: { username: string } }
         }}
       />
 
-      {/* 3. Watch stats — the owner's own numbers, a quiet strip */}
-      {isSelf && (
-        <dl className={styles.stats}>
-          {stats.map(([val, label]) => (
-            <div key={label} className={styles.stat}>
-              <dt>{label}</dt>
-              <dd>{val}</dd>
-            </div>
+      {/* 3. Numbers — small, tappable (owner, 2026-10-25) */}
+      {statChips.length > 0 && (
+        <div className={styles.statChips}>
+          {statChips.map((c) =>
+            c.onClick ? (
+              <button key={c.label} type="button" className={styles.statChip} onClick={c.onClick}>
+                <strong style={c.tone ? { color: c.tone } : undefined}>{c.value}</strong> {c.label}
+              </button>
+            ) : (
+              <span key={c.label} className={`${styles.statChip} ${styles.statChipStatic}`}>
+                <strong style={c.tone ? { color: c.tone } : undefined}>{c.value}</strong> {c.label}
+              </span>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Completion milestones: 10 / 25 / 50 … — earned the moment they're reached. */}
+      {serverStats?.milestones && (serverStats.milestones.earned.length > 0 || isSelf) && (
+        <div className={styles.milestones} aria-label="Completion milestones">
+          {serverStats.milestones.earned.map((m) => (
+            <span key={m} className={styles.milestoneEarned} title={`${m} anime completed`}>
+              <Trophy size={12} aria-hidden="true" /> {m} completed
+            </span>
           ))}
-        </dl>
+          {isSelf && serverStats.milestones.next !== null && (
+            <span className={styles.milestoneNext}>
+              Next stamp at {serverStats.milestones.next} · {serverStats.milestones.toNext} to go
+              <i
+                aria-hidden="true"
+                style={{
+                  width: `${Math.round(
+                    (serverStats.completed / serverStats.milestones.next) * 100
+                  )}%`,
+                }}
+              />
+            </span>
+          )}
+        </div>
       )}
 
       {/* 4. Tabs */}
@@ -722,11 +803,38 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
         {tab === 'library' && isSelf && (
           <ScrollReveal>
-            <AnimeGrid columns={6}>
-              {libraryItems.map((anime) => (
-                <AnimeCard key={anime.id} anime={anime} />
+            <div className={styles.libFilters} role="tablist" aria-label="Library status">
+              {(
+                [
+                  ['all', 'All', libraryItems.length],
+                  ['watching', 'Watching', counts.watching],
+                  ['completed', 'Completed', counts.completed],
+                  ['plan_to_watch', 'Plan to watch', counts.plan_to_watch],
+                  ['on_hold', 'On hold', counts.on_hold],
+                  ['dropped', 'Dropped', counts.dropped],
+                ] as const
+              ).map(([key, label, n]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={libraryStatus === key}
+                  className={`${styles.libFilter} ${libraryStatus === key ? styles.libFilterOn : ''}`}
+                  onClick={() => setLibraryStatus(key)}
+                >
+                  {label} <small>{fmt(n)}</small>
+                </button>
               ))}
-            </AnimeGrid>
+            </div>
+            {filteredLibrary.length === 0 ? (
+              <p className={styles.libEmpty}>Nothing here yet.</p>
+            ) : (
+              <AnimeGrid columns={6}>
+                {filteredLibrary.map((anime) => (
+                  <AnimeCard key={anime.id} anime={anime} />
+                ))}
+              </AnimeGrid>
+            )}
           </ScrollReveal>
         )}
 

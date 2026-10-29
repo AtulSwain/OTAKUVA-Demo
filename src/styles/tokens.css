@@ -170,6 +170,24 @@
   --max-content-width: 1360px;
   /* Catalog pages (Explore, Browse, Top Picks…) use the header's full width. */
   --max-wide-width: 1800px;
+  /* One page frame for the whole site (2026-10-28, owner: "same left and
+     right padding on every tab, centred"). Header, footer, every page and the
+     full-bleed pages' inner content all sit inside this: content is centred
+     at --page-max on big screens, with the same --page-gutter on both sides.
+     Use these two tokens for any new page; don't add page-level side padding. */
+  --page-max: 1600px;
+  --page-gutter: clamp(16px, 3vw, 40px);
+
+  /* Clean pass (2026-10-25, owner: "make it clean and minimal"): one poster
+     size, one gap, one corner and one section rhythm for every poster rail
+     and homepage section, so nothing sits at its own size. */
+  --rail-card: clamp(148px, 12.4vw, 184px);
+  --rail-gap: 16px;
+  --poster-radius: 12px;
+  --page-section-gap: 64px;
+  /* Subtle 3D depth (owner, 2026-10-26: "a little bit 3D, not very much"). */
+  --depth-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 24px -14px rgba(0, 0, 0, 0.85);
+  --depth-2: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 22px 40px -20px rgba(0, 0, 0, 0.95);
 
   /* 11. Section & Card Tokens */
   --section-gap: 46px;

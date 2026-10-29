@@ -168,3 +168,7 @@
 
 /* Page title on the shared scale (2026-10-17). */
 .pageTitle { font-size: clamp(30px, 4.6vw, 48px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.historyContainer { max-width: none; padding-left: 0; padding-right: 0; }

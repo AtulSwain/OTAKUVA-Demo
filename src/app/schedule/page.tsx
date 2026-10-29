@@ -244,9 +244,6 @@ export default function SchedulePage() {
       <header className={styles.hero}>
         <p className={styles.kicker}>Release schedule</p>
         <h1 className={styles.title}>What&apos;s airing</h1>
-        <p className={styles.subtitle}>
-          Every new episode, shown in your time zone, with the official places to stream it.
-        </p>
         {!loading && visible.length > 0 && (
           <div className={styles.heroStats} aria-live="polite">
             <span className={styles.statPill}>

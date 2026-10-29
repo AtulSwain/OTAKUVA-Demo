@@ -29,6 +29,8 @@ export interface SubmissionInput {
   reviewType: string;
   /** UserAnime.status at the time of writing, if any. */
   watchStatus: string | null | undefined;
+  /** Ticked or retention-rated episodes of this anime (counts as watched). */
+  watchedEpisodes?: boolean;
 }
 
 export interface SubmissionResult {
@@ -44,7 +46,8 @@ export interface SubmissionResult {
 export function evaluateSubmission(input: SubmissionInput): SubmissionResult {
   const wordCount = countWords(input.body);
   if (!BADGE_RULES.eligibleReviewTypes.includes(input.reviewType)) return { eligible: false, reason: 'WRONG_REVIEW_TYPE', wordCount };
-  if (!input.watchStatus || !BADGE_RULES.eligibleWatchStatuses.includes(input.watchStatus)) return { eligible: false, reason: 'NOT_WATCHED', wordCount };
+  const statusOk = Boolean(input.watchStatus && BADGE_RULES.eligibleWatchStatuses.includes(input.watchStatus));
+  if (!statusOk && !input.watchedEpisodes) return { eligible: false, reason: 'NOT_WATCHED', wordCount };
   if (wordCount < BADGE_RULES.minWords) return { eligible: false, reason: 'TOO_SHORT', wordCount };
   return { eligible: true, wordCount };
 }

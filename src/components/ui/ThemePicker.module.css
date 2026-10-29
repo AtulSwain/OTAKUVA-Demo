@@ -1,0 +1,27 @@
+.picker { display: flex; flex-wrap: wrap; gap: 10px; }
+.option {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 0; border: 0; background: transparent; color: var(--text-secondary);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.swatch {
+  display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.swatch svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
+.option:hover .swatch { transform: scale(1.06); }
+.on { color: var(--text-primary); }
+.on .swatch { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent, #e4e4e7); }
+.option:focus-visible { outline: none; }
+.option:focus-visible .swatch { box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--accent-focus, rgba(255, 255, 255, 0.5)); }
+
+.compact { gap: 8px; }
+.compact .swatch { width: 26px; height: 26px; }
+.compact .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .swatch { transition: none; }
+}

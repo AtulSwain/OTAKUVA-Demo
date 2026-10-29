@@ -1,0 +1,30 @@
+/* Owner-made charts (2026-10-28). Big rank numerals like the homepage Top Rated rail. */
+.page { padding: 24px 0 96px; }
+.desc { max-width: 760px; margin: 12px 0 0; color: var(--text-secondary); font-size: 15px; line-height: 1.6; }
+.list { display: flex; flex-direction: column; gap: 10px; margin: 28px 0 0; padding: 0; list-style: none; }
+.row { display: grid; grid-template-columns: 64px 72px minmax(0, 1fr); align-items: center; gap: 16px; padding: 10px 14px 10px 6px; border-radius: 16px; background: var(--surface-base, #18181b); box-shadow: var(--depth-1); color: inherit; text-decoration: none; transition: transform 0.18s ease, background 0.18s ease; }
+.row:hover { transform: translateY(-2px); background: var(--surface-elevated, #1f1f23); }
+.rank { text-align: center; font-size: 34px; font-weight: 900; letter-spacing: -0.05em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.gold { color: var(--medal-gold, #e9c46a); }
+.silver { color: var(--medal-silver, #cfd3da); }
+.bronze { color: var(--medal-bronze, #cd8b5a); }
+.poster { width: 72px; height: 102px; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.05); box-shadow: 0 10px 20px -12px rgba(0, 0, 0, 0.9); }
+.poster img { width: 100%; height: 100%; object-fit: cover; }
+.text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.text strong { font-size: 16.5px; font-weight: 800; letter-spacing: -0.02em; }
+.meta { color: var(--text-muted); font-size: 12.5px; }
+.note { margin: 2px 0 0; color: var(--text-secondary); font-size: 13.5px; line-height: 1.5; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; margin-top: 24px; }
+.card { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; background: var(--surface-base, #18181b); box-shadow: var(--depth-1); color: inherit; text-decoration: none; transition: transform 0.18s ease; }
+.card:hover { transform: translateY(-3px); }
+.stack { display: flex; }
+.stack img { width: 54px; height: 78px; margin-right: -14px; border-radius: 8px; object-fit: cover; box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.9), 0 0 0 2px var(--surface-base, #18181b); }
+.card strong { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+.card span { color: var(--text-muted); font-size: 12.5px; }
+.empty { margin-top: 24px; color: var(--text-secondary); }
+@media (max-width: 640px) {
+  .row { grid-template-columns: 40px 56px minmax(0, 1fr); gap: 10px; padding: 8px 10px 8px 2px; }
+  .rank { font-size: 24px; }
+  .poster { width: 56px; height: 80px; }
+  .text strong { font-size: 15px; }
+}

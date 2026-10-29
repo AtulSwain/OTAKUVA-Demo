@@ -1,5 +1,6 @@
 'use client';
 
+import { retentionColor, retentionLabel } from '../../lib/rating/retentionTone';
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLibrary } from '../../context/LibraryContext';
@@ -8,7 +9,8 @@ import styles from './UserActivityCard.module.css';
 interface UserActivityCardProps {
   animeId: string;
   totalEpisodes?: number | null;
-  userRating?: number | null;
+  /** The viewer's own retention for this anime (average of the episodes they rated). */
+  myRetention?: number | null;
 }
 
 /**
@@ -18,7 +20,7 @@ interface UserActivityCardProps {
 export const UserActivityCard: React.FC<UserActivityCardProps> = ({
   animeId,
   totalEpisodes = null,
-  userRating,
+  myRetention = null,
 }) => {
   const { user } = useAuth();
   const { getStatus, getItem } = useLibrary();
@@ -51,9 +53,9 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
             <span className={styles.value}>{libraryItem?.isFavorite ? 'Favorited' : 'Not Favorited'}</span>
           </div>
           <div className={styles.row}>
-            <span className={styles.label}>Your Rating</span>
-            <span className={styles.value}>
-              {typeof userRating === 'number' ? `${userRating.toFixed(1)} / 10` : 'Not Rated'}
+            <span className={styles.label}>Your retention</span>
+            <span className={styles.value} style={typeof myRetention === 'number' ? { color: retentionColor(myRetention) } : undefined}>
+              {typeof myRetention === 'number' ? `${myRetention}% · ${retentionLabel(myRetention)}` : 'Not rated yet'}
             </span>
           </div>
         </>

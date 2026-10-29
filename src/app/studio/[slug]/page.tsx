@@ -3,7 +3,7 @@ import { CommunityScoreBadge } from '../../../components/rating/CommunityScoreBa
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { CalendarDays, ExternalLink, MapPin, Sparkles, Users } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, Flag, MapPin, Sparkles, Users } from 'lucide-react';
 import { getStudioProfile } from '../../../lib/studios/studioProfile';
 import { SectionHead } from '../../../components/ui/SectionHead';
 import { StudioLogo } from '../../../components/entity/StudioLogo';
@@ -12,10 +12,13 @@ import { WorksGrid } from '../../../components/entity/WorksGrid';
 import { GenreChips, PosterRow, StatTiles, WorksTimeline } from '../../../components/entity/EntityBlocks';
 import { resolveMediaUrl } from '../../../lib/mediaResolver';
 import styles from '../../../components/entity/Entity.module.css';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 export const dynamic = 'force-dynamic';
 
 const DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const LONG_DATE = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const listJoin = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const s = await getStudioProfile(params.slug);
@@ -48,6 +51,7 @@ export default async function StudioPage({ params }: { params: { slug: string } 
 
   return (
     <div className={styles.page}>
+      <ViewBeacon kind="studio" id={s.id} />
       <header className={styles.hero}>
         {s.bannerUrl && (
           <div className={styles.heroBanner} aria-hidden="true">
@@ -61,7 +65,7 @@ export default async function StudioPage({ params }: { params: { slug: string } 
         <div className={styles.heroText}>
           <ul className={styles.badges}>
             <li className={styles.badgeAccent}>Animation studio</li>
-            {s.closed && <li>Closed</li>}
+            {s.closed && <li>{s.closedYear ? `Closed ${s.closedYear}` : 'Closed'}</li>}
             {s.verified && <li>Verified</li>}
           </ul>
           <h1 className={styles.name}>{s.name}</h1>
@@ -72,16 +76,26 @@ export default async function StudioPage({ params }: { params: { slug: string } 
               {s.aliases.length > 0 && `Also known as ${s.aliases.join(', ')}`}
             </p>
           )}
-          {(s.foundedYear || s.location) && (
+          {(s.foundedYear || s.location || s.founders.length > 0 || s.parentCompany) && (
             <ul className={styles.facts}>
               {s.foundedYear && (
                 <li>
-                  <CalendarDays size={14} aria-hidden="true" /> Founded <strong>{s.foundedYear}</strong>
+                  <CalendarDays size={14} aria-hidden="true" /> Founded <strong>{s.foundedDate ? LONG_DATE.format(new Date(s.foundedDate)) : s.foundedYear}</strong>
                 </li>
               )}
               {s.location && (
                 <li>
                   <MapPin size={14} aria-hidden="true" /> <strong>{s.location}</strong>
+                </li>
+              )}
+              {s.founders.length > 0 && (
+                <li>
+                  <Flag size={14} aria-hidden="true" /> Founded by <strong>{listJoin(s.founders)}</strong>
+                </li>
+              )}
+              {s.parentCompany && (
+                <li>
+                  <Building2 size={14} aria-hidden="true" /> Part of <strong>{s.parentCompany}</strong>
                 </li>
               )}
             </ul>
@@ -107,6 +121,65 @@ export default async function StudioPage({ params }: { params: { slug: string } 
               <p key={i}>{p}</p>
             ))}
           </div>
+          {s.descriptionSource === 'wikipedia' && (
+            <p className={styles.source}>
+              From{' '}
+              {s.links.find((l) => l.label === 'Wikipedia') ? (
+                <a href={s.links.find((l) => l.label === 'Wikipedia')!.url} target="_blank" rel="noopener noreferrer">
+                  Wikipedia
+                </a>
+              ) : (
+                'Wikipedia'
+              )}
+              , licensed{' '}
+              <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">
+                CC BY-SA 4.0
+              </a>
+              .
+            </p>
+          )}
+        </section>
+      )}
+
+      {s.history.length > 1 && (
+        <section className={styles.section} aria-labelledby="studio-history">
+          <SectionHead kicker="Timeline" title="History" id="studio-history" />
+          <ol className={styles.history}>
+            {s.history.map((h) => (
+              <li key={h.key} className={`${styles.historyItem} ${h.kind === 'company' ? styles.historyCompany : h.kind === 'upcoming' ? styles.historyUpcoming : ''}`}>
+                <span className={styles.historyYear}>{h.year}</span>
+                <span className={styles.historyDot} aria-hidden="true" />
+                <div className={styles.historyBody}>
+                  {h.anime ? (
+                    <Link href={`/anime/${h.anime.slug}`} className={styles.historyCard}>
+                      <span className={styles.historyThumb}>
+                        {h.anime.posterUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={h.anime.posterUrl} alt="" loading="lazy" />
+                        )}
+                      </span>
+                      <span className={styles.historyText}>
+                        <span className={styles.historyLabel}>{h.title}</span>
+                        <strong>{h.detail}</strong>
+                        <span>{[h.anime.type, h.anime.year].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </Link>
+                  ) : (
+                    <div className={styles.historyCard}>
+                      <span className={styles.historyText}>
+                        <span className={styles.historyLabel}>
+                          {h.date ? LONG_DATE.format(new Date(h.date)) : h.kind === 'company' ? 'Company' : 'Output'}
+                        </span>
+                        <strong>{h.title}</strong>
+                        {h.detail && <span>{h.detail}</span>}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+          {s.history.some((h) => h.source === 'Wikidata') && <p className={styles.source}>Company dates from Wikidata; work milestones from the OTAKUVA catalog.</p>}
         </section>
       )}
 

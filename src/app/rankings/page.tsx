@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CommunityScoreBadge } from '../../components/rating/CommunityScoreBadge';
 import Link from 'next/link';
-import { Trophy, TrendingUp, Flame, Plus, Check, Film, Tv, Sparkles, Calendar } from 'lucide-react';
+import { Trophy, TrendingUp, Flame, Plus, Check, Film, Tv, Sparkles, Calendar, Activity } from 'lucide-react';
 import { Anime } from '../../types/anime';
 import { useLibrary } from '../../context/LibraryContext';
 import { AnimePoster } from '../../components/ui/AnimePoster';
@@ -12,7 +12,7 @@ import { sanitizePublicEntityName } from '../../lib/normalizers';
 import styles from './rankings.module.css';
 import { PageHead } from '../../components/ui/PageHead';
 
-type RankingFilter = 'all' | 'year' | 'season' | 'tv' | 'movies' | 'upcoming' | 'popular';
+type RankingFilter = 'retention' | 'all' | 'year' | 'season' | 'tv' | 'movies' | 'upcoming' | 'popular';
 
 // "This year" / "this season" follow today's date — they were hardcoded to
 // 2024 / Winter 2024.
@@ -22,14 +22,26 @@ const CURRENT_SEASON = (['Winter', 'Spring', 'Summer', 'Fall'] as const)[Math.fl
 
 export default function RankingsPage() {
   const { library, updateStatus } = useLibrary();
-  const [rankingType, setRankingType] = useState<RankingFilter>('all');
+  // Retention leads (2026-10-25, owner): ranked by members' episode retention.
+  const [rankingType, setRankingType] = useState<RankingFilter>('retention');
   const [animes, setAnimes] = useState<Anime[]>([]);
+  // Retention tab only: titles without enough ratings for a badge, kept apart.
+  const [provisional, setProvisional] = useState<Anime[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchRankings = async () => {
       setIsLoading(true);
+      setProvisional([]);
       try {
+        if (rankingType === 'retention') {
+          const res = await fetch('/api/rankings/retention?limit=100', { cache: 'no-store' });
+          const data = res.ok ? await res.json() : { rated: [], provisional: [] };
+          const toAnime = (i: any) => ({ ...i, canonicalTitle: i.title, posterImage: i.posterUrl }) as unknown as Anime;
+          setAnimes((data.rated || []).map(toAnime));
+          setProvisional((data.provisional || []).map(toAnime));
+          return;
+        }
         const params = new URLSearchParams();
         params.set('limit', '50');
 
@@ -66,6 +78,7 @@ export default function RankingsPage() {
   }, [rankingType]);
 
   const tabs: { key: RankingFilter; label: string; icon: any }[] = [
+    { key: 'retention', label: 'Retention', icon: Activity },
     { key: 'all', label: 'All-Time Top Rated', icon: Trophy },
     { key: 'year', label: `This Year (${CURRENT_YEAR})`, icon: Calendar },
     { key: 'season', label: `This Season (${CURRENT_SEASON})`, icon: Flame },
@@ -75,61 +88,10 @@ export default function RankingsPage() {
     { key: 'upcoming', label: 'Upcoming', icon: Sparkles },
   ];
 
-  return (
-    <div className={styles.rankingsPage}>
-      {/* Header */}
-      <div className={styles.header}>
-        <PageHead kicker="Leaderboards" title="Rankings">
-          Ranked by each title&apos;s provider score (MyAnimeList / AniList).
-        </PageHead>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className={styles.tabRow} role="tablist">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const isActive = rankingType === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ''}`}
-              onClick={() => setRankingType(t.key)}
-            >
-              <Icon size={14} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Table Column Headers */}
-      <div className={styles.tableHeader}>
-        <span>Rank</span>
-        <span aria-hidden="true" />
-        <span>Anime</span>
-        <span className={styles.hideMobile}>Score</span>
-        <span style={{ textAlign: 'right' }}>Library</span>
-      </div>
-
-      {/* Rankings List */}
-      <div className={styles.listContainer}>
-        {isLoading ? (
-          <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
-            Loading rankings…
-          </div>
-        ) : animes.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
-            No anime records found for this ranking criteria.
-          </div>
-        ) : (
-          animes.map((anime, idx) => {
+  const renderRow = (anime: Anime, rank: number | null) => {
             const rawTitle = getAnimeDisplayTitle(anime);
             const cleanTitle = sanitizePublicEntityName(rawTitle);
-            const rank = idx + 1;
-            const rankStr = String(rank).padStart(2, '0');
+            const rankStr = rank === null ? '—' : String(rank).padStart(2, '0');
             const animeId = anime.slug || anime.id;
             const inLibrary = Boolean(library[animeId]);
             // Missing stays missing: no placeholder year or type.
@@ -171,13 +133,13 @@ export default function RankingsPage() {
                       </React.Fragment>
                     ))}
                   </div>
-                  {/* Members' OTAKUVA score + retention (not the provider score). */}
+                  {/* Members' retention + badge (not the provider score). */}
                   <span className={styles.scoreMobile}>
                     <CommunityScoreBadge animeId={anime.id} />
                   </span>
                 </div>
 
-                {/* Members' OTAKUVA score + retention (blank until someone rates) */}
+                {/* Members' retention + badge (blank until someone rates an episode) */}
                 <div className={`${styles.scoreCol} ${styles.hideMobile}`}>
                   <CommunityScoreBadge animeId={anime.id} />
                 </div>
@@ -199,9 +161,76 @@ export default function RankingsPage() {
                 </div>
               </Link>
             );
-          })
+  };
+
+  return (
+    <div className={styles.rankingsPage}>
+      {/* Header */}
+      <div className={styles.header}>
+        <PageHead kicker="Leaderboards" title="Rankings">
+          {rankingType === 'retention'
+            ? 'Ranked by retention: the average of each anime’s episode scores, as OTAKUVA members rated them.'
+            : 'Ranked by each title’s provider score (MyAnimeList / AniList); the score shown is members’ retention.'}
+        </PageHead>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className={styles.tabRow} role="tablist">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = rankingType === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ''}`}
+              onClick={() => setRankingType(t.key)}
+            >
+              <Icon size={14} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Table Column Headers */}
+      <div className={styles.tableHeader}>
+        <span>Rank</span>
+        <span aria-hidden="true" />
+        <span>Anime</span>
+        <span className={styles.hideMobile}>Score</span>
+        <span style={{ textAlign: 'right' }}>Library</span>
+      </div>
+
+      {/* Rankings List */}
+      <div className={styles.listContainer}>
+        {isLoading ? (
+          <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
+            Loading rankings…
+          </div>
+        ) : animes.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', padding: '48px 0', textAlign: 'center' }}>
+            {rankingType === 'retention'
+              ? 'No anime has enough episode ratings for a badge yet.'
+              : 'No anime records found for this ranking criteria.'}
+          </div>
+        ) : (
+          animes.map((anime, idx) => renderRow(anime, idx + 1))
         )}
       </div>
+
+      {/* Retention: titles still Provisional — never ranked with the rest. */}
+      {rankingType === 'retention' && !isLoading && provisional.length > 0 && (
+        <>
+          <div className={styles.provisionalHead}>
+            <h2>Provisional</h2>
+            <p>Not enough ratings yet for a badge (3 members on 3 episodes). Ordered by their score so far.</p>
+          </div>
+          <div className={styles.listContainer}>{provisional.map((anime) => renderRow(anime, null))}</div>
+        </>
+      )}
     </div>
   );
 }

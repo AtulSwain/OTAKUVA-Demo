@@ -339,3 +339,11 @@
   .readBody { font-size: 16.5px; }
   .removeBtn { margin-left: 0; }
 }
+
+/* Clean pass (2026-10-25): the articles list lines up with the header like the
+   other directory pages; the write form and reader keep their narrow columns. */
+.pageWide { max-width: none; }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.page { max-width: none; padding-left: 0; padding-right: 0; }

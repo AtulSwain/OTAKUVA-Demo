@@ -23,6 +23,8 @@ import { classifyAnimeStatus } from '../anime/animeStatus';
 import { hasAnimePremiered } from '../anime/premiereStatus';
 import { ACTIVE_RATING_CATEGORIES, calculateRawAverage, type RatingCategoryType } from './ratingEngine';
 import { recalculateAnimeAggregates, validateRatingScore } from './ratingService';
+import { starRatingsEnabled, STAR_RATINGS_OFF_MESSAGE } from './starRatings';
+import { computeAnimeRetention, displayRetention, isValidRetention, mean, RETENTION_MAX, RETENTION_MIN } from './retentionScore';
 
 export class EpisodeRatingError extends Error {
   constructor(message: string, public status: number, public code?: string) {
@@ -148,6 +150,8 @@ export async function submitEpisodeRating(input: {
   categoryScores?: unknown;
   note?: unknown;
 }) {
+  // Legacy 1–10 episode scores are off with the rest of the star ratings.
+  if (!starRatingsEnabled()) throw new EpisodeRatingError(STAR_RATINGS_OFF_MESSAGE, 410, 'STAR_RATINGS_OFF');
   const animeId = await resolveAnimeId(input.animeId);
   const n = Number(input.episodeNumber);
   if (!Number.isInteger(n) || n < 1) throw new EpisodeRatingError('Choose an episode to rate.', 400);
@@ -190,22 +194,24 @@ export async function deleteEpisodeRating(userId: string, animeIdOrSlug: string,
   await recalculateAnimeAggregates(animeId);
 }
 
-/** Retention is a whole percentage in steps of 5 (0, 5 … 100). */
-export const RETENTION_STEP = 5;
-
 /**
- * Episode retention (2026-10-20): how much an episode kept the member hooked,
- * 0–100%. Rated separately from the anime's own score and never feeds the
- * OTAKUVA Score. Any aired episode the member has marked watched can be
- * rated (watched first since 2026-10-21), airing or finished show.
+ * Episode retention (2026-10-20; 1–100 whole numbers since 2026-10-25): how
+ * well an episode kept the member watching. Rated separately from the anime's
+ * own 1–10 score and never feeds the OTAKUVA Score. Any aired episode the
+ * member has marked watched can be rated (watched first since 2026-10-21).
+ * One rating per member per episode (unique key) — rating again replaces it.
  */
-export async function submitEpisodeRetention(input: { userId: string; animeId: string; episodeNumber: number; retention: unknown }) {
+/** Max length of the optional comment left with an episode rating. */
+export const EPISODE_COMMENT_MAX = 280;
+
+export async function submitEpisodeRetention(input: { userId: string; animeId: string; episodeNumber: number; retention: unknown; comment?: unknown }) {
   const animeId = await resolveAnimeId(input.animeId);
   const n = Number(input.episodeNumber);
   if (!Number.isInteger(n) || n < 1) throw new EpisodeRatingError('Choose an episode to rate.', 400);
-  const r = Number(input.retention);
-  if (input.retention === null || input.retention === '' || !Number.isFinite(r) || r < 0 || r > 100 || r % RETENTION_STEP !== 0) {
-    throw new EpisodeRatingError(`Retention must be 0–100% in steps of ${RETENTION_STEP}.`, 400);
+  // Numbers only — a string like "80" is refused rather than guessed at.
+  const r = input.retention;
+  if (!isValidRetention(r)) {
+    throw new EpisodeRatingError(`Retention must be a whole number from ${RETENTION_MIN} to ${RETENTION_MAX}.`, 400);
   }
 
   const state = await getEpisodeReleaseState(animeId);
@@ -222,13 +228,31 @@ export async function submitEpisodeRetention(input: { userId: string; animeId: s
     throw new EpisodeRatingError(`Mark episode ${n} as watched first, then rate how well it kept you watching.`, 409, 'EPISODE_NOT_WATCHED');
   }
 
+  // Optional comment with the rating (2026-10-25): plain text, ≤280 chars.
+  // Absent = leave any existing comment as is; '' or null = remove it.
+  let comment: string | null | undefined;
+  if (input.comment !== undefined) {
+    if (input.comment !== null && typeof input.comment !== 'string') throw new EpisodeRatingError('Comment must be text.', 400);
+    const text = (input.comment ?? '').replace(/\s+/g, ' ').trim();
+    if (text.length > EPISODE_COMMENT_MAX) throw new EpisodeRatingError(`Keep the comment under ${EPISODE_COMMENT_MAX} characters.`, 400);
+    comment = text || null;
+  }
+
   const episode = await prisma.episode.findFirst({ where: { animeId, number: n }, select: { id: true } });
-  await prisma.episodeRating.upsert({
-    where: { userId_animeId_episodeNumber: { userId: input.userId, animeId, episodeNumber: n } },
-    create: { userId: input.userId, animeId, episodeNumber: n, episodeId: episode?.id ?? null, retention: r },
-    update: { retention: r, episodeId: episode?.id ?? null },
-  });
-  return { episodeNumber: n, retention: r };
+  const where = { userId_animeId_episodeNumber: { userId: input.userId, animeId, episodeNumber: n } };
+  const data = { retention: r, ...(comment !== undefined ? { review: comment } : {}) };
+  try {
+    await prisma.episodeRating.upsert({
+      where,
+      create: { userId: input.userId, animeId, episodeNumber: n, episodeId: episode?.id ?? null, ...data },
+      update: { ...data, episodeId: episode?.id ?? null },
+    });
+  } catch (error) {
+    // Two submits racing: the other one created the row first — update it.
+    if ((error as { code?: string })?.code !== 'P2002') throw error;
+    await prisma.episodeRating.update({ where, data });
+  }
+  return { episodeNumber: n, retention: r, comment: comment ?? null };
 }
 
 /** Clears one episode's retention; drops the row only when nothing else (a legacy score) is on it. */
@@ -323,24 +347,27 @@ export async function getEpisodeRatingSummary(animeIdOrSlug: string, viewerId?: 
       : Promise.resolve([]),
   ]);
 
-  const avg = (list: number[]) => (list.length ? Math.round(list.reduce((sum, v) => sum + v, 0) / list.length) : null);
   const perEpisode = new Map<number, { scores: number[]; retention: number[] }>();
   for (const r of rows) {
     const n = r.episodeNumber!;
     const e = perEpisode.get(n) ?? { scores: [] as number[], retention: [] as number[] };
     if (r.rating !== null) e.scores.push(r.rating);
-    if (r.retention !== null) e.retention.push(r.retention);
+    // Only valid ratings count (whole numbers 1–100).
+    if (isValidRetention(r.retention)) e.retention.push(r.retention);
     perEpisode.set(n, e);
   }
 
   const episodes = Array.from({ length: state.released }, (_, i) => i + 1).map((n) => {
     const e = perEpisode.get(n);
+    const raw = e ? mean(e.retention) : null;
     return {
       number: n,
       title: state.titles[n] ?? null,
       airedAt: state.airedAt[n] ?? null,
-      /** Members' average retention %, rounded; null when nobody rated it yet. */
-      retention: e && e.retention.length ? Math.round(e.retention.reduce((sum, v) => sum + v, 0) / e.retention.length) : null,
+      /** Community score for the episode: mean of its ratings, whole percent; null = not rated. */
+      retention: displayRetention(raw),
+      /** Unrounded mean (what the anime score is built from). */
+      retentionRaw: raw,
       retentionCount: e ? e.retention.length : 0,
       /** Legacy per-episode score average (kept for old data). */
       average: e && e.scores.length ? Math.round((calculateRawAverage(e.scores) ?? 0) * 10) / 10 : null,
@@ -348,13 +375,15 @@ export async function getEpisodeRatingSummary(animeIdOrSlug: string, viewerId?: 
     };
   });
 
-  // A member's retention for the anime = the average of their episodes; the
-  // community figure averages members (each counts once, however many
-  // episodes they rated).
-  const byMember = new Map<string, number[]>();
-  for (const r of rows) if (r.retention !== null) byMember.set(r.userId, [...(byMember.get(r.userId) ?? []), r.retention]);
-  const memberRetention = Array.from(byMember.values()).map((list) => list.reduce((sum, v) => sum + v, 0) / list.length);
-  const myRetentionList = mine.filter((m) => m.retention !== null).map((m) => m.retention as number);
+  // Anime score = mean of the rated episodes' scores (each episode counts
+  // once; unrated episodes are left out). Ratings on episodes past the aired
+  // count (data that predates a correction) still count — they were real.
+  const stats = Array.from(perEpisode.entries())
+    .filter(([, e]) => e.retention.length > 0)
+    .map(([number, e]) => ({ number, sum: e.retention.reduce((a, b) => a + b, 0), count: e.retention.length }));
+  const raters = new Set(rows.filter((r) => isValidRetention(r.retention)).map((r) => r.userId)).size;
+  const anime = computeAnimeRetention(stats, raters, state.total);
+  const myRetentionList = mine.filter((m) => isValidRetention(m.retention)).map((m) => m.retention as number);
 
   return {
     animeId,
@@ -363,10 +392,22 @@ export async function getEpisodeRatingSummary(animeIdOrSlug: string, viewerId?: 
     next: state.next,
     isOpen: state.isOpen,
     airing: state.airing,
-    /** Community retention for the whole anime, 0–100; null until someone rated an episode. */
-    retention: { value: avg(memberRetention.map((v) => Math.round(v))), members: memberRetention.length },
-    /** The viewer's retention for the whole anime: the average of their episodes. */
-    myRetention: { value: avg(myRetentionList), episodes: myRetentionList.length },
+    /**
+     * The anime's community retention. `value`/`members` keep their old names
+     * (whole-percent score, number of members who rated); the rest is new.
+     */
+    retention: {
+      value: anime.value,
+      members: anime.raters,
+      raw: anime.raw,
+      ratedEpisodes: anime.ratedEpisodes,
+      totalRatings: anime.totalRatings,
+      status: anime.status,
+      badge: anime.badge,
+      needs: anime.needs,
+    },
+    /** The viewer's own figure: the average of the episodes they rated. */
+    myRetention: { value: displayRetention(mean(myRetentionList)), episodes: myRetentionList.length },
     episodes,
     /** The viewer's own episode ratings, by episode number. */
     mine: Object.fromEntries(

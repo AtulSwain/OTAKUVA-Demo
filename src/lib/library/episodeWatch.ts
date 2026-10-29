@@ -90,13 +90,15 @@ export async function setEpisodeWatched(userId: string, animeIdOrSlug: string, e
           ? 'WATCHING'
           : lib?.status ?? 'WATCHING'
         : lib.status;
-    const saved = await tx.userAnime.upsert({
+    // Ticking an episode never adds the anime to the library (owner,
+    // 2026-10-26: "let the user decide"). Only an existing entry is updated.
+    if (!lib) return { numbers: rows.map((r) => r.episodeNumber), status: null, episodesWatched: count, inLibrary: false };
+    const saved = await tx.userAnime.update({
       where: { userId_animeId: { userId, animeId } },
-      create: { userId, animeId, status, episodesWatched: count },
-      update: { status, episodesWatched: count },
+      data: { status, episodesWatched: count },
       select: { status: true, episodesWatched: true },
     });
-    return { numbers: rows.map((r) => r.episodeNumber), status: saved.status, episodesWatched: saved.episodesWatched };
+    return { numbers: rows.map((r) => r.episodeNumber), status: saved.status, episodesWatched: saved.episodesWatched, inLibrary: true };
   });
   return result;
 }

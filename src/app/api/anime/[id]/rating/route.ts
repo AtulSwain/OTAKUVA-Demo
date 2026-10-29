@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { starRatingsEnabled, STAR_RATINGS_OFF_MESSAGE } from '../../../../../lib/rating/starRatings';
 import { getAuthUserFromRequest, requireVerifiedUser } from '../../../../../lib/auth';
 import { getAnimeBySlugOrId } from '../../../../../lib/animeData';
 import {
@@ -79,6 +80,10 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 1–10 stars are switched off (owner, 2026-10-25) — see starRatings.ts.
+    if (!starRatingsEnabled()) {
+      return NextResponse.json({ error: STAR_RATINGS_OFF_MESSAGE, code: 'STAR_RATINGS_OFF' }, { status: 410 });
+    }
     const authUser = await requireVerifiedUser(request);
     if (authUser instanceof NextResponse) return authUser;
 

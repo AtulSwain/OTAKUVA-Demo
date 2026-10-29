@@ -7,7 +7,7 @@ import {
   PenLine,
   MessageCircle,
   Gauge,
-  Rocket,
+  Sparkles,
   Bookmark,
   Heart,
   FileText,
@@ -23,7 +23,7 @@ import {
 import { AnimeImage } from '../anime/AnimeImage';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { getScoreColor } from '../../lib/rating/ratingTiers';
-import { retentionColor } from '../../lib/rating/retentionTone';
+import { retentionColor, retentionLabel } from '../../lib/rating/retentionTone';
 import { HYPE_LEVELS, HYPE_LEVEL_INFO } from '../../lib/hype/hypeLevels';
 import styles from './ProfileActivity.module.css';
 
@@ -61,7 +61,7 @@ const KIND: Record<Kind, { icon: LucideIcon; color: string; one: string; many: s
   REVIEWED: { icon: PenLine, color: '#E4E4E7', one: 'review', many: 'reviews' },
   REVIEW_REPLY: { icon: MessageCircle, color: '#A1A1AA', one: 'review reply', many: 'review replies' },
   RETENTION: { icon: Gauge, color: '#22C55E', one: 'episode rated', many: 'episodes rated' },
-  HYPE: { icon: Rocket, color: '#FF5A36', one: 'hype vote', many: 'hype votes' },
+  HYPE: { icon: Sparkles, color: '#FF5A36', one: 'hype vote', many: 'hype votes' },
   LIBRARY: { icon: Bookmark, color: '#3FB6F2', one: 'library update', many: 'library updates' },
   FAVORITE: { icon: Heart, color: '#F43F5E', one: 'favourite', many: 'favourites' },
   ARTICLE: { icon: FileText, color: '#E4E4E7', one: 'article', many: 'articles' },
@@ -102,8 +102,8 @@ function Sentence({ item }: { item: Item }) {
       return <>Rated {item.title ? item.title.toLowerCase() : 'an episode'} of {a}</>;
     case 'HYPE': {
       const lvl = typeof item.value === 'string' ? hypeLevelFromLabel(item.value) : null;
-      // Retired levels (Excited / Curious) still read naturally in history.
-      const verb = lvl === 'HYPED' ? 'Hyped for' : lvl === 'SKIP' ? 'Not interested in' : item.value === 'Excited' ? 'Watching day one:' : item.value === 'Curious' ? 'Curious about' : 'Voted on';
+      // Retired levels (Excited / Curious / Not interested) still read naturally in history.
+      const verb = lvl === 'HYPED' ? 'Hyped for' : item.value === 'Not interested' ? 'Not interested in' : item.value === 'Excited' ? 'Watching day one:' : item.value === 'Curious' ? 'Curious about' : 'Voted on';
       return <>{verb} {a}</>;
     }
     case 'LIBRARY':
@@ -141,7 +141,7 @@ function ValueChip({ item }: { item: Item }) {
   if (item.kind === 'RETENTION' && typeof item.value === 'number') {
     return (
       <span className={styles.value} style={{ color: retentionColor(item.value) }}>
-        {item.value}%
+        {item.value}% · {retentionLabel(item.value)}
       </span>
     );
   }

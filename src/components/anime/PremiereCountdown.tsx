@@ -68,7 +68,6 @@ export function PremiereCountdown({ airingAt, episodeNumber, onArrived }: { airi
       <div className={styles.bar} aria-hidden="true">
         <span style={{ width: `${ms > 0 ? fill : 100}%` }} />
       </div>
-      <p className={styles.note}>Rating opens the moment it airs — no refresh needed.</p>
     </div>
   );
 }

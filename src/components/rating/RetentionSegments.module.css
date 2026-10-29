@@ -1,0 +1,52 @@
+/* Retention input: 20 rounded segments — soft silver filled, graphite empty.
+   Calm on purpose: no glow, no gradients, only a short fill transition. */
+.track {
+  --seg-on: #D4D7DC;
+  --seg-off: #25282D;
+  display: grid;
+  grid-template-columns: repeat(20, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  width: 100%;
+  min-width: 120px;
+  height: 22px; /* comfortable touch target around thin segments */
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+  border-radius: 4px;
+}
+.track:focus-visible { box-shadow: 0 0 0 2px rgba(212, 215, 220, 0.45); }
+
+.seg {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--seg-off);
+}
+.segFill {
+  position: absolute;
+  inset: 0;
+  background: var(--seg-on);
+  transform-origin: left center;
+  transition: transform 0.12s ease-out;
+}
+.dragging .segFill { transition: none; }
+
+.md { height: 30px; gap: 3px; }
+.md .seg { height: 12px; border-radius: 3px; }
+
+.disabled { cursor: not-allowed; opacity: 0.45; }
+.disabled .seg { background: repeating-linear-gradient(90deg, var(--seg-off) 0 3px, transparent 3px 5px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .segFill { transition: none; }
+}
+
+/* Locked bar: plain and faded — the old fine stripes shimmered on phones. */
+.disabled { opacity: 0.35; }
+.disabled .seg { background: var(--seg-off); }
+
+/* Saved rating, locked until Edit (2026-10-27): full colour, not draggable. */
+.readOnly { cursor: default; }

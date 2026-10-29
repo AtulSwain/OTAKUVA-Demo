@@ -12,6 +12,7 @@ import { ArticleSocial } from './ArticleSocial';
 import { prisma } from '../../../lib/prisma';
 import styles from '../articles.module.css';
 import { resolveMediaUrl } from '../../../lib/mediaResolver';
+import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   return (
     <article className={styles.readPage}>
+      <ViewBeacon kind="article" id={article.id} />
       <Link href="/articles" className={styles.back}>
         <ArrowLeft size={15} aria-hidden="true" /> All articles
       </Link>

@@ -968,6 +968,76 @@ export class AniListProvider implements AnimeProvider {
   }
 
   /**
+   * Characters (main first, up to 50 per anime) with their Japanese voice
+   * actors, plus the animation studios, for up to 6 anime per request
+   * (kept small so the query stays under AniList's complexity limit).
+   * Used by scripts/import_characters_studios_anilist.ts. Missing fields stay
+   * null; nothing is invented.
+   */
+  async getCharactersAndStudiosByAnilistIds(anilistIds: number[]): Promise<
+    Map<
+      number,
+      {
+        characters: {
+          id: number;
+          name: string;
+          native: string | null;
+          image: string | null;
+          role: string;
+          voiceActors: { id: number; name: string; native: string | null; image: string | null }[];
+        }[];
+        hasMoreCharacters: boolean;
+        studios: { id: number; name: string; isMain: boolean; isAnimationStudio: boolean }[];
+      }
+    >
+  > {
+    const out = new Map();
+    const ids = anilistIds.slice(0, 6);
+    if (ids.length === 0) return out;
+    const gql = `
+      query ($ids: [Int], $perPage: Int) {
+        Page(perPage: $perPage) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            characters(perPage: 50, sort: [ROLE, RELEVANCE, ID]) {
+              pageInfo { hasNextPage }
+              edges {
+                role
+                node { id name { full native } image { large } }
+                voiceActors(language: JAPANESE, sort: [RELEVANCE, ID]) { id name { full native } image { large } }
+              }
+            }
+            studios { edges { isMain node { id name isAnimationStudio } } }
+          }
+        }
+      }
+    `;
+    const data = await graphql(gql, { ids, perPage: ids.length });
+    for (const m of data?.Page?.media || []) {
+      if (!m?.id) continue;
+      out.set(m.id, {
+        characters: (m.characters?.edges || [])
+          .filter((e: any) => e?.node?.id && e.node.name?.full)
+          .map((e: any) => ({
+            id: e.node.id,
+            name: e.node.name.full,
+            native: e.node.name.native || null,
+            image: e.node.image?.large || null,
+            role: e.role || 'SUPPORTING',
+            voiceActors: (e.voiceActors || [])
+              .filter((v: any) => v?.id && v.name?.full)
+              .map((v: any) => ({ id: v.id, name: v.name.full, native: v.name.native || null, image: v.image?.large || null })),
+          })),
+        hasMoreCharacters: Boolean(m.characters?.pageInfo?.hasNextPage),
+        studios: (m.studios?.edges || [])
+          .filter((e: any) => e?.node?.id && e.node.name)
+          .map((e: any) => ({ id: e.node.id, name: e.node.name, isMain: Boolean(e.isMain), isAnimationStudio: Boolean(e.node.isAnimationStudio) })),
+      });
+    }
+    return out;
+  }
+
+  /**
    * Profile details for up to 50 AniList staff (people) per request. The
    * bio is reduced to plain text: AniList markdown/HTML is stripped and
    * spoiler blocks are dropped entirely. Missing fields stay null.
@@ -1152,6 +1222,28 @@ export class AniListProvider implements AnimeProvider {
       out.set(key, { anilistId: m.id, links });
     }
     return out;
+  }
+
+  /**
+   * Every streaming site AniList knows, with its official icon and brand
+   * colour (ExternalLinkSourceCollection). One request; used for the logos
+   * in "Where to Watch".
+   */
+  async getStreamingSources(): Promise<Array<{ id: number; site: string; icon: string | null; color: string | null }>> {
+    const gql = `
+      query {
+        ExternalLinkSourceCollection(type: STREAMING, mediaType: ANIME) { id site icon color }
+      }
+    `;
+    const data = await graphql(gql, {});
+    return (data?.ExternalLinkSourceCollection || [])
+      .filter((x: any) => typeof x?.site === 'string' && x.site.trim())
+      .map((x: any) => ({
+        id: Number(x.id),
+        site: String(x.site).trim(),
+        icon: typeof x.icon === 'string' && /^https:\/\//.test(x.icon) ? x.icon : null,
+        color: typeof x.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(x.color) ? x.color : null,
+      }));
   }
 
   async getAiringSchedule(

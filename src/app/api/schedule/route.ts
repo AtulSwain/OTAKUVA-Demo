@@ -4,12 +4,14 @@ import { withApiHandler } from '../../../lib/api/apiHandler';
 import { ScheduleEngine, ScheduleQueryParams } from '../../../lib/engine/schedule/scheduleEngine';
 import { CacheManager } from '../../../lib/performance/cacheManager';
 import { ensureFreshSchedule } from '../../../lib/engine/schedule/scheduleFreshness';
+import { ensureHypePremiereNotifications } from '../../../lib/hype/hypePremiere';
 
 export const dynamic = 'force-dynamic';
 
 export const GET = withApiHandler('Schedule', async (request: NextRequest) => {
   // Background refresh when the stored schedule is stale (never blocks this request).
   ensureFreshSchedule();
+  ensureHypePremiereNotifications();
   const { searchParams } = new URL(request.url);
   const authUser = await getAuthUserFromRequest(request);
 

@@ -1,41 +1,96 @@
-.wrap { display: flex; flex-direction: column; gap: 18px; }
-.head { display: flex; flex-direction: column; gap: 2px; }
-.title { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-primary); }
-.sub { font-size: 12px; color: var(--text-muted); }
+/* Retention section (2026-10-25): one big number, its badge, the viewer's
+   own figure, and a silver per-episode chart. No rings, no glow. */
+.wrap { display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; flex-direction: column; gap: 4px; }
+.title { margin: 0; font-size: clamp(19px, 1.7vw, 22px); font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary, #f5f5f7); }
+.sub { color: var(--text-muted, #71717a); font-size: 13px; }
 
-/* ── Ring gauges ── */
-.gauges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.gauge { position: relative; display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 14px; }
-.ring { width: 84px; height: 84px; }
-.ringTrack { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 7; }
-.ringValue { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
-.gaugeCenter { position: absolute; left: 0; top: 0; width: 84px; height: 84px; display: grid; place-items: center; }
-.gaugeCenter strong { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text-muted); }
-.gaugeText { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
-.label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
-.band { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
-.meta { font-size: 12px; color: var(--text-secondary); }
+.score { display: flex; align-items: center; gap: 16px; }
+.big {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--text-primary, #f5f5f7);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.bigEmpty { color: var(--text-muted, #71717a); }
+.pct { margin-left: 2px; color: var(--text-secondary, #a1a1aa); font-size: 22px; font-weight: 700; }
+.scoreText { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.meta { color: var(--text-secondary, #a1a1aa); font-size: 13px; line-height: 1.4; }
+.note { margin: -6px 0 0; color: var(--text-muted, #71717a); font-size: 12.5px; line-height: 1.5; }
 
-/* ── Per-episode mini chart ── */
-.chartBlock { display: flex; flex-direction: column; gap: 6px; }
-.chart { display: flex; align-items: flex-end; gap: 2px; height: 56px; padding-bottom: 1px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.col { flex: 1 1 0; min-width: 1px; max-width: 14px; height: 100%; display: flex; align-items: flex-end; }
-.barFill { width: 100%; border-radius: 3px 3px 1px 1px; transition: height 0.4s ease; }
-.barEmpty { width: 100%; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); }
-.axis { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--text-muted); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 8px; height: 8px; border-radius: 2px; }
+.you {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, #1b1b22);
+  color: var(--text-secondary, #a1a1aa);
+  font-size: 13.5px;
+}
+.you strong { color: var(--text-primary, #f5f5f7); font-weight: 700; }
+.youLabel { flex: none; color: var(--text-muted, #71717a); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.youEmpty { color: var(--text-muted, #71717a); }
+
+.chartBlock { display: flex; flex-direction: column; gap: 8px; }
+.chartHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--text-muted, #71717a); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.extremes { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.extremes strong { color: var(--text-secondary, #a1a1aa); font-weight: 600; }
+.extremes i { margin: 0 8px; font-style: normal; }
+.chart { display: flex; align-items: flex-end; gap: 3px; height: 72px; }
+.col { flex: 1 1 0; min-width: 2px; max-width: 22px; height: 100%; display: flex; align-items: flex-end; }
+.barFill { width: 100%; border-radius: 2px 2px 1px 1px; background: #D4D7DC; transition: height 0.2s ease-out; }
+.barEmpty { width: 100%; height: 3px; border-radius: 1px; background: #25282D; }
+.axis { display: flex; justify-content: space-between; color: var(--text-muted, #71717a); font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; }
 
 .cta {
-  align-self: flex-start; min-height: 38px; padding: 0 16px; border: 1px solid var(--border-default); border-radius: 999px;
-  background: transparent; color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  align-self: flex-start;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-default, #26262f);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary, #f5f5f7);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
-.cta:hover { border-color: var(--border-hover); background: rgba(255, 255, 255, 0.04); }
+.cta:hover { border-color: var(--border-hover, #3a3a46); background: rgba(255, 255, 255, 0.03); }
 
-@media (max-width: 520px) {
-  .gauges { grid-template-columns: 1fr; }
+@media (max-width: 600px) {
+  .big { font-size: 40px; }
+  .score { gap: 12px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .ringValue, .barFill { transition: none; }
+@media (prefers-reduced-motion: reduce) { .barFill { transition: none; } }
+
+/* ── Community ring + You (2026-10-25, owner: the earlier ring for the
+   community, the big number for you) ── */
+.pair { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: center; }
+.community { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.side { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.label { color: var(--text-muted, #71717a); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.pair .you { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 0 0 20px; border-top: 0; border-left: 1px solid var(--border-subtle, #1b1b22); }
+.pair .big { font-size: 40px; }
+
+.ringWrap { position: relative; width: 104px; height: 104px; flex: none; }
+.ring { width: 100%; height: 100%; }
+.ringTrack { fill: none; stroke: #25282D; stroke-width: 9; }
+.ringValue { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dasharray 0.5s ease-out; }
+.ringCenter { position: absolute; inset: 0; display: grid; place-items: center; }
+.ringCenter strong { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--text-muted, #71717a); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--text-muted, #71717a); font-size: 11px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; }
+.col:hover .barFill { filter: brightness(1.15); }
+
+@media (max-width: 600px) {
+  .pair { grid-template-columns: 1fr; }
+  .pair .you { padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--border-subtle, #1b1b22); }
+  .ringWrap { width: 92px; height: 92px; }
 }
+@media (prefers-reduced-motion: reduce) { .ringValue { transition: none; } }

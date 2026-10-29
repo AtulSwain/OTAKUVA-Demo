@@ -1,0 +1,133 @@
+/*
+ * Site colour themes (2026-10-26, owner: "add some new themes").
+ * Graphite (no data-theme) is the default and is defined in tokens.css.
+ * Each theme only retints the page/surface greys and the signature accent;
+ * semantic colours (retention bands, medals, hype, score gold) never change.
+ * The choice is per device (localStorage "otakuva-theme"), set on <html>
+ * before first paint by the inline script in app/layout.tsx.
+ * Keep THEMES in src/lib/theme/themes.ts in step with this file.
+ */
+
+:root[data-theme='midnight'] {
+  --bg-primary: #0E1220;
+  --bg-secondary: #0A0D18;
+  --header-bg: #0A0D18;
+  --bg-base: #0E1220;
+  --bg-surface: #0A0D18;
+  --surface-base: #161B2E;
+  --surface-main: #161B2E;
+  --surface-card: #161B2E;
+  --surface-elevated: #1E2540;
+  --surface-subtle: #1E2540;
+  --surface-overlay: #252D4A;
+  --border-default: #252C45;
+  --border-medium: #252C45;
+  --border-subtle: #181D31;
+  --border-hover: #364066;
+  --border-strong: #364066;
+  --accent: #A9C4FF;
+  --accent-primary: #A9C4FF;
+  --accent-active: #A9C4FF;
+  --accent-sakura: #DCE6FF;
+  --accent-violet: #7FA2FF;
+  --accent-gradient: linear-gradient(120deg, #DCE6FF 0%, #8FAFFF 48%, #4C6FD8 100%);
+  --accent-on: #0A0D18;
+  --accent-subtle: rgba(143, 175, 255, 0.14);
+  --accent-primary-subtle: rgba(143, 175, 255, 0.14);
+  --border-accent: rgba(143, 175, 255, 0.4);
+  --accent-glow: 0 0 0 1px rgba(143, 175, 255, 0.35);
+  --theme-accent: #8FAFFF;
+}
+
+:root[data-theme='sakura'] {
+  --bg-primary: #17121A;
+  --bg-secondary: #120E15;
+  --header-bg: #120E15;
+  --bg-base: #17121A;
+  --bg-surface: #120E15;
+  --surface-base: #211A25;
+  --surface-main: #211A25;
+  --surface-card: #211A25;
+  --surface-elevated: #2A2130;
+  --surface-subtle: #2A2130;
+  --surface-overlay: #33283A;
+  --border-default: #2E2433;
+  --border-medium: #2E2433;
+  --border-subtle: #1D1620;
+  --border-hover: #46364D;
+  --border-strong: #46364D;
+  --accent: #F7B6D2;
+  --accent-primary: #F7B6D2;
+  --accent-active: #F7B6D2;
+  --accent-sakura: #FFDCEA;
+  --accent-violet: #F58AB8;
+  --accent-gradient: linear-gradient(120deg, #FFDCEA 0%, #F58AB8 50%, #B9558A 100%);
+  --accent-on: #1A0F15;
+  --accent-subtle: rgba(245, 138, 184, 0.14);
+  --accent-primary-subtle: rgba(245, 138, 184, 0.14);
+  --border-accent: rgba(245, 138, 184, 0.4);
+  --accent-glow: 0 0 0 1px rgba(245, 138, 184, 0.35);
+  --theme-accent: #F58AB8;
+}
+
+:root[data-theme='ember'] {
+  --bg-primary: #17120F;
+  --bg-secondary: #120E0B;
+  --header-bg: #120E0B;
+  --bg-base: #17120F;
+  --bg-surface: #120E0B;
+  --surface-base: #211915;
+  --surface-main: #211915;
+  --surface-card: #211915;
+  --surface-elevated: #2B211B;
+  --surface-subtle: #2B211B;
+  --surface-overlay: #352820;
+  --border-default: #30251E;
+  --border-medium: #30251E;
+  --border-subtle: #1E1713;
+  --border-hover: #4A372B;
+  --border-strong: #4A372B;
+  --accent: #FFB27A;
+  --accent-primary: #FFB27A;
+  --accent-active: #FFB27A;
+  --accent-sakura: #FFDDBE;
+  --accent-violet: #FF8A4C;
+  --accent-gradient: linear-gradient(120deg, #FFDDBE 0%, #FF8A4C 50%, #C9452A 100%);
+  --accent-on: #1A0E07;
+  --accent-subtle: rgba(255, 138, 76, 0.14);
+  --accent-primary-subtle: rgba(255, 138, 76, 0.14);
+  --border-accent: rgba(255, 138, 76, 0.4);
+  --accent-glow: 0 0 0 1px rgba(255, 138, 76, 0.35);
+  --theme-accent: #FF8A4C;
+}
+
+:root[data-theme='emerald'] {
+  --bg-primary: #0F1513;
+  --bg-secondary: #0B100E;
+  --header-bg: #0B100E;
+  --bg-base: #0F1513;
+  --bg-surface: #0B100E;
+  --surface-base: #16201C;
+  --surface-main: #16201C;
+  --surface-card: #16201C;
+  --surface-elevated: #1D2A25;
+  --surface-subtle: #1D2A25;
+  --surface-overlay: #24342D;
+  --border-default: #22302A;
+  --border-medium: #22302A;
+  --border-subtle: #151D1A;
+  --border-hover: #33473F;
+  --border-strong: #33473F;
+  --accent: #8FE3C0;
+  --accent-primary: #8FE3C0;
+  --accent-active: #8FE3C0;
+  --accent-sakura: #CFF7E5;
+  --accent-violet: #5FD4A4;
+  --accent-gradient: linear-gradient(120deg, #CFF7E5 0%, #5FD4A4 50%, #1F8C66 100%);
+  --accent-on: #06140E;
+  --accent-subtle: rgba(95, 212, 164, 0.14);
+  --accent-primary-subtle: rgba(95, 212, 164, 0.14);
+  --border-accent: rgba(95, 212, 164, 0.4);
+  --accent-glow: 0 0 0 1px rgba(95, 212, 164, 0.35);
+  --theme-accent: #5FD4A4;
+}

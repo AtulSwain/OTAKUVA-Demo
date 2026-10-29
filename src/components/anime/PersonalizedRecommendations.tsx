@@ -83,7 +83,7 @@ export const PersonalizedRecommendations: React.FC<PersonalizedRecommendationsPr
           <p className={styles.kicker}>
             <Sparkles size={12} aria-hidden="true" /> {personalized ? 'Picked for you' : 'If you like this'}
           </p>
-          <h2 className={styles.title}>{personalized ? 'Recommended for You' : 'More Like This'}</h2>
+          <h2 className={styles.title}>You Might Like</h2>
           <span className={styles.subtitle}>
             {personalized ? 'Based on this title and your library' : 'Based on this title'}
           </span>

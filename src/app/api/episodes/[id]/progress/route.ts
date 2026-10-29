@@ -40,10 +40,9 @@ export async function POST(
       episodeNumber: result.episodeNumber,
       isWatched: result.isWatched,
       totalCompleted: result.totalCompleted,
-      userTracking: {
-        status: result.userAnime.status,
-        episodesWatched: result.userAnime.episodesWatched,
-      },
+      userTracking: result.userAnime
+        ? { status: result.userAnime.status, episodesWatched: result.userAnime.episodesWatched }
+        : null,
     });
   } catch (error: any) {
     console.error('Error updating episode progress:', error);

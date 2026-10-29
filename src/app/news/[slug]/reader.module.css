@@ -1070,3 +1070,11 @@
 @media (max-width: 640px) {
   .readerWrapper { padding: 16px 16px 56px; }
 }
+
+/* Page frame (2026-10-28): the shell sets the width and side gutter for
+   every page — this page adds no column or side padding of its own. */
+.readerWrapper { max-width: none; padding-left: 0; padding-right: 0; }
+
+/* OTAKUVA's own stories (control center, 2026-10-28): the full text. */
+.ownStoryBody { display: flex; flex-direction: column; gap: 16px; max-width: 760px; margin: 8px 0 28px; color: var(--text-primary); font-size: 16.5px; line-height: 1.75; }
+.ownStoryBody p { margin: 0; white-space: pre-line; }

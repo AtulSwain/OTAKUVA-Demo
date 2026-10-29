@@ -8,6 +8,8 @@ import { Anime } from '../../../types/anime';
 import { AnimeHero } from '../../../components/anime/AnimeHero';
 import { WhereToWatch } from '../../../components/anime/WhereToWatch';
 import { OtakuvaVibe } from '../../../components/anime/OtakuvaVibe';
+import { VibeModal } from '../../../components/anime/VibeModal';
+import type { VibeSummary } from '../../../lib/rating/vibeGrades';
 import { CharacterPreview } from '../../../components/anime/CharacterPreview';
 import { EpisodeQuickList } from '../../../components/anime/EpisodeQuickList';
 import { StaffRail } from '../../../components/anime/StaffRail';
@@ -15,7 +17,6 @@ import { ProductionTimeline, buildTimelineEvents } from '../../../components/ani
 import { PersonalizedRecommendations, RecommendationItem } from '../../../components/anime/PersonalizedRecommendations';
 import { AnimeNewsList } from '../../../components/anime/AnimeNewsList';
 import { AnimeCreators } from '../../../components/anime/AnimeCreators';
-import { RatingDistributionCard } from '../../../components/anime/RatingDistributionCard';
 import { AnimeReviewsCard } from '../../../components/anime/AnimeReviewsCard';
 import type { CommunityTag } from '../../../lib/reviews/reviewSocial';
 import type { SeasonSeries } from '../../../lib/catalog/seasonSeries';
@@ -28,11 +29,13 @@ import { AnimeCommunityHub } from '../../../components/anime/AnimeCommunityHub';
 import { UserActivityCard } from '../../../components/anime/UserActivityCard';
 import { AnimeImage } from '../../../components/anime/AnimeImage';
 import { AnimeStickyActionBar } from '../../../components/anime/AnimeStickyActionBar';
+import { AnimeSectionNav, type SectionLink } from '../../../components/anime/AnimeSectionNav';
 import { RatingModal } from '../../../components/rating/RatingModal';
 import { EpisodeRetentionModal, type EpisodeRetentionSummary } from '../../../components/rating/EpisodeRetentionModal';
 import { PremiereCountdown } from '../../../components/anime/PremiereCountdown';
 import { RetentionSummary } from '../../../components/anime/RetentionSummary';
 import { HypeMeter } from '../../../components/hype/HypeMeter';
+import { CommissionProducts } from '../../../components/monetization/CommissionProducts';
 import { WriteReviewModal } from '../../../components/review/WriteReviewModal';
 import { TrailerModal } from '../../../components/ui/TrailerModal';
 import { useAuth } from '../../../context/AuthContext';
@@ -127,7 +130,7 @@ export default function AnimeDetailClient({
   seasonSeries = null,
   facts = null,
 }: AnimeDetailClientProps) {
-  const { user, openAuthModalWithIntent, consumePendingIntent, pendingIntent } = useAuth();
+  const { user, openAuthModal, openAuthModalWithIntent, consumePendingIntent, pendingIntent } = useAuth();
   const { showToast } = useToast();
   const { getItem: getLibraryItem } = useLibrary();
 
@@ -166,6 +169,9 @@ export default function AnimeDetailClient({
   // Episodes are rated separately from the anime: retention % per aired
   // episode, opened by clicking it in the episode guide.
   const [episodeSummary, setEpisodeSummary] = useState<EpisodeRetentionSummary | null>(null);
+  // OTAKUVA Vibe (grades per aspect) + its "What's your vibe?" window.
+  const [vibe, setVibe] = useState<VibeSummary | null>(null);
+  const [isVibeOpen, setIsVibeOpen] = useState(false);
   const [ratingEpisode, setRatingEpisode] = useState<number | null>(null);
   // Set when episode 1 airs while the page is open (countdown reached zero).
   const [justPremiered, setJustPremiered] = useState(false);
@@ -193,7 +199,21 @@ export default function AnimeDetailClient({
   const effectiveUserRating = userRatingData?.yourRating ?? guestRating?.score ?? null;
   const effectiveCategoryRatings = userRatingData?.yourCategoryRatings ?? guestRating?.categoryScores ?? {};
 
+  const loadVibe = React.useCallback(async () => {
+    try {
+      const res = await fetch(`/api/anime/${encodeURIComponent(id)}/vibe`, { cache: 'no-store' });
+      if (res.ok) setVibe(await res.json());
+    } catch {
+      /* the chart just stays as it was */
+    }
+  }, [id]);
+  useEffect(() => {
+    loadVibe();
+  }, [loadVibe, user?.id]);
+
   const fetchRatingSummary = async () => {
+    // Aspect scores from the 1–10 window feed the Vibe too.
+    loadVibe();
     try {
       const [sumRes, userRateRes] = await Promise.allSettled([
         fetch(`/api/anime/${id}/rating-summary`, { cache: 'no-store' }),
@@ -384,6 +404,26 @@ export default function AnimeDetailClient({
     });
   }, [relations]);
 
+  // Related Anime filter chips (Sequel / Prequel / …), only offered when
+  // the titles carry 2+ different relation types.
+  const [relFilter, setRelFilter] = useState<string>('ALL');
+  // Providers send "ADAPTATION" / "SIDE_STORY" / "Side story" — one display form.
+  const relLabel = (t?: string | null) => {
+    const raw = (t || 'Related').replace(/_/g, ' ').trim();
+    return raw === raw.toUpperCase() ? raw.charAt(0) + raw.slice(1).toLowerCase() : raw;
+  };
+  const relationTypes = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of relatedAnimes as any[]) {
+      const t = relLabel(r.relationType);
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [relatedAnimes]);
+  const visibleRelated = relFilter === 'ALL'
+    ? relatedAnimes
+    : (relatedAnimes as any[]).filter((r) => relLabel(r.relationType) === relFilter);
+
   // Deep link from the "you finished it, write a review?" prompt.
   useEffect(() => {
     if (typeof window === 'undefined' || !anime?.id || !user) return;
@@ -434,13 +474,14 @@ export default function AnimeDetailClient({
     return false;
   };
 
+  // The 1–10 star rating is gone (owner, 2026-10-25): members rate each
+  // episode's retention instead. "Rate" now takes you to the Episode Guide.
   const handleDetailedRateClick = () => {
     if (!hasPremiered) {
       showToast("Ratings open once this title has premiered.", 'info');
       return;
     }
-    if (blockedByVerification('rate')) return;
-    setIsRatingModalOpen(true);
+    document.getElementById('episodes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const fetchReviews = async () => {
@@ -486,6 +527,23 @@ export default function AnimeDetailClient({
     : mainStudioName?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
   const genresList = Array.isArray(anime.genres) ? anime.genres : [];
 
+  // "On this page" jump bar — only sections that are actually rendered.
+  const sectionLinks: SectionLink[] = [
+    { id: 'overview', label: 'Overview', show: true },
+    { id: 'details', label: 'Details', show: Boolean(facts) },
+    { id: 'retention', label: 'Retention', show: hasPremiered },
+    { id: 'vibe', label: 'Vibe', show: hasPremiered },
+    { id: 'watch', label: 'Watch', show: hasPremiered },
+    { id: 'episodes', label: 'Episodes', show: hasPremiered },
+    { id: 'reviews', label: 'Reviews', show: hasPremiered },
+    { id: 'characters', label: 'Characters', show: characters.length > 0 },
+    { id: 'staff', label: 'Staff', show: staff.length > 0 },
+    { id: 'related', label: 'Related', show: relatedAnimes.length > 0 },
+    { id: 'recommendations', label: 'You might like', show: recommendations.length > 0 },
+    { id: 'discussion', label: 'Discussion', show: true },
+    { id: 'news', label: 'News', show: Boolean(news && news.length > 0) },
+  ].filter((l) => l.show).map(({ id: sid, label }) => ({ id: sid, label }));
+
   return (
     <div className={styles.page}>
       {/* 1. CINEMATIC HERO (Backdrop, Poster, Title, Title-Side Score, Genre Chips, Actions, Watch Progress) */}
@@ -498,12 +556,16 @@ export default function AnimeDetailClient({
         studioName={mainStudioName}
         studioSlug={studioSlug}
         nextEpisodeNumber={nextEpisodeNumber}
-        otakuvaScore={otakuvaScore}
-        otakuvaRatingCount={otakuvaRatingCount}
+        retention={episodeSummary?.retention ?? null}
         hasPremiered={hasPremiered}
+        belowLibrary={
+          // Not out yet: the Hype button sits right under Add to Library (2026-10-27, owner).
+          !hasPremiered ? <HypeMeter compact animeId={anime.id} animeTitle={displayTitle} /> : undefined
+        }
       />
 
       <main className={styles.mainContainer}>
+        <AnimeSectionNav sections={sectionLinks} />
         <div className={styles.layoutGrid}>
           {/* LEFT / MAIN COLUMN: Story, Episodes, Characters, Staff, Timeline, Franchise, Reviews */}
           <div className={styles.mainCol}>
@@ -530,17 +592,6 @@ export default function AnimeDetailClient({
                     />
                   )}
                 </div>
-                {/* Not out yet: no rating — how hyped are you instead (its own panel). */}
-                <HypeMeter
-                  animeId={anime.id}
-                  animeTitle={displayTitle}
-                  premiereDate={
-                    // Episode 1's scheduled time when known, else the stored start date (its own precision).
-                    episodeSummary?.next?.number === 1
-                      ? new Date(episodeSummary.next.airingAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                      : formatPremiereDate((anime as any).startDate, (anime as any).datePrecision)
-                  }
-                />
               </section>
             )}
 
@@ -552,7 +603,7 @@ export default function AnimeDetailClient({
             )}
 
             {/* 1. OVERVIEW & STORY SYNOPSIS */}
-            <section className={styles.contentSection} aria-label="Story Overview">
+            <section id="overview" className={styles.contentSection} aria-label="Story Overview">
               <div className={styles.sectionHead}>
                 <h2 className={styles.sectionTitle}>Overview</h2>
                 <span className={styles.sectionSubtitle}>
@@ -576,7 +627,7 @@ export default function AnimeDetailClient({
 
             {/* 1a. DETAILS — every stored fact not already in the hero/overview */}
             {facts && (
-              <section className={styles.contentSection} aria-label="Details">
+              <section id="details" className={styles.contentSection} aria-label="Details">
                 <AnimeDetails facts={facts} />
               </section>
             )}
@@ -593,24 +644,17 @@ export default function AnimeDetailClient({
                     <button type="button" className={styles.premiereBtnPrimary} onClick={() => setRatingEpisode(1)}>
                       Rate episode 1
                     </button>
-                    <button type="button" className={styles.premiereBtn} onClick={handleDetailedRateClick}>
-                      Rate the anime
-                    </button>
                   </div>
                 </div>
               </section>
             )}
 
             {hasPremiered && (
-              <section className={`${styles.contentSection} ${styles.band}`} aria-label="Ratings and availability">
+              <section id="retention" className={`${styles.contentSection} ${styles.band}`} aria-label="Retention and your progress">
                 <div className={styles.bandCol}>
-                  <RatingDistributionCard
-                    score={otakuvaScore}
-                    ratingCount={otakuvaRatingCount}
-                    distribution={ratingSummary?.distribution}
-                    reviewCount={reviews.length + (userReview ? 1 : 0)}
-                    onOpenRateModal={handleDetailedRateClick}
-                  />
+                  {/* Retention replaced the 1–10 "Community Rating" block here
+                      (2026-10-25, owner). The 1–10 rating itself is still
+                      given through Rate and feeds OTAKUVA Vibe. */}
                   <RetentionSummary
                     community={episodeSummary?.retention}
                     mine={episodeSummary?.myRetention}
@@ -631,7 +675,7 @@ export default function AnimeDetailClient({
                   <UserActivityCard
                     animeId={anime.id}
                     totalEpisodes={totalEp}
-                    userRating={effectiveUserRating}
+                    myRetention={episodeSummary?.myRetention?.value ?? null}
                   />
                 </div>
               </section>
@@ -641,22 +685,21 @@ export default function AnimeDetailClient({
                  members' ratings, so it's meaningless before anyone could
                  have rated the show. */}
             {hasPremiered && (
-              <section className={styles.contentSection} aria-label="OTAKUVA Vibe & Perception">
+              <section id="vibe" className={styles.contentSection} aria-label="OTAKUVA Vibe & Perception">
                 <OtakuvaVibe
-                  animeTitle={displayTitle}
-                  categoryAggregates={ratingSummary?.categories}
-                  ratingCount={otakuvaRatingCount}
-                  confidence={ratingSummary?.confidence}
-                  onOpenRateModal={handleDetailedRateClick}
-                  genres={genresList}
-                  score={otakuvaScore}
+                  vibe={vibe}
+                  onOpenVibe={() => {
+                    if (!user) return openAuthModal('login');
+                    if (blockedByVerification('rate')) return;
+                    setIsVibeOpen(true);
+                  }}
                 />
               </section>
             )}
 
             {/* 1e. WHERE TO WATCH */}
             {hasPremiered && (
-              <section className={styles.contentSection} aria-label="Where to Watch">
+              <section id="watch" className={styles.contentSection} aria-label="Where to Watch">
                 <WhereToWatch streamingPlatforms={(anime as any).streaming} />
               </section>
             )}
@@ -667,7 +710,24 @@ export default function AnimeDetailClient({
               <AnimeCreators animeId={anime.id} animeTitle={displayTitle} />
             </section>
 
-            {/* 7. COMMUNITY REVIEWS (Before Related Anime) — reviews require
+            {/* 7. COMPACT SEASON-AWARE EPISODE GUIDE — nothing to guide before
+                 the first episode has actually aired. */}
+            {hasPremiered && (
+              <section id="episodes" className={styles.contentSection} aria-label="Episode Guide">
+                <EpisodeQuickList
+                  animeId={anime.id}
+                  totalEpisodes={totalEp}
+                  episodesList={episodes}
+                  seasonsList={seasons}
+                  animeTitle={displayTitle}
+                  onOpenTrailer={openTrailer}
+                  ratingSummary={episodeSummary}
+                  onSummaryChange={setEpisodeSummary}
+                />
+              </section>
+            )}
+
+            {/* 7a. COMMUNITY REVIEWS — below the Episode Guide (owner, 2026-10-26) — reviews require
                  having watched the show, which isn't possible pre-premiere. */}
             {hasPremiered && (
               <section id="reviews" className={styles.contentSection} aria-label="Community Reviews">
@@ -690,25 +750,10 @@ export default function AnimeDetailClient({
               </section>
             )}
 
-            {/* 7a. COMPACT SEASON-AWARE EPISODE GUIDE — nothing to guide before
-                 the first episode has actually aired. */}
-            {hasPremiered && (
-              <section className={styles.contentSection} aria-label="Episode Guide">
-                <EpisodeQuickList
-                  animeId={anime.id}
-                  totalEpisodes={totalEp}
-                  episodesList={episodes}
-                  seasonsList={seasons}
-                  animeTitle={displayTitle}
-                  onOpenTrailer={openTrailer}
-                  ratingSummary={episodeSummary}
-                  onSummaryChange={setEpisodeSummary}
-                />
-              </section>
-            )}
+            <CommissionProducts animeId={anime.id} />
 
             {/* 7b. CHARACTERS & VOICE CAST */}
-            <section className={styles.contentSection} aria-label="Characters & Voice Cast">
+            <section id="characters" className={styles.contentSection} aria-label="Characters & Voice Cast">
               <CharacterPreview
                 characters={characters}
                 animeFallbackPoster={anime.posterImage}
@@ -716,7 +761,7 @@ export default function AnimeDetailClient({
             </section>
 
             {/* 7c. STAFF & KEY CREATORS */}
-            <section className={styles.contentSection} aria-label="Staff & Creators">
+            <section id="staff" className={styles.contentSection} aria-label="Staff & Creators">
               <StaffRail staff={staff} />
             </section>
 
@@ -728,16 +773,33 @@ export default function AnimeDetailClient({
 
             {/* 8. RELATED ANIME GRAPH */}
             {relatedAnimes.length > 0 && (
-              <section className={styles.contentSection} aria-label="Related Anime">
+              <section id="related" className={styles.contentSection} aria-label="Related Anime">
                 <div className={styles.sectionHead}>
                   <h2 className={styles.sectionTitle}>Related Anime</h2>
-                  <span className={styles.sectionSubtitle}>Franchise connection graph</span>
+                  <span className={styles.sectionSubtitle}>{relatedAnimes.length} titles</span>
                 </div>
 
+                {relationTypes.length > 1 && (
+                  <div className={styles.relFilters} role="group" aria-label="Filter by relation">
+                    {[['ALL', relatedAnimes.length] as [string, number], ...relationTypes].map(([t, c]) => (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-pressed={relFilter === t}
+                        className={`${styles.relFilter} ${relFilter === t ? styles.relFilterActive : ''}`}
+                        onClick={() => setRelFilter(t)}
+                      >
+                        {t === 'ALL' ? 'All' : t}
+                        <span className={styles.relFilterCount}>{c}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className={styles.relatedCardsGrid}>
-                  {relatedAnimes.map((rel: any, idx: number) => {
+                  {visibleRelated.map((rel: any, idx: number) => {
                     const relTitle = rel.title || rel.canonicalTitle || 'Untitled';
-                    const relRole = rel.relationType || 'Related';
+                    const relRole = relLabel(rel.relationType);
                     return (
                       <Link
                         key={rel.id || idx}
@@ -769,7 +831,7 @@ export default function AnimeDetailClient({
 
             {/* 9. RECOMMENDATIONS — from the recommendation engine; absent when empty */}
             {recommendations.length > 0 && (
-              <section className={styles.contentSection} aria-label="Recommendations">
+              <section id="recommendations" className={styles.contentSection} aria-label="Recommendations">
                 <PersonalizedRecommendations recommendations={recommendations} personalized={Boolean(user)} />
               </section>
             )}
@@ -781,7 +843,7 @@ export default function AnimeDetailClient({
 
             {/* 11. LATEST NEWS ABOUT THIS TITLE */}
             {news && news.length > 0 && (
-              <section className={styles.contentSection} aria-label="Latest News">
+              <section id="news" className={styles.contentSection} aria-label="Latest News">
                 <AnimeNewsList news={news} />
               </section>
             )}
@@ -796,8 +858,17 @@ export default function AnimeDetailClient({
         userRating={effectiveUserRating}
         onOpenRatingModal={handleDetailedRateClick}
         onOpenTrailer={openTrailer}
-        otakuvaScore={otakuvaScore}
+        retention={episodeSummary?.retention ?? null}
         hasPremiered={hasPremiered}
+      />
+
+      <VibeModal
+        isOpen={isVibeOpen}
+        onClose={() => setIsVibeOpen(false)}
+        animeId={anime.id}
+        animeTitle={displayTitle}
+        mine={vibe?.mine ?? {}}
+        onSaved={setVibe}
       />
 
       {/* 17. TRAILER MODAL */}
@@ -854,8 +925,6 @@ export default function AnimeDetailClient({
         animeId={anime.id}
         animeTitle={displayTitle}
         episodeNumber={ratingEpisode}
-        animeRating={effectiveUserRating}
-        onRateAnime={handleDetailedRateClick}
         onChanged={setEpisodeSummary}
       />
 

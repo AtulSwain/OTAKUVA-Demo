@@ -1,4 +1,6 @@
 import './helpers/setupTestDb';
+// These tests exercise the 1–10 star rating, which is switched off by default (2026-10-25).
+process.env.STAR_RATINGS_ENABLED = 'true';
 
 import { after, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -116,14 +118,15 @@ describe('anime score vs episode retention (2026-10-20)', () => {
     assert.equal(mine.source, 'overall');
   });
 
-  test('retention: 0–100 in steps of 5, aired episodes only, any show; averaged per episode', async () => {
+  test('retention: whole numbers 1–100, aired episodes only, any show; averaged per episode', async () => {
     const a = await createUser();
     const b = await createUser();
     const show = await createAnime({ status: 'Finished Airing', episodes: 3 });
     await watched(a, show.id, 1, 2);
     await watched(b, show.id, 1, 2);
-    assert.equal((await rateEp(a, show.id, { episodeNumber: 1, retention: 93 })).status, 400);
+    assert.equal((await rateEp(a, show.id, { episodeNumber: 1, retention: 0 })).status, 400, '1 is the lowest');
     assert.equal((await rateEp(a, show.id, { episodeNumber: 1, retention: 120 })).status, 400);
+    assert.equal((await rateEp(a, show.id, { episodeNumber: 1, retention: 92.5 })).status, 400, 'whole numbers only');
     assert.equal((await rateEp(a, show.id, { episodeNumber: 4, retention: 50 })).status, 403, 'only 3 episodes exist');
     assert.equal((await rateEp(a, show.id, { episodeNumber: 1, retention: 90 })).status, 200, 'finished shows can be rated by episode too');
     await rateEp(a, show.id, { episodeNumber: 2, retention: 60 });
@@ -186,7 +189,7 @@ describe('premiere unlock + anime retention totals', () => {
     assert.equal((await getEpisodeReleaseState(viaNext.id)).released, 1, 'nextAiringAt in the past counts too');
   });
 
-  test('anime retention: each member once (their episode average); the viewer sees their own total', async () => {
+  test('anime retention = mean of the episode scores (each episode once); the viewer sees their own total', async () => {
     const a = await createUser();
     const b = await createUser();
     const show = await createAnime({ status: 'Finished Airing', episodes: 4 });
@@ -194,10 +197,15 @@ describe('premiere unlock + anime retention totals', () => {
     await watched(b, show.id, 1);
     await rateEp(a, show.id, { episodeNumber: 1, retention: 90 });
     await rateEp(a, show.id, { episodeNumber: 2, retention: 60 });
-    await rateEp(a, show.id, { episodeNumber: 3, retention: 75 }); // a = 75
-    await rateEp(b, show.id, { episodeNumber: 1, retention: 55 }); // b = 55
+    await rateEp(a, show.id, { episodeNumber: 3, retention: 75 });
+    await rateEp(b, show.id, { episodeNumber: 1, retention: 55 });
     const summary = (await read(await epGET(request('GET', `/api/anime/${show.id}/episode-ratings`, { as: a }), p(show.id)))).body;
-    assert.deepEqual(summary.retention, { value: 65, members: 2 }, '(75 + 55) / 2, not the average of 4 rows');
+    // Episodes: 1 = (90 + 55) / 2 = 72.5, 2 = 60, 3 = 75; episode 4 unrated → left out.
+    assert.equal(summary.retention.value, 69, '(72.5 + 60 + 75) / 3 = 69.17, not the average of the 4 votes (70)');
+    assert.equal(summary.retention.members, 2);
+    assert.equal(summary.retention.ratedEpisodes, 3);
+    assert.equal(summary.retention.status, 'provisional', 'only 2 members so far');
+    assert.equal(summary.retention.badge, null);
     assert.deepEqual(summary.myRetention, { value: 75, episodes: 3 });
   });
 });

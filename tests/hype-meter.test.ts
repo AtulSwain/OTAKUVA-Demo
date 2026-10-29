@@ -26,22 +26,21 @@ describe('Hype Meter', () => {
     assert.equal(first.body.mine, 'HYPED');
     assert.equal(first.body.percent, null, 'hidden below 5 votes');
     assert.equal((await vote(users[0], show.id, 'NOPE')).status, 400);
-    // A vote is final: a different level is refused, the same one is a no-op.
-    const changed = await vote(users[0], show.id, 'SKIP');
-    assert.equal(changed.status, 409);
-    // Excited / Curious were retired (2026-10-22): no longer accepted.
+    // Excited / Curious (2026-10-22) and Not interested (2026-10-25) were retired: no longer accepted.
     assert.equal((await vote(users[0], show.id, 'EXCITED')).status, 400);
+    assert.equal((await vote(users[0], show.id, 'SKIP')).status, 400);
+    // Sending the same level again is a no-op.
     const again = await vote(users[0], show.id, 'HYPED');
     assert.equal(again.status, 200);
     assert.equal(again.body.total, 1);
     assert.equal(again.body.mine, 'HYPED');
 
     await vote(users[1], show.id, 'HYPED');
-    await vote(users[2], show.id, 'SKIP');
-    await vote(users[3], show.id, 'SKIP');
+    await vote(users[2], show.id, 'HYPED');
+    await vote(users[3], show.id, 'HYPED');
     const last = await vote(users[4], show.id, 'HYPED');
-    assert.deepEqual(last.body.counts, { HYPED: 3, SKIP: 2 });
-    assert.equal(last.body.percent, 60);
+    assert.deepEqual(last.body.counts, { HYPED: 5 });
+    assert.equal(last.body.percent, 100);
 
     // Guests can read, not vote.
     assert.equal((await hypePOST(request('POST', `/api/anime/${show.id}/hype`, { body: { level: 'HYPED' } }), p(show.id))).status, 401);
@@ -75,19 +74,19 @@ describe('Hype Meter', () => {
     const upcoming = (await buildHypeBoard('upcoming', 200)).map((i) => i.id);
     assert.ok(upcoming.includes(a.id) && upcoming.includes(b.id));
     assert.ok(!upcoming.includes(started.id), 'its first episode already aired');
-    assert.equal((await buildHypeBoard('SKIP', 10)).filter((i) => i.id === a.id).length, 0, 'only shows that got that vote');
+    const quiet = await createAnime({ status: 'Not yet aired', startDate: new Date(Date.now() + 7 * 86_400_000) });
+    assert.ok(!ids.includes(quiet.id), 'only shows that got that vote');
   });
 
   test('hype % weights', () => {
-    assert.equal(hypePercent({ HYPED: 5, SKIP: 0 }), 100);
-    assert.equal(hypePercent({ HYPED: 0, SKIP: 5 }), 0);
-    assert.equal(hypePercent({ HYPED: 2, SKIP: 2 }), null);
+    assert.equal(hypePercent({ HYPED: 5 }), 100);
+    assert.equal(hypePercent({ HYPED: 4 }), null);
   });
 
   test('a stored vote for a retired level is kept, not counted, and can be replaced once', async () => {
     const show = await createAnime({ status: 'Not yet aired', startDate: new Date(Date.now() + 30 * 86_400_000) });
     const user = await createUser();
-    await prisma.animeHype.create({ data: { userId: user.id, animeId: show.id, level: 'EXCITED' } });
+    await prisma.animeHype.create({ data: { userId: user.id, animeId: show.id, level: 'SKIP' } });
     const before = (await read(await hypeGET(request('GET', `/api/anime/${show.id}/hype`, { as: user }), p(show.id)))).body;
     assert.equal(before.total, 0, 'retired votes are not counted');
     assert.equal(before.mine, null, 'so the member can vote on the current choices');
@@ -95,7 +94,8 @@ describe('Hype Meter', () => {
     assert.equal(now.status, 200);
     assert.equal(now.body.mine, 'HYPED');
     assert.equal(now.body.total, 1);
-    assert.equal((await vote(user, show.id, 'SKIP')).status, 409, 'and that vote is final');
+    assert.equal((await vote(user, show.id, 'HYPED')).status, 200, 'same level again is a no-op');
+    assert.equal(await prisma.animeHype.count({ where: { userId: user.id, animeId: show.id, level: 'HYPED' } }), 1);
     assert.equal(await prisma.animeHype.count({ where: { userId: user.id, animeId: show.id } }), 1);
   });
 });

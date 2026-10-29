@@ -285,3 +285,8 @@
 .tabBtn { flex: 0 0 auto; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--pill-bg); color: var(--text-secondary); font-weight: 600; font-size: 14px; white-space: nowrap; }
 .tabBtn:hover { background: var(--pill-bg-hover); color: var(--text-primary); }
 .tabBtnActive, .tabBtnActive:hover { background: #fff; color: #000; }
+
+/* Retention tab: the Provisional group sits apart from the ranked list. */
+.provisionalHead { margin: 40px 0 12px; }
+.provisionalHead h2 { margin: 0 0 4px; font-size: clamp(18px, 1.6vw, 22px); font-weight: 800; letter-spacing: -0.02em; }
+.provisionalHead p { margin: 0; color: var(--text-muted); font-size: 13px; }

@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { Check, ChevronDown, ChevronUp, Play, Tv } from 'lucide-react';
 import type { EpisodeRetentionSummary } from '../rating/EpisodeRetentionModal';
 import { RetentionBars } from './RetentionBars';
+import { retentionColor, retentionLabel, retentionSoftColor } from '../../lib/rating/retentionTone';
 import styles from './EpisodeQuickList.module.css';
 
 export interface EpisodeItem {
@@ -159,7 +160,7 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
   // is this entry's own.
   const releasedRows: EpisodeItem[] = useMemo(() => {
     if (hasEpisodeRows || normalizedSeasons.length > 1 || !ratingSummary) return [];
-    return ratingSummary.episodes.map((e) => ({ number: e.number, title: e.title ?? undefined } as EpisodeItem));
+    return ratingSummary.episodes.map((e) => ({ number: e.number, title: e.title ?? undefined, airedAt: e.airedAt ?? null } as EpisodeItem));
   }, [hasEpisodeRows, normalizedSeasons.length, ratingSummary]);
   const activeEpisodes: EpisodeItem[] = hasEpisodeRows ? storedEpisodes : releasedRows;
   const hasListRows = activeEpisodes.length > 0;
@@ -257,9 +258,69 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
   const rowAired = (ep: EpisodeItem) => !canRate || (ep.number >= 1 && ep.number <= released);
   const listWatched = activeEpisodes.filter(rowWatched).length;
   const listAired = activeEpisodes.filter(rowAired).length;
-  const nextUpNumber = user ? activeEpisodes.find((ep) => rowAired(ep) && !rowWatched(ep))?.number ?? null : null;
+  const firstUnwatched = user ? activeEpisodes.find((ep) => rowAired(ep) && !rowWatched(ep))?.number ?? null : null;
+  // Watched → rate first (owner, 2026-10-26): after ticking an episode it
+  // stays the focus, with its retention bar, until you submit a retention;
+  // only then does "Up next" move on to the next episode.
+  const [rateFirst, setRateFirst] = useState<number | null>(null);
+  useEffect(() => {
+    if (rateFirst !== null && myRetentionOf(rateFirst) !== null) setRateFirst(null);
+  }, [rateFirst, ratingSummary]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nextUpNumber = rateFirst ?? firstUnwatched;
+
+  // Range chips (1–12, 13–24 …) for long lists (2026-10-27). Opens on the
+  // range holding your next episode; once you tick or pick, it stays put.
+  const rangeSize = activeEpisodes.length <= 120 ? 12 : activeEpisodes.length <= 400 ? 25 : activeEpisodes.length <= 1200 ? 50 : 100;
+  const ranges = useMemo(() => {
+    const out: { start: number; end: number; from: number; to: number }[] = [];
+    for (let i = 0; i < activeEpisodes.length; i += rangeSize) {
+      const end = Math.min(activeEpisodes.length, i + rangeSize);
+      out.push({ start: i, end, from: activeEpisodes[i].number, to: activeEpisodes[end - 1].number });
+    }
+    return out;
+  }, [activeEpisodes, rangeSize]);
+  const showRanges = activeEpisodes.length > 24 && ranges.length > 1;
+  const [pickedRange, setPickedRange] = useState<number | null>(null);
+  const rangeOf = (n: number) => ranges.findIndex((r) => n >= r.from && n <= r.to);
+  const autoRange = (() => {
+    if (nextUpNumber !== null) return Math.max(0, rangeOf(nextUpNumber));
+    // All caught up: the range with the latest aired episode.
+    if (listWatched > 0 && released > 0) return Math.max(0, rangeOf(Math.min(released, ranges[ranges.length - 1]?.to ?? released)));
+    return 0;
+  })();
+  const rangeIdx = pickedRange !== null && pickedRange < ranges.length ? pickedRange : autoRange;
+  const pinRange = () => {
+    if (showRanges && pickedRange === null) setPickedRange(rangeIdx);
+  };
+  const shownEpisodes = showRanges && ranges[rangeIdx]
+    ? activeEpisodes.slice(ranges[rangeIdx].start, ranges[rangeIdx].end)
+    : displayedEpisodes;
   const [nowMs, setNowMs] = useState<number | null>(null);
-  useEffect(() => setNowMs(Date.now()), []);
+  // Ticks so "Just aired · 2 min ago" and "Airs in 3h 12m" stay live.
+  useEffect(() => {
+    setNowMs(Date.now());
+    const t = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const latestAired = released > 0 ? released : null;
+  const nextUp = ratingSummary?.next ?? null;
+  const ago = (iso: string) => {
+    if (nowMs === null) return null;
+    const mins = Math.max(0, Math.round((nowMs - new Date(iso).getTime()) / 60_000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const h = Math.round(mins / 60);
+    return `${h}h ago`;
+  };
+  const countdown = (iso: string) => {
+    if (nowMs === null) return null;
+    const mins = Math.round((new Date(iso).getTime() - nowMs) / 60_000);
+    if (mins <= 0) return 'any moment';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    if (h < 48) return `${h}h ${mins % 60}m`;
+    return `${Math.round(h / 24)} days`;
+  };
   const isFresh = (ep: EpisodeItem) => {
     if (!ep.airedAt || nowMs === null) return false;
     const t = new Date(ep.airedAt).getTime();
@@ -275,8 +336,11 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       return;
     }
     if (tickBusy.has(n)) return;
+    pinRange();
     const version = ++tickVersion.current;
     const watched = !tickedNumbers.has(n);
+    if (watched && canRate && myRetentionOf(n) === null) setRateFirst(n);
+    else if (!watched && rateFirst === n) setRateFirst(null);
     const flip = (on: boolean) =>
       setTickedNumbers((prev) => {
         const next = new Set(prev);
@@ -296,9 +360,10 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
       // The tick already shows; only the library count/status comes from the
       // server (from the newest tap, so an older reply can't roll it back).
-      if (version === tickVersion.current) applyTracking(animeId, { episodesWatched: body.episodesWatched, status: body.status });
+      if (version === tickVersion.current && body.inLibrary !== false) applyTracking(animeId, { episodesWatched: body.episodesWatched, status: body.status });
     } catch (err: any) {
       flip(!watched);
+      if (watched) setRateFirst((cur) => (cur === n ? null : cur));
       showToast(err?.message ? `Couldn't save episode ${n}: ${err.message}` : `Couldn't save episode ${n}`, 'error');
     } finally {
       setTickBusy((prev) => {
@@ -315,7 +380,10 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
 
     const epId = ep.id || `ep-${ep.number}`;
     const currentlyWatched = watchedEpisodeIds.has(epId);
+    pinRange();
     const targetStatus = currentlyWatched ? 'UNWATCHED' : 'WATCHED';
+    if (!currentlyWatched && canRate && myRetentionOf(ep.number) === null) setRateFirst(ep.number);
+    else if (currentlyWatched && rateFirst === ep.number) setRateFirst(null);
 
     setWatchedEpisodeIds((prev) => {
       const next = new Set(prev);
@@ -330,12 +398,13 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
     // bar) right away instead of waiting for the round trip; the server's
     // numbers replace this guess when they arrive.
     const previousItem = getItem(animeId);
-    if (user) {
+    // Only paint library progress when it's already in the library — a tick
+    // never adds it there.
+    if (user && previousItem) {
       applyTracking(animeId, {
         episodesWatched: (previousItem?.episodesWatched ?? 0) + (currentlyWatched ? -1 : 1),
         episodeNumber: ep.number,
         watched: !currentlyWatched,
-        ...(previousItem ? {} : { status: 'watching' }),
       });
     }
 
@@ -366,7 +435,7 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       );
     } catch (err: any) {
       console.error('Episode toggle error:', err);
-      if (user) {
+      if (user && previousItem) {
         applyTracking(animeId, {
           status: previousItem?.status ?? null,
           episodesWatched: previousItem?.episodesWatched ?? 0,
@@ -478,6 +547,7 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
               onClick={() => {
                 setSelectedSeasonIdx(idx);
                 setIsExpanded(false);
+                setPickedRange(null);
               }}
             >
               <span className={styles.tabSeasonName}>{season.title}</span>
@@ -555,9 +625,31 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
         </div>
       )}
 
+      {hasListRows && showRanges && (
+        <div className={styles.rangeChips} role="tablist" aria-label="Episode ranges">
+          {ranges.map((r, i) => {
+            const holdsNext = nextUpNumber !== null && nextUpNumber >= r.from && nextUpNumber <= r.to;
+            return (
+              <button
+                key={r.start}
+                type="button"
+                role="tab"
+                aria-selected={rangeIdx === i}
+                className={`${styles.rangeChip} ${rangeIdx === i ? styles.rangeChipActive : ''}`}
+                onClick={() => setPickedRange(i)}
+                title={holdsNext ? `Up next: Episode ${nextUpNumber}` : undefined}
+              >
+                {r.from === r.to ? r.from : `${r.from}–${r.to}`}
+                {holdsNext && <i className={styles.rangeDot} aria-label="Up next is in this range" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {hasListRows && (
         <ul className={styles.epLines}>
-          {displayedEpisodes.map((ep) => {
+          {shownEpisodes.map((ep) => {
             const epId = ep.id || `ep-${ep.number}`;
             const n = Math.floor(ep.number);
             const isWatched = hasEpisodeRows ? watchedEpisodeIds.has(epId) : isTicked(n);
@@ -572,7 +664,7 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
             return (
               <li
                 key={epId}
-                className={`${styles.epLine} ${isWatched ? styles.epLineWatched : ''} ${!aired && canRate ? styles.epLineUpcoming : ''} ${isNext ? styles.epLineNext : ''}`}
+                className={`${styles.epLine} ${isWatched ? styles.epLineWatched : ''} ${!aired && canRate ? styles.epLineUpcoming : ''} ${isNext ? styles.epLineNext : ''} ${ep.number === rateFirst ? styles.epLineRateNow : ''}`}
               >
                 <span className={styles.epLineNo}>
                   <small>EP</small>
@@ -581,14 +673,35 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
                 <span className={styles.epLineText}>
                   <span className={styles.epLineTitleRow}>
                     <span className={realTitle ? styles.epLineTitle : styles.epLineTitleMuted}>{realTitle || `Episode ${ep.number}`}</span>
-                    {isNext && <span className={styles.nextBadge}>Up next</span>}
-                    {fresh && <span className={styles.newBadge}>New</span>}
+                    {isNext && ep.number === rateFirst ? (
+                      <span className={styles.rateNowBadge}>Rate this episode</span>
+                    ) : (
+                      isNext && <span className={styles.nextBadge}>Up next</span>
+                    )}
+                    {/* The latest episode, in its first day: "Just aired · 2 min ago" (live). */}
+                    {aired && ep.number === latestAired && ep.airedAt && nowMs !== null && nowMs - new Date(ep.airedAt).getTime() < 24 * 3_600_000 ? (
+                      <span className={styles.justAired}>
+                        <i aria-hidden="true" /> Just aired · {ago(ep.airedAt)}
+                      </span>
+                    ) : (
+                      fresh && <span className={styles.newBadge}>New</span>
+                    )}
                   </span>
-                  {(date || ep.filler || ep.recap) && (
+                  {(date || ep.filler || ep.recap || (aired && community?.retention != null)) && (
                     <span className={styles.epLineMeta}>
                       {date}
                       {ep.filler && <span className={styles.fillerBadge}>Filler</span>}
                       {ep.recap && <span className={styles.recapBadge}>Recap</span>}
+                      {/* The community's score for this episode, right under its title (2026-10-25). */}
+                      {aired && community?.retention != null && (
+                        <span
+                          className={styles.communityPill}
+                          style={{ color: retentionColor(community.retention), background: retentionSoftColor(community.retention) }}
+                          title={`Community retention · ${community.retentionCount} ${community.retentionCount === 1 ? 'rating' : 'ratings'}`}
+                        >
+                          {community.retention}% {retentionLabel(community.retention)}
+                        </span>
+                      )}
                     </span>
                   )}
                 </span>
@@ -599,13 +712,16 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
                         animeId={animeId}
                         episodeNumber={n}
                         mine={mine}
+                        myComment={ratingSummary?.mine[ep.number]?.note ?? null}
                         community={{ value: community?.retention ?? null, count: community?.retentionCount ?? 0 }}
                         onSaved={onSummaryChange}
                         compact
                         locked={!isWatched}
                       />
                     ) : (
-                      <span className={styles.notAired}>Not aired yet</span>
+                      <span className={styles.notAired}>
+                        {nextUp && ep.number === nextUp.number && countdown(nextUp.airingAt) ? `Airs in ${countdown(nextUp.airingAt)}` : 'Not aired yet'}
+                      </span>
                     )}
                   </span>
                 )}
@@ -627,7 +743,7 @@ export const EpisodeQuickList: React.FC<EpisodeQuickListProps> = ({
       )}
 
       {/* Expand / Collapse Toggle if many episodes */}
-      {activeEpisodes.length > INITIAL_DISPLAY_COUNT && (
+      {!showRanges && activeEpisodes.length > INITIAL_DISPLAY_COUNT && (
         <button
           type="button"
           className={styles.expandToggleBtn}

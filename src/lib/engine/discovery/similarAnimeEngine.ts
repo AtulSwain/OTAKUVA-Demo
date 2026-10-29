@@ -20,7 +20,7 @@
 import { prisma } from '../../prisma';
 import { getUserTasteProfile } from '../taste/tasteEngine';
 
-export const SIMILARITY_ALGORITHM_VERSION = 1;
+export const SIMILARITY_ALGORITHM_VERSION = 4;
 
 export interface SimilarAnimeItem {
   id: string;
@@ -189,22 +189,68 @@ export class SimilarAnimeEngine {
     const targetTokens = this.extractStoryTokens(targetAnime.synopsis);
     const targetLengthBucket = (targetAnime.episodes || 12) <= 13 ? 'SHORT' : (targetAnime.episodes || 12) <= 26 ? 'MEDIUM' : 'LONG';
 
-    // 5. Candidate Query from Database
+    // 5. Candidate pool, by this anime's genres (v2, 2026-10-25 — owner: "a
+    // horror anime should recommend horror"). Each genre is weighted by how
+    // rare it is (ln(catalog / anime with that genre)), so "Horror" or
+    // "Psychological" pull far harder than "Action" or "Comedy". Candidates
+    // are the anime sharing the most weight; ties go to the better-known
+    // title. (v1 took the first 60 rows sharing ANY genre/theme/studio in
+    // table order, so most pages ended up with the same recommendations.)
+    const weightRows = await prisma.$queryRaw<{ genreId: string; name: string; w: number }[]>`
+      WITH total AS (SELECT count(*)::float AS n FROM "Anime")
+      SELECT g.id AS "genreId", g.name, ln((SELECT n FROM total) / GREATEST(count(ag."animeId"), 1))::float AS w
+      FROM "AnimeGenre" tg
+      JOIN "Genre" g ON g.id = tg."genreId"
+      JOIN "AnimeGenre" ag ON ag."genreId" = tg."genreId"
+      WHERE tg."animeId" = ${targetAnime.id}
+      GROUP BY g.id, g.name`;
+    const genreWeight = new Map(weightRows.map((r) => [r.name, Math.max(0.1, Number(r.w))]));
+    const targetGenreWeight = Array.from(genreWeight.values()).reduce((a, b) => a + b, 0);
+
+    let poolIds: string[] = [];
+    if (weightRows.length > 0) {
+      const genreIds = weightRows.map((r) => r.genreId);
+      const pool = await prisma.$queryRaw<{ animeId: string }[]>`
+        WITH w AS (
+          SELECT unnest(${genreIds}::text[]) AS "genreId", unnest(${weightRows.map((r) => Math.max(0.1, Number(r.w)))}::float[]) AS weight
+        )
+        SELECT ag."animeId"
+        FROM "AnimeGenre" ag
+        JOIN w ON w."genreId" = ag."genreId"
+        JOIN "Anime" a ON a.id = ag."animeId"
+        WHERE ag."animeId" <> ${targetAnime.id} AND a."isAdult" = false
+        GROUP BY ag."animeId", a.members
+        ORDER BY sum(w.weight) DESC, a.members DESC NULLS LAST
+        LIMIT 80`;
+      poolIds = pool.map((r) => r.animeId);
+    }
+    // Same-franchise titles are always considered (shown separately).
+    poolIds = Array.from(new Set([...poolIds, ...Array.from(franchiseAnimeMap.keys())]));
+
     const candidates = await prisma.anime.findMany({
-      where: {
-        id: { not: targetAnime.id },
-        OR: [
-          { animeGenres: { some: { genre: { name: { in: Array.from(targetGenres) } } } } },
-          { animeThemes: { some: { theme: { name: { in: Array.from(targetThemes) } } } } },
-          { animeStudios: { some: { studio: { name: { in: Array.from(targetStudios) } } } } },
-        ],
-      },
-      take: 60,
+      where:
+        poolIds.length > 0
+          ? { id: { in: poolIds } }
+          : {
+              // No genres on record: fall back to themes / studio.
+              id: { not: targetAnime.id },
+              isAdult: false,
+              OR: [
+                { animeThemes: { some: { theme: { name: { in: Array.from(targetThemes) } } } } },
+                { animeStudios: { some: { studio: { name: { in: Array.from(targetStudios) } } } } },
+              ],
+            },
+      take: poolIds.length > 0 ? undefined : 60,
       include: {
         animeGenres: { include: { genre: true } },
         animeThemes: { include: { theme: true } },
         animeStudios: { include: { studio: true } },
-        staff: { include: { person: true } },
+        // Only the credits the score compares (directors / creators) — the
+        // full staff list of 120 candidates made this slow.
+        staff: {
+          where: { OR: [{ role: { contains: 'director', mode: 'insensitive' } }, { role: { contains: 'creator', mode: 'insensitive' } }] },
+          include: { person: { select: { name: true } } },
+        },
         ratingAggregate: true,
       },
     });
@@ -226,12 +272,16 @@ export class SimilarAnimeEngine {
 
       const matchReasons: string[] = [];
 
-      // 1. Content Score (Genre & Theme Jaccard Overlap)
-      const genreJaccard = this.computeJaccardSimilarity(targetGenres, candGenres);
+      // 1. Content Score: share of this anime's genre weight the candidate
+      // covers (rare genres count more), plus theme overlap.
+      const sharedGenreWeight = Array.from(candGenres).reduce((sum, g) => sum + (genreWeight.get(g) ?? 0), 0);
+      const genreMatch = targetGenreWeight > 0 ? Math.min(1, sharedGenreWeight / targetGenreWeight) : this.computeJaccardSimilarity(targetGenres, candGenres);
       const themeJaccard = this.computeJaccardSimilarity(targetThemes, candThemes);
-      const contentScore = genreJaccard * 0.65 + themeJaccard * 0.35;
+      const contentScore = genreMatch * 0.7 + themeJaccard * 0.3;
 
-      const sharedGenres = Array.from(targetGenres).filter((g) => candGenres.has(g));
+      const sharedGenres = Array.from(targetGenres)
+        .filter((g) => candGenres.has(g))
+        .sort((a, b) => (genreWeight.get(b) ?? 0) - (genreWeight.get(a) ?? 0));
       if (sharedGenres.length > 0) {
         matchReasons.push(`Shares ${sharedGenres.slice(0, 2).join(' & ')} genre elements`);
       }
@@ -277,12 +327,13 @@ export class SimilarAnimeEngine {
       }
 
       // Final Weighted Composite Similarity Score
+      // Genre fit leads (v2); story, format, studio, creator and quality refine it.
       const totalSimilarity =
-        contentScore * 0.35 +
-        semanticScore * 0.2 +
-        structuralScore * 0.15 +
-        studioScore * 0.1 +
-        creatorScore * 0.1 +
+        contentScore * 0.5 +
+        semanticScore * 0.15 +
+        structuralScore * 0.1 +
+        studioScore * 0.08 +
+        creatorScore * 0.07 +
         collaborativeScore * 0.1 +
         personalBonus;
 
@@ -331,6 +382,27 @@ export class SimilarAnimeEngine {
 
     // Sort Descending by Similarity Score
     scoredSimilar.sort((a, b) => b.similarityScore - a.similarityScore);
+    // One entry per series: "Re:ZERO" season 1, 2 and 3 would otherwise fill
+    // the row. Keeps the best-matching entry of each title stem.
+    const seriesKey = (t: string) =>
+      t
+        .toLowerCase()
+        .split(/[:\-–(]|\bseason\b|\bpart\b|\b\d+(?:st|nd|rd|th)\b/)[0]
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+\d+$/, '') // "berserk 2" → "berserk"
+        .trim();
+    // The anime's own series is excluded too — its sequels/prequels belong
+    // in Related, not in "More like this".
+    const seenSeries = new Set<string>([seriesKey(targetAnime.canonicalTitle || '')].filter(Boolean));
+    const distinct = scoredSimilar.filter((item) => {
+      const key = seriesKey(item.canonicalTitle || item.title || '');
+      if (!key) return true;
+      if (seenSeries.has(key)) return false;
+      seenSeries.add(key);
+      return true;
+    });
+    scoredSimilar.length = 0;
+    scoredSimilar.push(...distinct);
     franchiseItems.sort((a, b) => (a.year || 0) - (b.year || 0));
 
     const response: SimilarAnimeResponse = {

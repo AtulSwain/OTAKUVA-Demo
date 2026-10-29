@@ -47,12 +47,36 @@ export interface AnimeFacts {
     favorites: number | null;
   } | null;
   links: { label: string; url: string }[];
+  /** OTAKUVA's own members (2026-10-25): real counts from our tables. */
+  community: {
+    /** Members with it in their library (any status). */
+    inLibraries: number;
+    /** Members who favourited it. */
+    favorites: number;
+    /** Members who gave it a 1–10 rating. */
+    ratings: number;
+    /** Members who rated at least one of its episodes (retention). */
+    retentionRaters: number;
+  };
 }
 
 const COUNTRY_NAMES: Record<string, string> = { JP: 'Japan', CN: 'China', KR: 'South Korea', TW: 'Taiwan', US: 'United States' };
 
 function uniq(list: string[]) {
   return Array.from(new Set(list.map((s) => s.trim()).filter(Boolean)));
+}
+
+async function communityCounts(animeId: string): Promise<AnimeFacts['community']> {
+  const [inLibraries, favRows, libFavRows, ratings, raters] = await Promise.all([
+    prisma.userAnime.count({ where: { animeId } }),
+    prisma.favorite.findMany({ where: { animeId }, select: { userId: true } }),
+    prisma.userAnime.findMany({ where: { animeId, favorite: true }, select: { userId: true } }),
+    prisma.animeRating.count({ where: { animeId, deletedAt: null } }),
+    prisma.episodeRating.groupBy({ by: ['userId'], where: { animeId, episodeNumber: { not: null }, retention: { gte: 1, lte: 100 } } }),
+  ]);
+  // A favourite can live in either table; each member counts once.
+  const favorites = new Set([...favRows, ...libFavRows].map((r) => r.userId)).size;
+  return { inLibraries, favorites, ratings, retentionRaters: raters.length };
 }
 
 export async function getAnimeFacts(animeId: string): Promise<AnimeFacts | null> {
@@ -118,7 +142,9 @@ export async function getAnimeFacts(animeId: string): Promise<AnimeFacts | null>
   const airedFrom = a.airedFrom ?? a.startDate;
   const airedTo = a.airedTo ?? a.endDate;
 
+  const community = await communityCounts(animeId);
   return {
+    community,
     titles: {
       english: byType('english'),
       japanese: byType('japanese'),

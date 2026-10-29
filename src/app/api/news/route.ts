@@ -31,8 +31,12 @@ export async function GET(req: NextRequest) {
     // anywhere in this handler) — a straightforward stale-while-revalidate
     // catalog read. Keyed on every filter so different filter combinations
     // never collide.
-    const result = await CacheManager.getOrSetCatalog('news', `news:list:${JSON.stringify(filters)}`, () =>
-      newsEngine.getNews(filters)
+    const result = await CacheManager.getOrSetCatalog(
+      'news',
+      `news:list:${JSON.stringify(filters)}`,
+      () => newsEngine.getNews(filters),
+      // Tagged so a story published in the control center shows at once.
+      { tags: ['tag:news:list'] },
     );
 
     return NextResponse.json(result);

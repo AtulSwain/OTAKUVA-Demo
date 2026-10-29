@@ -1,7 +1,9 @@
+import { alertAdmins } from '../../../../lib/notifications/adminAlerts';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../../lib/prisma';
-import { signJwtToken, setSessionCookie } from '../../../../lib/auth';
+import { signJwtToken, setSessionCookie, hashPassword, verifyPhonePass } from '../../../../lib/auth';
+import { validatePassword } from '../../../../lib/identity/password';
 import { normalizePhone } from '../../../../lib/identity/phoneNumber';
 import { validateUsername } from '../../../../lib/identity/username';
 import { findUserIdByPhone, isUsernameTaken } from '../../../../lib/identity/accountLookup';
@@ -15,11 +17,13 @@ export const dynamic = 'force-dynamic';
 const ROUTE = 'register';
 
 /**
- * POST /api/auth/register { username, phone, country?, code }
+ * POST /api/auth/register { username, password, pass }      ← the sign-up form
+ *                         { username, password, phone, country?, code }  (one step)
  *
- * Phone sign-up: the caller has already requested a code via
- * POST /api/auth/phone/send-otp (purpose "register"). The account is
- * created phone-verified, with no email and no password, and signed in.
+ * Sign-up (2026-10-28): username + phone → SMS code → password. The code is
+ * checked first by POST /api/auth/phone/verify-code, which returns `pass`
+ * (proof the phone was verified, 10 min); the account is created with that
+ * phone and a hashed password, and signed in. A password is always required.
  * One account per number (User.phone is unique).
  */
 export async function POST(request: NextRequest) {
@@ -35,7 +39,18 @@ export async function POST(request: NextRequest) {
     if (usernameError) {
       return NextResponse.json({ error: usernameError, code: 'INVALID_USERNAME' }, { status: 400 });
     }
-    const phone = normalizePhone(String(body?.phone ?? ''), String(body?.country ?? 'IN'));
+    const password = typeof body?.password === 'string' ? body.password : '';
+    const passwordError = validatePassword(password, username);
+    if (passwordError) {
+      return NextResponse.json({ error: passwordError, code: 'INVALID_PASSWORD' }, { status: 400 });
+    }
+
+    // Phone: from a verified pass (the form), or a number + code (one step).
+    const verified = body?.pass !== undefined ? verifyPhonePass(body.pass, 'register') : null;
+    if (body?.pass !== undefined && !verified) {
+      return NextResponse.json({ error: 'Your phone verification expired. Request a new code.', code: 'PASS_INVALID' }, { status: 400 });
+    }
+    const phone = verified ? verified.phone : normalizePhone(String(body?.phone ?? ''), String(body?.country ?? 'IN'));
     if (!phone) {
       return NextResponse.json({ error: 'Enter a valid mobile number.', code: 'INVALID_PHONE' }, { status: 400 });
     }
@@ -52,9 +67,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const otpFailure = await verifyOtpOrRespond(phone, body?.code);
-    if (otpFailure) return otpFailure;
+    if (!verified) {
+      const otpFailure = await verifyOtpOrRespond(phone, body?.code);
+      if (otpFailure) return otpFailure;
+    }
 
+    const passwordHash = await hashPassword(password);
     let user;
     try {
       user = await prisma.user.create({
@@ -62,6 +80,7 @@ export async function POST(request: NextRequest) {
           username,
           phone,
           phoneVerifiedAt: new Date(),
+          passwordHash,
           // No generated avatar: members without a photo get a monogram (UserAvatar / getAvatarUrl).
         },
         select: SESSION_USER_SELECT,
@@ -76,6 +95,11 @@ export async function POST(request: NextRequest) {
       }
       throw err;
     }
+
+    // Raw SQL: these columns are newer than the running server's Prisma client may be.
+    await prisma.$executeRaw`UPDATE "User" SET "lastLoginAt" = NOW(), "lastSeenAt" = NOW(), "passwordChangedAt" = NOW() WHERE id = ${user.id}`;
+
+    await alertAdmins('ADMIN_NEW_MEMBER', 'New member', `@${user.username} created an account.`, '/control/users');
 
     const token = signJwtToken({ userId: user.id, username: user.username, email: null });
     const response = NextResponse.json({ user: toSessionUser(user), token, message: 'Welcome to OTAKUVA!' });

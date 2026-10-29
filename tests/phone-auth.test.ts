@@ -1,10 +1,12 @@
 import './helpers/setupTestDb';
+// These tests exercise the 1–10 star rating, which is switched off by default (2026-10-25).
+process.env.STAR_RATINGS_ENABLED = 'true';
 
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
 import { prisma } from '../src/lib/prisma';
-import { hashPassword, signJwtToken } from '../src/lib/auth';
+import { comparePassword, hashPassword, signJwtToken } from '../src/lib/auth';
 import { read, type TestUser } from './helpers/http';
 import { createAnime, createUser } from './helpers/fixtures';
 import { normalizePhone } from '../src/lib/identity/phoneNumber';
@@ -24,6 +26,8 @@ import { POST as sendOtpPOST } from '../src/app/api/auth/phone/send-otp/route';
 import { POST as phoneVerifyPOST } from '../src/app/api/auth/phone/verify/route';
 import { POST as registerPOST } from '../src/app/api/auth/register/route';
 import { POST as loginPOST } from '../src/app/api/auth/login/route';
+import { POST as verifyCodePOST } from '../src/app/api/auth/phone/verify-code/route';
+import { POST as phoneResetPOST } from '../src/app/api/auth/password-reset/phone/route';
 import { POST as ratingPOST } from '../src/app/api/anime/[id]/rating/route';
 import { POST as reviewsPOST } from '../src/app/api/reviews/route';
 
@@ -52,6 +56,8 @@ let phoneSeq = 0;
 /** A unique, valid Indian mobile number (national format) per call. */
 const freshPhone = () => `9${String(Date.now() % 1e6).padStart(6, '0')}${String(phoneSeq++).padStart(3, '0')}`;
 const e164 = (national: string) => normalizePhone(national, 'IN')!;
+/** Every account has a password since 2026-10-28. */
+const PW = 'otakuva-Pass-2026';
 
 const rate = (as: TestUser, animeId: string) =>
   ratingPOST(req('POST', `/api/anime/${animeId}/rating`, { as, body: { score: 8 } }), { params: { id: animeId } }).then(read);
@@ -123,15 +129,15 @@ describe('sign-up by phone', () => {
     const real = peekDevOtp(e164(phone))!;
     const wrong = real === '000000' ? '111111' : '000000';
 
-    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: wrong } })));
+    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: wrong, password: PW } })));
     assert.equal(res.status, 400);
     assert.equal(res.body.code, 'OTP_INVALID');
     assert.equal(await prisma.user.count({ where: { username } }), 0);
   });
 
-  test('the right code creates a phone-verified account with no email or password, signed in, and it can rate at once', async () => {
+  test('the right code creates a phone-verified account with a hashed password, signed in, and it can rate at once', async () => {
     const code = peekDevOtp(e164(phone))!;
-    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code } })));
+    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code, password: PW } })));
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.user.phoneVerified, true);
     assert.match(res.body.user.phoneMasked, /^\+91 •+\d{4}$/);
@@ -141,7 +147,8 @@ describe('sign-up by phone', () => {
     assert.equal(row.phone, e164(phone));
     assert.ok(row.phoneVerifiedAt);
     assert.equal(row.email, null);
-    assert.equal(row.passwordHash, null);
+    assert.ok(row.passwordHash && row.passwordHash !== PW, 'password stored hashed');
+    assert.equal(await comparePassword(PW, row.passwordHash!), true);
 
     const rated = await rate({ id: row.id, username: row.username, email: '' }, anime.id);
     assert.ok(rated.status === 200 || rated.status === 201, JSON.stringify(rated.body));
@@ -149,7 +156,7 @@ describe('sign-up by phone', () => {
 
   test('the same code cannot be used twice', async () => {
     const again = await read(
-      await registerPOST(req('POST', '/api/auth/register', { body: { username: `${username}_2`, phone: freshPhone(), country: 'IN', code: '123456' } }))
+      await registerPOST(req('POST', '/api/auth/register', { body: { username: `${username}_2`, phone: freshPhone(), country: 'IN', code: '123456', password: PW } }))
     );
     assert.equal(again.status, 400);
   });
@@ -162,18 +169,26 @@ describe('sign-up by phone', () => {
     assert.equal(res.body.code, 'PHONE_IN_USE');
   });
 
-  test('signing in by phone + code works; an unknown number gets no code', async () => {
-    const unknown = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'login', phone: freshPhone(), country: 'IN' } })));
-    assert.equal(unknown.status, 404);
-    assert.equal(unknown.body.code, 'PHONE_NOT_REGISTERED');
-
-    const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'login', phone, country: 'IN' } })));
-    assert.equal(sent.status, 200);
-    const login = await loginPOST(req('POST', '/api/auth/login', { body: { phone, country: 'IN', code: peekDevOtp(e164(phone)) } }));
+  test('signs in with username + password (any case); wrong password and unknown user are refused alike', async () => {
+    const login = await loginPOST(req('POST', '/api/auth/login', { body: { identifier: username.toUpperCase(), password: PW } }));
     const body = await read(login);
     assert.equal(body.status, 200, JSON.stringify(body.body));
     assert.equal(body.body.user.username, username);
     assert.ok(login.headers.get('set-cookie')?.includes('anilog_token='), 'session cookie set');
+
+    const wrong = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: username, password: 'not-the-Pass-1' } })));
+    assert.equal(wrong.status, 401);
+    const unknown = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: `nobody_${Date.now()}`, password: PW } })));
+    assert.equal(unknown.status, 401);
+    assert.equal(unknown.body.error, wrong.body.error, 'same message: no hint which part was wrong');
+  });
+
+  test('a code alone can no longer sign in to an account that has a password', async () => {
+    const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'login', phone, country: 'IN' } })));
+    assert.equal(sent.status, 200);
+    const res = await read(await loginPOST(req('POST', '/api/auth/login', { body: { phone, country: 'IN', code: peekDevOtp(e164(phone)) } })));
+    assert.equal(res.status, 400);
+    assert.equal(res.body.code, 'USE_PASSWORD');
   });
 });
 
@@ -215,7 +230,7 @@ describe('legacy email/password accounts', () => {
     assert.equal(res.body.code, 'PHONE_IN_USE');
   });
 
-  test('linking a phone unlocks rating, and password sign-in is retired after that', async () => {
+  test('linking a phone unlocks rating, and the password still signs in', async () => {
     const phone = freshPhone();
     const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { as: legacy, body: { purpose: 'link', phone, country: 'IN' } })));
     assert.equal(sent.status, 200, JSON.stringify(sent.body));
@@ -229,9 +244,9 @@ describe('legacy email/password accounts', () => {
     const rated = await rate(legacy, anime.id);
     assert.ok(rated.status === 200 || rated.status === 201, JSON.stringify(rated.body));
 
+    // Since 2026-10-28 every account signs in with its password, phone or not.
     const pw = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: legacy.email, password } })));
-    assert.equal(pw.status, 400);
-    assert.equal(pw.body.code, 'USE_PHONE_SIGN_IN');
+    assert.equal(pw.status, 200, JSON.stringify(pw.body));
   });
 });
 
@@ -259,7 +274,7 @@ describe('while phone verification is switched off', () => {
       const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'register', phone, country: 'IN', username } })));
       assert.equal(sent.status, 200, JSON.stringify(sent.body));
       assert.match(sent.body.mockCode, /^\d{6}$/);
-      const reg = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: sent.body.mockCode } })));
+      const reg = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: sent.body.mockCode, password: PW } })));
       assert.equal(reg.status, 200, JSON.stringify(reg.body));
     } finally {
       delete process.env.PHONE_OTP_MODE;
@@ -278,10 +293,93 @@ describe('OTP brute force', () => {
     const real = peekDevOtp(e164(phone))!;
     const wrong = real === '999999' ? '888888' : '999999';
     for (let i = 0; i < 5; i++) {
-      await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: wrong } }));
+      await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: wrong, password: PW } }));
     }
-    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: real } })));
+    const res = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, phone, country: 'IN', code: real, password: PW } })));
     assert.equal(res.status, 429);
     assert.equal(await prisma.user.count({ where: { username } }), 0);
+  });
+});
+
+describe('sign-up with a verified phone pass + password (the form flow)', () => {
+  test('code → pass → password creates the account; no password or a weak one is refused', async () => {
+    const username = `passflow_${Date.now().toString(36)}`;
+    const phone = freshPhone();
+    await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'register', phone, country: 'IN', username } }));
+    const ver = await read(await verifyCodePOST(req('POST', '/api/auth/phone/verify-code', { body: { purpose: 'register', phone, country: 'IN', code: peekDevOtp(e164(phone)) } })));
+    assert.equal(ver.status, 200, JSON.stringify(ver.body));
+    assert.equal(typeof ver.body.pass, 'string');
+
+    const none = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, pass: ver.body.pass } })));
+    assert.equal(none.status, 400);
+    assert.equal(none.body.code, 'INVALID_PASSWORD');
+    const weak = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, pass: ver.body.pass, password: 'abcdefgh' } })));
+    assert.equal(weak.status, 400);
+
+    const ok = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username, pass: ver.body.pass, password: PW } })));
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    const row = await prisma.user.findUniqueOrThrow({ where: { username } });
+    assert.equal(row.phone, e164(phone));
+    assert.ok(row.phoneVerifiedAt);
+  });
+
+  test('a forged or wrong-purpose pass is refused, and a pass is never a session', async () => {
+    const forged = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username: `forged_${Date.now().toString(36)}`, pass: 'not.a.pass', password: PW } })));
+    assert.equal(forged.status, 400);
+    assert.equal(forged.body.code, 'PASS_INVALID');
+
+    // A reset pass can't create an account.
+    const owner = await createUser();
+    const ownerPhone = freshPhone();
+    await prisma.user.update({ where: { id: owner.id }, data: { phone: e164(ownerPhone) } });
+    await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', phone: ownerPhone, country: 'IN' } }));
+    const ver = await read(await verifyCodePOST(req('POST', '/api/auth/phone/verify-code', { body: { purpose: 'reset', phone: ownerPhone, country: 'IN', code: peekDevOtp(e164(ownerPhone)) } })));
+    assert.equal(ver.status, 200, JSON.stringify(ver.body));
+    const wrongPurpose = await read(await registerPOST(req('POST', '/api/auth/register', { body: { username: `wrongp_${Date.now().toString(36)}`, pass: ver.body.pass, password: PW } })));
+    assert.equal(wrongPurpose.status, 400);
+
+    // Used as a session cookie, the pass identifies nobody.
+    const { getAuthUserFromRequest } = await import('../src/lib/auth');
+    const headers = new Headers({ cookie: `anilog_token=${ver.body.pass}` });
+    assert.equal(await getAuthUserFromRequest(new NextRequest(new URL('/api/auth/me', 'http://localhost:3000'), { headers })), null);
+  });
+});
+
+describe('forgot password by phone', () => {
+  test('phone → code → new password signs in; the pass works once; the old password stops working', async () => {
+    const user = await createUser();
+    const phone = freshPhone();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: e164(phone), passwordHash: await hashPassword('Old-password-1') } });
+
+    const unknown = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', phone: freshPhone(), country: 'IN' } })));
+    assert.equal(unknown.status, 404);
+
+    await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', phone, country: 'IN' } }));
+    const ver = await read(await verifyCodePOST(req('POST', '/api/auth/phone/verify-code', { body: { purpose: 'reset', phone, country: 'IN', code: peekDevOtp(e164(phone)) } })));
+    assert.equal(ver.status, 200, JSON.stringify(ver.body));
+
+    // Passes are stamped to the second; make sure the change lands after it.
+    await new Promise((r) => setTimeout(r, 1100));
+    const reset = await phoneResetPOST(req('POST', '/api/auth/password-reset/phone', { body: { pass: ver.body.pass, password: 'New-password-2' } }));
+    const body = await read(reset);
+    assert.equal(body.status, 200, JSON.stringify(body.body));
+    assert.ok(reset.headers.get('set-cookie')?.includes('anilog_token='), 'signed in');
+
+    const again = await read(await phoneResetPOST(req('POST', '/api/auth/password-reset/phone', { body: { pass: ver.body.pass, password: 'Another-password-3' } })));
+    assert.equal(again.status, 400);
+    assert.equal(again.body.code, 'PASS_USED');
+
+    const oldPw = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: user.username, password: 'Old-password-1' } })));
+    assert.equal(oldPw.status, 401);
+    const newPw = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: user.username, password: 'New-password-2' } })));
+    assert.equal(newPw.status, 200, JSON.stringify(newPw.body));
+  });
+
+  test('an older phone account without a password is told to use "Forgot password"', async () => {
+    const user = await createUser();
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: null } });
+    const res = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: user.username, password: PW } })));
+    assert.equal(res.status, 400);
+    assert.equal(res.body.code, 'NO_PASSWORD');
   });
 });

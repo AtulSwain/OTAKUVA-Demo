@@ -1,0 +1,104 @@
+/* Badge info card (2026-10-27). Colours come from tierVars (--b-*). */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(6, 6, 8, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade 0.18s ease both;
+}
+.sheet {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: min(86vh, 760px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 28px 24px 24px;
+  border-radius: 24px;
+  background: var(--surface-base, #1b1b1e);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: rise 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.close:hover { background: rgba(255, 255, 255, 0.14); }
+
+.hero { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.glow {
+  position: absolute;
+  top: -10px;
+  width: 200px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--b-bar-dark, #fff) 35%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.hero :global(svg) { position: relative; }
+.kanji { margin-top: 10px; font: 700 15px/1.2 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif; color: var(--text-muted); letter-spacing: 0.2em; }
+.name { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: var(--b-bar-dark, var(--text-primary)); }
+.gloss { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.statusOn {
+  background: color-mix(in srgb, var(--b-bar-dark, #fff) 18%, transparent);
+  color: var(--b-bar-dark, var(--text-primary));
+}
+
+.progress { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.bar { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.bar span { display: block; height: 100%; border-radius: inherit; background: var(--b-bar-dark, #fff); }
+.progressText { font-size: 12.5px; color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.progressText strong { color: var(--text-primary); }
+
+.about { margin: 18px 0 0; font-size: 14.5px; line-height: 1.6; color: var(--text-secondary); text-align: center; }
+.h { margin: 22px 0 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.list li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.list li :global(svg) { margin-top: 3px; color: var(--text-muted); }
+.list li.met { color: var(--text-primary); }
+.list li.met :global(svg) { color: var(--b-bar-dark, #fff); }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+
+@media (max-width: 640px) {
+  .backdrop { place-items: end center; padding: 0; }
+  .sheet {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 24px 24px 0 0;
+    padding: 26px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .backdrop, .sheet { animation: none; }
+}

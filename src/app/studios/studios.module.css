@@ -233,3 +233,6 @@
    distant ancestor instead of the input. */
 .searchWrap { position: relative; width: 100%; }
 .searchIcon { top: 50%; }
+
+/* Clean pass (2026-10-25): the shell already pads to the header's edges. */
+.container { padding-left: 0; padding-right: 0; }

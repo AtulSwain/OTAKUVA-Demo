@@ -1,12 +1,15 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Play, Plus, Check, Heart, Star, Share2, MessageSquare, ChevronDown, Trash2, FolderPlus } from 'lucide-react';
+import { Play, Plus, Check, Heart, Gauge, Share2, MessageSquare, ChevronDown, Trash2, FolderPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAnimeLists } from '../lists/useAnimeLists';
 import { Anime } from '../../types/anime';
 import { AnimeImage } from './AnimeImage';
-import { pickBanner } from '../../lib/media/heroArt';
+import { pickBanner, trailerStills } from '../../lib/media/heroArt';
+import { RetentionBadge } from '../rating/RetentionBadge';
+import { durationMinutes, formatRuntime, isMovieType } from '../../lib/anime/runtime';
+import type { RetentionBadgeKey, RetentionStatus } from '../../lib/rating/retentionScore';
 import { useLibrary } from '../../context/LibraryContext';
 import { useToast } from '../../context/ToastContext';
 import { getAnimeDisplayTitle, getAnimeJapaneseTitle } from '../../lib/animeTitleResolver';
@@ -29,11 +32,16 @@ interface AnimeHeroProps {
   /** Lowest unwatched released episode, computed server-side. */
   nextEpisodeNumber?: number | null;
   /** Average of OTAKUVA members' ratings (null until someone rates). */
+  /** Kept for callers; the hero now shows retention instead (2026-10-25). */
   otakuvaScore?: number | null;
   otakuvaRatingCount?: number;
+  /** The anime's community retention — the score the hero shows. */
+  retention?: { value: number | null; status?: RetentionStatus; badge?: RetentionBadgeKey | null; totalRatings?: number } | null;
   /** False for a title that hasn't aired yet — hides the score display and
    *  the Rate/Review actions, since there's nothing to rate yet. */
   hasPremiered?: boolean;
+  /** Shown right under Add to Library, same width (the Hype button, 2026-10-27). */
+  belowLibrary?: React.ReactNode;
 }
 
 export const AnimeHero: React.FC<AnimeHeroProps> = ({
@@ -45,9 +53,9 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
   studioName,
   studioSlug,
   nextEpisodeNumber = null,
-  otakuvaScore = null,
-  otakuvaRatingCount = 0,
+  retention = null,
   hasPremiered = true,
+  belowLibrary,
 }) => {
   const { getStatus, getItem, updateStatus, toggleFavorite, removeFromLibrary } = useLibrary();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,18 +100,21 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
   const watchedEpisodes = libraryItem?.episodesWatched ?? 0;
   const progressPercent = totalEpisodes ? Math.min(100, Math.round((watchedEpisodes / totalEpisodes) * 100)) : null;
 
-  // The hero shows only the OTAKUVA SCORE: what OTAKUVA members rated. It
-  // updates as soon as someone rates. The provider's score is not shown here.
-  const hasOtakuvaScore = typeof otakuvaScore === 'number' && otakuvaRatingCount > 0;
-  const otakuvaVal = hasOtakuvaScore ? otakuvaScore.toFixed(1) : '—';
-  const otakuvaCountLabel = hasOtakuvaScore
-    ? `${otakuvaRatingCount.toLocaleString()} rating${otakuvaRatingCount === 1 ? '' : 's'}`
-    : 'No ratings yet';
+  // The hero's score is the anime's community retention (2026-10-25, owner):
+  // the mean of its rated episodes' scores, with its badge once there's
+  // enough data. The 1–10 member rating still exists (Rate) but isn't the
+  // headline score any more.
+  const retentionValue = retention?.value ?? null;
+  const retentionStatus: RetentionStatus = retention?.status ?? (retentionValue !== null ? 'provisional' : 'unrated');
+  const retentionCount = retention?.totalRatings ?? 0;
 
   // A real wide banner fills the hero crisply; a poster never gets
   // stretched to full width — it becomes a soft colour backdrop instead,
   // and the sharp poster card beside the title carries the artwork.
   const bannerSrc = pickBanner(anime.bannerImage, (anime as any).bannerUrl);
+  // No banner → a still from the anime's own official trailer (a related,
+  // wide image — owner, 2026-10-25), before falling back to the poster.
+  const stills = bannerSrc ? [] : trailerStills((anime as any).trailerUrl);
   const backdropSrc =
     bannerSrc ||
     anime.posterImage ||
@@ -129,10 +140,14 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
   const kickerFacts: string[] = [];
   if (anime.type && String(anime.type) !== 'UNKNOWN') kickerFacts.push(anime.type);
   if (anime.year) kickerFacts.push(String(anime.year));
-  if (totalEpisodes) kickerFacts.push(`${totalEpisodes} Episode${totalEpisodes === 1 ? '' : 's'}`);
+  // A movie shows its runtime ("Runtime 1h 47m"), not "1 Episode · 107 mins".
+  const movie = isMovieType(anime.type);
+  const runtime = movie ? formatRuntime(durationMinutes(anime.duration)) : null;
+  if (totalEpisodes && !movie) kickerFacts.push(`${totalEpisodes} Episode${totalEpisodes === 1 ? '' : 's'}`);
   const airingStatusLabel = formatAnimeStatus(anime.status);
   if (airingStatusLabel) kickerFacts.push(airingStatusLabel);
-  if (anime.duration) kickerFacts.push(anime.duration);
+  if (runtime) kickerFacts.push(`Runtime ${runtime}`);
+  else if (anime.duration) kickerFacts.push(anime.duration);
   if (anime.source) kickerFacts.push(anime.source);
   if (producersList.length > 0) kickerFacts.push(producersList.join(', '));
 
@@ -194,15 +209,19 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
     <section className={styles.heroSection} aria-label={`${displayTitle} Hero`}>
       {/* 1. Backdrop Artwork & Vignette */}
       <div className={styles.backdropWrapper}>
-        <AnimeImage
-          src={backdropSrc}
-          alt=""
-          fill
-          priority
-          unoptimized
-          sizes="100vw"
-          className={bannerSrc ? styles.backdropImg : `${styles.backdropImg} ${styles.backdropAmbient}`}
-        />
+        {stills.length > 0 ? (
+          <TrailerBackdrop key={stills[0]} stills={stills} fallback={backdropSrc} />
+        ) : (
+          <AnimeImage
+            src={backdropSrc}
+            alt=""
+            fill
+            priority
+            unoptimized
+            sizes="100vw"
+            className={bannerSrc ? styles.backdropImg : `${styles.backdropImg} ${styles.backdropAmbient}`}
+          />
+        )}
         <div className={styles.backdropOverlay} />
       </div>
 
@@ -218,19 +237,6 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
             unoptimized
             sizes="(max-width: 640px) 120px, 220px"
           />
-          {effectiveRating !== null && (
-            <button
-              type="button"
-              className={styles.posterRating}
-              onClick={onOpenRatingModal}
-              disabled={!onOpenRatingModal}
-              aria-label={`Your rating: ${effectiveRating.toFixed(1)} out of 10${onOpenRatingModal ? '. Edit rating' : ''}`}
-            >
-              <Star size={14} fill="currentColor" aria-hidden="true" />
-              <strong>{effectiveRating.toFixed(1)}</strong>
-              <span>Your rating</span>
-            </button>
-          )}
         </div>
 
         {/* Primary Title & Metadata Block */}
@@ -264,14 +270,17 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
           <div className={styles.titleLine}>
             <h1 className={styles.mainTitle}>{displayTitle}</h1>
             {hasPremiered && (
-              <div className={styles.scoreInline} title="Average of OTAKUVA members' ratings">
-                <Star size={18} className={styles.scoreStar} fill={hasOtakuvaScore ? 'currentColor' : 'none'} aria-hidden="true" />
-                <span className={styles.scoreVal}>{otakuvaVal}</span>
+              <a href="#retention" className={styles.scoreInline} title="Retention: the average of this anime's episode scores, as members rated them">
+                <span className={styles.scoreVal}>{retentionValue !== null ? `${retentionValue}%` : '—'}</span>
                 <span className={styles.scoreMeta}>
-                  <span className={styles.scoreLabel}>OTAKUVA score</span>
-                  <span className={styles.scoreRatingsCount}>{otakuvaCountLabel}</span>
+                  <span className={styles.scoreLabel}>Retention</span>
+                  {retentionStatus === 'unrated' ? (
+                    <span className={styles.scoreRatingsCount}>No ratings yet</span>
+                  ) : (
+                    <RetentionBadge status={retentionStatus} badge={retention?.badge ?? null} value={retentionValue} size="xs" />
+                  )}
                 </span>
-              </div>
+              </a>
             )}
           </div>
 
@@ -297,7 +306,8 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
         </div>
 
         {/* Primary Actions Row */}
-        <div className={styles.actionsRow}>
+        <div className={`${styles.actionsRow} ${belowLibrary ? styles.actionsRowStacked : ''}`}>
+          <div className={belowLibrary ? styles.libraryStack : styles.libraryCell}>
           <div className={styles.libraryMenuWrap} ref={menuRef}>
             <button
               type="button"
@@ -407,19 +417,20 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
               </div>
             )}
           </div>
+          {belowLibrary}
+          </div>
 
+          {/* No 1–10 stars any more (owner, 2026-10-25) — rating is per
+              episode (retention); this jumps to the Episode Guide. */}
           {hasPremiered && onOpenRatingModal && (
             <button
               type="button"
-              className={`${styles.actionBtn} ${styles.pairBtn} ${effectiveRating !== null ? styles.ratedActiveBtn : ''}`}
+              className={`${styles.actionBtn} ${styles.pairBtn}`}
               onClick={onOpenRatingModal}
-              title={effectiveRating !== null ? `Your rating: ★ ${effectiveRating.toFixed(1)}/10. Click to edit.` : 'Rate anime'}
+              title="Rate how well each episode kept you watching"
             >
-              {/* One icon per control: the Lucide star is the icon, so the
-                  label carries the number only. It previously also prefixed a
-                  ★ character, rendering two stars side by side. */}
-              <Star size={13} fill={effectiveRating !== null ? 'currentColor' : 'none'} />
-              <span>{effectiveRating !== null ? effectiveRating.toFixed(1) : 'Rate'}</span>
+              <Gauge size={13} aria-hidden="true" />
+              <span>Rate episodes</span>
             </button>
           )}
 
@@ -508,3 +519,34 @@ export const AnimeHero: React.FC<AnimeHeroProps> = ({
     </section>
   );
 };
+
+/**
+ * Hero background from the official trailer's stills, best first. YouTube
+ * answers a missing size with a tiny 120x90 stand-in (or an error), so a
+ * still narrower than 400px moves on to the next size; if none works the
+ * soft blurred poster is used, as before.
+ */
+function TrailerBackdrop({ stills, fallback }: { stills: string[]; fallback?: string | null }) {
+  const [i, setI] = useState(0);
+  const next = () => setI((n) => n + 1);
+  if (i >= stills.length) {
+    return fallback ? (
+      <AnimeImage src={fallback} alt="" fill priority unoptimized sizes="100vw" className={`${styles.backdropImg} ${styles.backdropAmbient}`} />
+    ) : null;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={stills[i]}
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+      fetchPriority="high"
+      className={`${styles.backdropImg} ${styles.backdropTrailer}`}
+      onLoad={(e) => {
+        if (e.currentTarget.naturalWidth < 400) next();
+      }}
+      onError={next}
+    />
+  );
+}

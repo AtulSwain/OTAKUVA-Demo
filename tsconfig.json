@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@control/*": [
+        "./Control Center/*"
       ]
     }
   },

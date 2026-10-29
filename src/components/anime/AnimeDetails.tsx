@@ -1,5 +1,6 @@
 'use client';
 
+import { durationMinutes, formatRuntime, isMovieType } from '../../lib/anime/runtime';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Eye } from 'lucide-react';
@@ -45,7 +46,7 @@ export function AnimeDetails({ facts }: { facts: AnimeFacts }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const { titles, release, stats } = facts;
+  const { titles, release, stats, community } = facts;
   const aired = (() => {
     const from = formatDate(release.airedFrom, release.datePrecision);
     const to = formatDate(release.airedTo, release.datePrecision);
@@ -86,8 +87,14 @@ export function AnimeDetails({ facts }: { facts: AnimeFacts }) {
           <h3 id="facts-release" className={styles.groupTitle}>Release</h3>
           <dl className={styles.list}>
             <Row label="Format">{release.type}</Row>
-            <Row label="Episodes">{fmt(release.episodes)}</Row>
-            <Row label="Duration">{release.duration}</Row>
+            {isMovieType(release.type) ? (
+              <Row label="Runtime">{formatRuntime(durationMinutes(release.duration)) ?? release.duration}</Row>
+            ) : (
+              <>
+                <Row label="Episodes">{fmt(release.episodes)}</Row>
+                <Row label="Duration">{release.duration}</Row>
+              </>
+            )}
             <Row label="Status">{release.status}</Row>
             <Row label="Aired">{aired}</Row>
             <Row label="Season">{release.season && release.seasonYear ? `${titleCase(release.season)} ${release.seasonYear}` : null}</Row>
@@ -133,6 +140,19 @@ export function AnimeDetails({ facts }: { facts: AnimeFacts }) {
                 ))}
             </Row>
           </dl>
+
+          {/* OTAKUVA's own members — shown even at 0, so the counts are honest. */}
+          {community && (
+            <>
+              <h3 className={`${styles.groupTitle} ${styles.groupTitleSpaced}`}>On OTAKUVA</h3>
+              <dl className={styles.list}>
+                <Row label="In libraries">{`${fmt(community.inLibraries)} ${community.inLibraries === 1 ? 'member' : 'members'}`}</Row>
+                <Row label="Favorites">{`${fmt(community.favorites)} ${community.favorites === 1 ? 'member' : 'members'}`}</Row>
+                <Row label="Rated">{`${fmt(community.ratings)} ${community.ratings === 1 ? 'member' : 'members'}`}</Row>
+                <Row label="Episode ratings">{`${fmt(community.retentionRaters)} ${community.retentionRaters === 1 ? 'member' : 'members'}`}</Row>
+              </dl>
+            </>
+          )}
 
           {stats && (
             <>
@@ -200,7 +220,6 @@ export function AnimeDetails({ facts }: { facts: AnimeFacts }) {
               </button>
             )}
           </div>
-          {facts.tags.length > 0 && <p className={styles.note}>Tag relevance from AniList.</p>}
         </section>
       )}
 
