@@ -1965,8 +1965,9 @@ gaps against later phases, from the last audit (2026-08-28):
   without it skips the gate. Tests: `tests/control-gate.test.ts`. The old
   `/admin/*` tools are not behind the gate (role checks only).
   Same day: homepage masthead lost its anime / creators & cast / members
-  counts (reviews + discussions remain); Just Announced has no counter or
-  progress bars, always leads with the newest, re-polls every 5 min, and
+  counts (reviews + discussions remain); Just Announced has no counter and
+  no arrows — just one thin line per announcement on top that fills in turn
+  (tap a line to jump; swipe on phones), always leads with the newest, re-polls every 5 min, and
   the background announcement sync runs hourly (was 3h).
 - **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
