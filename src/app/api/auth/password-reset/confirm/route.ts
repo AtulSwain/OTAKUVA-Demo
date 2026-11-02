@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(newPassword);
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } }),
+      prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash, passwordChangedAt: new Date() } }), // signs out every session
       // Mark this one used...
       prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: now } }),
       // ...and invalidate any other outstanding tokens for the account, so

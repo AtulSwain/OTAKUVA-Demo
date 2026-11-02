@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Search, X, Film, Layers, Building2, Users2, Newspaper, MessageSquareHeart, Calendar, Trophy, Bookmark, Clock, Settings, ArrowRight, CornerDownLeft, Loader2 } from 'lucide-react';
 import { AnimePoster } from './AnimePoster';
 import { sanitizePublicEntityName } from '../../lib/normalizers';
+import { formatAnimeStatus } from '../../lib/anime/animeStatus';
 import styles from './SearchModal.module.css';
 
 interface SearchModalProps {
@@ -21,6 +22,9 @@ interface CommandAction {
   href: string;
   icon: React.ElementType;
 }
+
+const TYPE_LABEL: Record<string, string> = { TV: 'TV', TV_SHORT: 'TV short', TV_SPECIAL: 'TV special', MOVIE: 'Movie', OVA: 'OVA', ONA: 'ONA', SPECIAL: 'Special' };
+const formatType = (t?: string | null) => (t ? TYPE_LABEL[t] ?? t : 'TV');
 
 const COMMAND_ACTIONS: CommandAction[] = [
   { id: 'cmd_explore', label: 'Explore Anime Catalog', category: 'COMMAND', href: '/anime', icon: Search },
@@ -381,45 +385,108 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
             </div>
           )}
 
-          {/* Group 1: Anime Results */}
-          {visibleAnime.length > 0 && (
-            <div className={styles.resultGroup}>
-              <span className={styles.groupHeading}>Anime</span>
-              {visibleAnime.map((anime) => {
-                const itemIndex = flatItems.findIndex((x) => x.id === `anime_${anime.id}`);
-                const isSelected = selectedIndex === itemIndex;
-                return (
-                  <div
-                    key={anime.id}
-                    onClick={() => handleItemClick(`/anime/${anime.slug || anime.id}`)}
-                    role="option"
-                    aria-selected={isSelected}
-                    data-active={isSelected ? 'true' : undefined}
-                    className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
-                  >
-                    <AnimePoster
-                      src={anime.posterUrl}
-                      alt={anime.title}
-                      width={36}
-                      height={50}
-                      className={styles.resultPoster}
-                    />
-                    <div className={styles.resultInfo}>
-                      <div className={styles.titleLine}>
-                        <span className={styles.resultTitle}>{sanitizePublicEntityName(anime.title)}</span>
-                        <CommunityScoreBadge animeId={anime.id} />
-                      </div>
-                      <div className={styles.resultMeta}>
-                        <span className={styles.metaBadge}>{anime.type || 'TV'}</span>
-                        {anime.year && <span>{anime.year}</span>}
-                      </div>
+          {/* Group 1: Anime — the best match as a "Top result" card, then the
+              other title matches, then shows related by tag/genre. */}
+          {visibleAnime.length > 0 && (() => {
+            const hasQuery = query.trim() !== '';
+            const top = hasQuery ? visibleAnime[0] : null;
+            const rest = hasQuery ? visibleAnime.slice(1) : visibleAnime;
+            const matching = rest.filter((a) => a.match !== 'related');
+            const related = rest.filter((a) => a.match === 'related');
+            const row = (anime: any) => {
+              const itemIndex = flatItems.findIndex((x) => x.id === `anime_${anime.id}`);
+              const isSelected = selectedIndex === itemIndex;
+              return (
+                <div
+                  key={anime.id}
+                  onClick={() => handleItemClick(`/anime/${anime.slug || anime.id}`)}
+                  role="option"
+                  aria-selected={isSelected}
+                  data-active={isSelected ? 'true' : undefined}
+                  className={`${styles.resultItem} ${isSelected ? styles.resultItemActive : ''}`}
+                >
+                  <AnimePoster src={anime.posterUrl} alt={anime.title} width={36} height={50} className={styles.resultPoster} />
+                  <div className={styles.resultInfo}>
+                    <div className={styles.titleLine}>
+                      <span className={styles.resultTitle}>{sanitizePublicEntityName(anime.title)}</span>
+                      <CommunityScoreBadge animeId={anime.id} />
                     </div>
-                    <ArrowRight size={14} className={styles.itemArrow} />
+                    <div className={styles.resultMeta}>
+                      <span className={styles.metaBadge}>{formatType(anime.type)}</span>
+                      {anime.year && <span>{anime.year}</span>}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <ArrowRight size={14} className={styles.itemArrow} />
+                </div>
+              );
+            };
+            const topIndex = top ? flatItems.findIndex((x) => x.id === `anime_${top.id}`) : -1;
+            const topSelected = top ? selectedIndex === topIndex : false;
+            const topMeta = top
+              ? [formatType(top.type), top.year, top.episodes && top.type !== 'MOVIE' ? `${top.episodes} episodes` : null, formatAnimeStatus(top.status)].filter(Boolean)
+              : [];
+            const topArt = top ? String(top.bannerUrl || top.posterUrl || '').replace(/"/g, '%22') : '';
+            return (
+              <>
+                {top && (
+                  <div className={styles.resultGroup}>
+                    <span className={styles.groupHeading}>{top.match === 'exact' ? 'Top result' : 'Best match'}</span>
+                    <div
+                      onClick={() => handleItemClick(`/anime/${top.slug || top.id}`)}
+                      role="option"
+                      aria-selected={topSelected}
+                      data-active={topSelected ? 'true' : undefined}
+                      className={`${styles.topResult} ${topSelected ? styles.topResultActive : ''}`}
+                    >
+                      {topArt && (
+                        <div
+                          className={styles.topArt}
+                          aria-hidden="true"
+                          style={{ backgroundImage: `url("${topArt}")` }}
+                          data-banner={top.bannerUrl ? 'true' : undefined}
+                        />
+                      )}
+                      <AnimePoster src={top.posterUrl} alt={top.title} width={72} height={100} className={styles.topPoster} />
+                      <div className={styles.topInfo}>
+                        <span className={styles.topTitle}>{sanitizePublicEntityName(top.title)}</span>
+                        <span className={styles.topMeta}>{topMeta.join(' · ')}</span>
+                        <span className={styles.topBadge}>
+                          <CommunityScoreBadge animeId={top.id} />
+                        </span>
+                      </div>
+                      <span className={styles.topOpen}>
+                        Open <ArrowRight size={14} />
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {matching.length > 0 && (
+                  <div className={styles.resultGroup}>
+                    <span className={styles.groupHeading}>{hasQuery ? `Anime matching “${query.trim()}”` : 'Anime'}</span>
+                    {matching.map(row)}
+                  </div>
+                )}
+                {related.length > 0 && (
+                  <div className={styles.resultGroup}>
+                    <span className={styles.groupHeading}>Related anime</span>
+                    {related.map(row)}
+                  </div>
+                )}
+                {hasQuery && (
+                  <Link
+                    href={`/search?q=${encodeURIComponent(query.trim())}`}
+                    onClick={() => {
+                      saveRecentSearch(query.trim());
+                      onClose();
+                    }}
+                    className={styles.seeAllLink}
+                  >
+                    See all anime for &ldquo;{query.trim()}&rdquo; <ArrowRight size={13} />
+                  </Link>
+                )}
+              </>
+            );
+          })()}
 
           {/* Group 2: Studio Results */}
           {visibleStudios.length > 0 && (

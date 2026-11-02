@@ -57,12 +57,36 @@
 }
 .eye:hover { color: var(--text-primary, #f5f5f7); background: rgba(255, 255, 255, 0.06); }
 
-.meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.meter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 8px; }
 .meter span { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); transition: background 0.25s ease; }
 .meter[data-level='1'] span:nth-child(-n + 1) { background: #ef4444; }
 .meter[data-level='2'] span:nth-child(-n + 2) { background: #f59e0b; }
-.meter[data-level='3'] span:nth-child(-n + 3) { background: #84cc16; }
-.meter[data-level='4'] span:nth-child(-n + 4) { background: #22c55e; }
+.meter[data-level='3'] span:nth-child(-n + 3) { background: #22c55e; }
+.strengthRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 6px 0 0; }
+.strengthRow > span:last-child { margin: 0; }
+.strengthWord { font-size: 12.5px; font-weight: 800; }
+.strengthWord[data-level='1'] { color: #f87171; }
+.strengthWord[data-level='2'] { color: #fbbf24; }
+.strengthWord[data-level='3'] { color: #4ade80; }
+
+/* Forgot / change password: 1 Mobile number · 2 SMS code · 3 New password */
+.steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.steps li {
+  counter-increment: step; flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding-top: 8px; border-top: 2px solid rgba(255, 255, 255, 0.1);
+  font-size: 11.5px; font-weight: 700; color: var(--text-tertiary, #71717a);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.steps li::before {
+  content: counter(step); display: grid; place-items: center; flex-shrink: 0;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08); font-size: 10.5px;
+}
+.steps li[data-on='true'] { color: var(--text-primary, #f5f5f7); border-top-color: var(--text-primary, #f5f5f7); }
+.steps li[data-on='true']::before { background: var(--text-primary, #f5f5f7); color: var(--accent-on, #111113); }
+.steps li[data-done='true'] { color: #86efac; border-top-color: #22c55e; }
+.steps li[data-done='true']::before { content: '✓'; background: #22c55e; color: #052e16; }
 
 /* Opens below once the phone code checks out. */
 .panel { display: flex; flex-direction: column; gap: 14px; animation: panelIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -87,3 +111,8 @@
   -webkit-box-shadow: 0 0 0 1000px #1e1e22 inset;
   transition: background-color 9999s ease-out 0s;
 }
+
+/* Terms / privacy line under the form */
+.consent { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-tertiary, #71717a); text-align: center; }
+.consent a { color: var(--text-secondary, #a1a1aa); text-decoration: underline; text-underline-offset: 2px; }
+.consent a:hover { color: var(--text-primary, #f5f5f7); }

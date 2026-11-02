@@ -104,3 +104,10 @@
   .settingsPage { padding-top: 20px; }
   .card { padding: 16px; }
 }
+
+/* Change password (2026-11-02) */
+button.linkRow { border: 0; background: none; text-align: left; font-family: inherit; color: var(--text-primary); cursor: pointer; }
+button.linkRow:disabled { cursor: not-allowed; opacity: 0.6; }
+.passwordFlow { display: flex; flex-direction: column; gap: 12px; max-width: 460px; }
+.cancelLink { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.cancelLink:hover { color: var(--text-primary); text-decoration: underline; }

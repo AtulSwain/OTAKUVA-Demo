@@ -81,41 +81,90 @@ async function setFuzzyThreshold(tx: Parameters<Parameters<typeof prisma.$transa
 export async function searchAnimeIdsByTitle(term: string, limit: number): Promise<RankedMatch[]> {
   const cleaned = term.trim();
   if (!cleaned) return [];
-  const likePattern = `%${cleaned}%`;
+  const p = titleMatchPatterns(cleaned);
 
+  // Rank tiers (2026-11-02, owner: "a specific anime should come to the
+  // top"): whole title equal to the query (10) > title starts with it (6)
+  // > contains it as a whole word (4) > contains it (3) > fuzzy/typo match
+  // (0–1). Similarity is added on top so closer titles win inside a tier;
+  // ties go to the more popular show. Where-clauses are unchanged (they're
+  // what keeps the trigram/full-text indexes usable — see above).
   return prisma.$transaction(async (tx) => {
     await setFuzzyThreshold(tx);
     return tx.$queryRaw<RankedMatch[]>`
-      SELECT id, MAX(rank) AS rank FROM (
-        SELECT a.id,
-               (CASE WHEN lower(a."canonicalTitle") LIKE lower(${likePattern}) THEN 2 ELSE 0 END)
-                 + word_similarity(lower(${cleaned}), lower(a."canonicalTitle")) AS rank
-        FROM "Anime" a
-        WHERE a.status != 'MERGED'
-          AND (
-            lower(a."canonicalTitle") LIKE lower(${likePattern})
-            OR lower(${cleaned}) <% lower(a."canonicalTitle")
+      SELECT m.id, m.rank FROM (
+        SELECT id, MAX(rank) AS rank FROM (
+          SELECT a.id,
+                 (CASE
+                    WHEN ${p.exact} <> '' AND regexp_replace(lower(a."canonicalTitle"), '[[:space:][:punct:]]+', '', 'g') = ${p.exact} THEN 10
+                    WHEN lower(a."canonicalTitle") LIKE ${p.prefix} THEN 6
+                    WHEN ${p.word} <> '' AND lower(a."canonicalTitle") ~ ${p.word} THEN 4
+                    WHEN lower(a."canonicalTitle") LIKE ${p.like} THEN 3
+                    ELSE 0 END)
+                   + 0.45 * word_similarity(lower(${cleaned}), lower(a."canonicalTitle"))
+                   + 0.45 * similarity(lower(${cleaned}), lower(a."canonicalTitle")) AS rank
+          FROM "Anime" a
+          WHERE a.status != 'MERGED'
+            AND (
+              lower(a."canonicalTitle") LIKE ${p.like}
+              OR lower(${cleaned}) <% lower(a."canonicalTitle")
+            )
+          UNION ALL
+          SELECT at."animeId" AS id,
+                 -- Nicknames/synonyms count for less than a show's real titles.
+                 (CASE WHEN at.type IN ('synonym', 'alternative') THEN 0.5 ELSE 1 END) * (CASE
+                    WHEN ${p.exact} <> '' AND regexp_replace(lower(at.title), '[[:space:][:punct:]]+', '', 'g') = ${p.exact} THEN 10
+                    WHEN lower(at.title) LIKE ${p.prefix} THEN 6
+                    WHEN ${p.word} <> '' AND lower(at.title) ~ ${p.word} THEN 4
+                    WHEN lower(at.title) LIKE ${p.like} THEN 3
+                    ELSE 0 END)
+                   + 0.45 * LEAST(1, GREATEST(
+                       word_similarity(lower(${cleaned}), lower(at.title)),
+                       COALESCE(ts_rank(at."searchVector", plainto_tsquery('simple', ${cleaned})), 0)
+                     ))
+                   + 0.45 * similarity(lower(${cleaned}), lower(at.title)) AS rank
+          FROM "AnimeTitle" at
+          JOIN "Anime" a2 ON a2.id = at."animeId" AND a2.status != 'MERGED'
+          WHERE (
+            lower(at.title) LIKE ${p.like}
+            OR lower(${cleaned}) <% lower(at.title)
+            OR at."searchVector" @@ plainto_tsquery('simple', ${cleaned})
           )
-        UNION ALL
-        SELECT at."animeId" AS id,
-               (CASE WHEN lower(at.title) LIKE lower(${likePattern}) THEN 2 ELSE 0 END)
-                 + GREATEST(
-                     word_similarity(lower(${cleaned}), lower(at.title)),
-                     COALESCE(ts_rank(at."searchVector", plainto_tsquery('simple', ${cleaned})), 0)
-                   ) AS rank
-        FROM "AnimeTitle" at
-        JOIN "Anime" a2 ON a2.id = at."animeId" AND a2.status != 'MERGED'
-        WHERE (
-          lower(at.title) LIKE lower(${likePattern})
-          OR lower(${cleaned}) <% lower(at.title)
-          OR at."searchVector" @@ plainto_tsquery('simple', ${cleaned})
-        )
-      ) matches
-      GROUP BY id
-      ORDER BY rank DESC
+        ) matches
+        GROUP BY id
+      ) m
+      JOIN "Anime" pa ON pa.id = m.id
+      -- Same tier → the more popular show first (floor drops the <0.9
+      -- similarity bonus); typo-only matches (<1.5) stay ordered by closeness.
+      ORDER BY (CASE WHEN m.rank >= 1.5 THEN floor(m.rank) ELSE m.rank END) DESC,
+               GREATEST(COALESCE(pa.members, 0), COALESCE(pa."scoredBy", 0),
+                        CASE WHEN pa."externalSource" = 'anilist' THEN COALESCE(pa.popularity, 0) ELSE 0 END) DESC,
+               m.rank DESC,
+               pa.id
       LIMIT ${limit}
     `;
   });
+}
+
+/** Rank tier of a fuzzySearch match: 'exact' title, a title 'match', or only 'similar'. */
+export function matchKind(rank: number): 'exact' | 'title' | 'similar' {
+  return rank >= 10 ? 'exact' : rank >= 1.5 ? 'title' : 'similar';
+}
+
+const ASCII_PUNCT_OR_SPACE = /[\s!-\/:-@\[-`{-~]+/g;
+// LIKE's default escape character is a backslash.
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Patterns for the rank tiers above — exported for tests. */
+export function titleMatchPatterns(term: string) {
+  const lower = term.trim().toLowerCase();
+  // Postgres side: regexp_replace(lower(title), '[[:space:][:punct:]]+', '') —
+  // same ASCII punctuation/space set, so "Re:Zero" = "rezero".
+  const exact = lower.replace(ASCII_PUNCT_OR_SPACE, '');
+  // \m…\M word boundaries only make sense when the query starts and ends on a word character.
+  const word = /^\w/.test(lower) && /\w$/.test(lower) ? `\\m${escapeRegex(lower)}\\M` : '';
+  return { exact, prefix: `${escapeLike(lower)}%`, like: `%${escapeLike(lower)}%`, word };
 }
 
 async function searchNameTable(table: 'Person' | 'Character', term: string, limit: number): Promise<RankedMatch[]> {

@@ -1791,8 +1791,9 @@ gaps against later phases, from the last audit (2026-08-28):
   `GET /api/auth/me` at most every 5 min. UI: `AuthForm` (Sign In with
   "Forgot password?", Create Account / Creator → code → password panel with
   strength meter + confirm). Tests: `tests/phone-auth.test.ts`.
-  **Not done:** changing a password doesn't sign out other existing sessions
-  (needs `passwordChangedAt` vs token `iat` in `getAuthUserFrom*`).
+  **Done 2026-11-02:** changing/resetting a password signs out every other
+  session (`isSessionCurrent` in `src/lib/auth.ts` — see the 2026-11-02
+  password/search entry below).
 - **Control center `/control` (2026-10-28, owner)**: ADMIN/SUPER_ADMIN only
   (`src/lib/control/access.ts`; every `/api/control/**` route checks it);
   its own sign-in screen (username + password), no site chrome (AppShell
@@ -1991,6 +1992,44 @@ gaps against later phases, from the last audit (2026-08-28):
   Tests: `tests/seo.test.ts`. Not done: an OG image generator (next/og
   crashed the Windows dev worker before — see app icons note), per-page
   hreflang (site is English-only).
+- **Password change, search ranking, privacy policy (2026-11-02, owner)**:
+  - *Forgot / change password*: link "Forgot / change password?" on Sign In
+    and a "Password" card in Settings both use `PasswordResetFlow`
+    (`AuthForm.tsx`): step bar 1 Mobile number → 2 SMS code → 3 New password
+    (typed twice). Meter = 3 levels from `passwordStrength`
+    (`src/lib/identity/password.ts`): **Very weak** = breaks a rule, can't be
+    saved; **Moderate** = allowed; **Strong** = 12+ with mixed case, number,
+    symbol (or 16+). `validatePassword` now also refuses common-word passwords
+    ("password1", "Qwerty@123", "abc12345") and letter/number runs — server and
+    form share it. Existing passwords aren't re-checked.
+  - *Other devices signed out*: every session check (`getAuthUserFromRequest`
+    / `getAuthUserFromCookies`) rejects a token whose `iat` is before
+    `User.passwordChangedAt` (`isSessionCurrent`, 1s slack; a change time in
+    the future is treated as bad data and ignored). `passwordChangedAt` must
+    be written with the app clock via typed Prisma (`new Date()`), never raw
+    SQL `NOW()` — raw timestamp writes picked up the DB session time zone
+    locally and made fresh sessions look stale. Set by register, phone reset
+    and the legacy email reset.
+  - *Search*: `searchAnimeIdsByTitle` (`src/lib/fuzzySearch.ts`) ranks by
+    tier — whole title equal to the query (10) > starts with (6) > whole word
+    (4) > contains (3) > typo match; synonym/alternative titles count half;
+    same tier → more popular first (`members`/`scoredBy`/AniList
+    `popularity`). The search box (`SearchModal`) shows the best match as a
+    "Top result" card (banner art), then "Anime matching …", then "Related
+    anime" (tag/genre/theme named by the word), then "See all"; adult titles
+    excluded. `/api/search` anime items gained `episodes`, `status`, `match`
+    ('exact'|'title'|'similar'|'related') and keep match order (they used to
+    be re-sorted by score). `/search?q=` defaults to sort "Best match"
+    (`searchCatalog` `sortBy: 'relevance'`). Tests:
+    `tests/password-change-search.test.ts`.
+  - *Privacy Policy* (`/privacy`): real plain-language policy replacing the
+    placeholder — every claim maps to code (listed in the page's header
+    comment; change both together). Age 13+ and "reply within 7 days" are
+    owner choices to confirm; still worth a lawyer's read before a wide launch
+    (India's DPDP Act). Sign-up shows "By creating an account you agree to our
+    Terms and Privacy Policy"; Sign In shows the two links.
+  - *Phone verification on*: Vercel `PHONE_VERIFICATION_REQUIRED=true`
+    (production + preview). Twilio Verify vars exist only for production.
 - **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on

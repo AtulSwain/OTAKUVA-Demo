@@ -6,7 +6,7 @@ import { useAuth, type AuthResult } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { PhoneOtpFlow } from './PhoneOtpFlow';
 import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, validateUsername } from '../../lib/identity/username';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordStrength, validatePassword } from '../../lib/identity/password';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_STRENGTH_LABEL, passwordStrength, validatePassword } from '../../lib/identity/password';
 import { CHANNEL_NAME_MAX, CHANNEL_URL_MAX, channelProblem } from '../../lib/creator/channelRules';
 import styles from '../ui/AuthModal.module.css';
 import seg from './AuthForm.module.css';
@@ -101,7 +101,6 @@ function PasswordInput({
   );
 }
 
-const STRENGTH_LABEL = ['Too short', 'Weak', 'Fair', 'Good', 'Strong'];
 
 /**
  * Opens once the phone is verified: choose a password and confirm it.
@@ -128,7 +127,7 @@ function PasswordPanel({
   const problem = password ? validatePassword(password, username) : null;
   const mismatch = confirm.length > 0 && confirm !== password;
   const ready = password.length > 0 && !problem && confirm === password;
-  const strength = password ? passwordStrength(password) : 0;
+  const strength = passwordStrength(password, username);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,23 +159,33 @@ function PasswordPanel({
 
       <div className={styles.inputGroup}>
         <label className={styles.label} htmlFor="new-password">
-          Password
+          New password
         </label>
         <PasswordInput id="new-password" value={password} onChange={setPassword} placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`} autoComplete="new-password" autoFocus invalid={Boolean(problem)} />
         <div className={seg.meter} data-level={strength} aria-hidden="true">
           <span />
           <span />
           <span />
-          <span />
         </div>
-        <p className={`${styles.fieldNote} ${problem ? styles.bad : ''}`} aria-live="polite">
-          {problem ?? (password ? STRENGTH_LABEL[strength] : `${PASSWORD_MIN_LENGTH}+ characters, with a letter and a number.`)}
+        <p className={seg.strengthRow} aria-live="polite">
+          {password ? (
+            <>
+              <span className={seg.strengthWord} data-level={strength}>
+                {PASSWORD_STRENGTH_LABEL[strength]}
+              </span>
+              <span className={`${styles.fieldNote} ${problem ? styles.bad : ''}`}>
+                {problem ?? (strength < 3 ? 'Longer, with UPPER + lower case, numbers and a symbol, is stronger.' : 'Great password.')}
+              </span>
+            </>
+          ) : (
+            <span className={styles.fieldNote}>{PASSWORD_MIN_LENGTH}+ characters, with a letter and a number.</span>
+          )}
         </p>
       </div>
 
       <div className={styles.inputGroup}>
         <label className={styles.label} htmlFor="confirm-password">
-          Confirm password
+          Re-enter new password
         </label>
         <PasswordInput id="confirm-password" value={confirm} onChange={setConfirm} placeholder="Type it again" autoComplete="new-password" invalid={mismatch} />
         <p className={`${styles.fieldNote} ${mismatch ? styles.bad : confirm && !mismatch ? styles.ok : ''}`} aria-live="polite">
@@ -197,6 +206,86 @@ function PasswordPanel({
         )}
       </button>
     </form>
+  );
+}
+
+/**
+ * Forgot / change password (2026-11-02, owner): mobile number → SMS code →
+ * new password typed twice (strength meter: Very weak / Moderate / Strong).
+ * Used from the sign-in form and from Settings. Saving signs this device
+ * in and signs every other device out (passwordChangedAt).
+ */
+export function PasswordResetFlow({
+  autoFocus,
+  onDone,
+  onNoAccount,
+  title = 'Reset your password',
+  note = 'Enter the mobile number on your account. We’ll text you a code, then you choose a new password.',
+  submitLabel = 'Save password & sign in',
+}: {
+  autoFocus?: boolean;
+  onDone?: (res: AuthResult) => void;
+  onNoAccount?: () => void;
+  title?: string;
+  note?: string;
+  submitLabel?: string;
+}) {
+  const { verifyPhoneCode, resetPasswordWithPhone } = useAuth();
+  const { showToast } = useToast();
+  const [verified, setVerified] = useState<{ pass: string; label: string } | null>(null);
+  const [flowKey, setFlowKey] = useState(0);
+  const [otpStep, setOtpStep] = useState<'phone' | 'code'>('phone');
+  const restart = () => {
+    setVerified(null);
+    setOtpStep('phone');
+    setFlowKey((k) => k + 1);
+  };
+  const step = verified ? 3 : otpStep === 'code' ? 2 : 1;
+  const stepState = (n: number) => ({ 'data-on': step === n ? 'true' : undefined, 'data-done': step > n ? 'true' : undefined });
+
+  const verify = async (phone: string, country: string, code: string): Promise<AuthResult> => {
+    const res = await verifyPhoneCode('reset', phone, country, code);
+    if (res.success && res.pass) setVerified({ pass: res.pass, label: phone.trim() });
+    return res;
+  };
+
+  const save = async (pw: string): Promise<AuthResult> => {
+    if (!verified) return { success: false, error: 'Verify your phone first.' };
+    const res = await resetPasswordWithPhone(verified.pass, pw);
+    if (res.success) {
+      showToast('New password saved. Other devices have been signed out.', 'success', 6000);
+      onDone?.(res);
+    }
+    return res;
+  };
+
+  return (
+    <div className={seg.stack}>
+      <ol className={seg.steps} aria-label="Steps">
+        <li {...stepState(1)} aria-current={step === 1 ? 'step' : undefined}>Mobile number</li>
+        <li {...stepState(2)} aria-current={step === 2 ? 'step' : undefined}>SMS code</li>
+        <li {...stepState(3)} aria-current={step === 3 ? 'step' : undefined}>New password</li>
+      </ol>
+      <div>
+        <p className={seg.stepTitle}>{title}</p>
+        <p className={styles.fieldNote}>{verified ? 'Type your new password twice.' : step === 2 ? 'Type the 6-digit code we texted you.' : note}</p>
+      </div>
+      {!verified ? (
+        <PhoneOtpFlow
+          key={`reset-${flowKey}`}
+          purpose="reset"
+          submitLabel="Verify code"
+          autoFocus={autoFocus}
+          onSubmitCode={verify}
+          onStepChange={setOtpStep}
+          onErrorCode={(code) => {
+            if (code === 'PHONE_NOT_REGISTERED') onNoAccount?.();
+          }}
+        />
+      ) : (
+        <PasswordPanel phoneLabel={verified.label} submitLabel={submitLabel} onSubmit={save} onRestart={restart} />
+      )}
+    </div>
   );
 }
 
@@ -231,7 +320,7 @@ export function AuthForm({
   /** Pill tabs with a sliding highlight (landing page). */
   segmented?: boolean;
 }) {
-  const { loginWithPassword, verifyPhoneCode, register, resetPasswordWithPhone, refreshUser } = useAuth();
+  const { loginWithPassword, verifyPhoneCode, register, refreshUser } = useAuth();
   const { showToast } = useToast();
 
   // Sign in
@@ -277,9 +366,6 @@ export function AuthForm({
         7000,
       );
       switchMode('login');
-    } else if (code === 'PHONE_NOT_REGISTERED' && forgot) {
-      showToast('No account uses that number. Create an account instead.', 'info', 6000);
-      switchMode('register');
     }
   };
 
@@ -304,7 +390,7 @@ export function AuthForm({
   };
 
   // Verifies the SMS code → shows the password panel.
-  const verifyCode = (purpose: 'register' | 'reset') => async (phone: string, country: string, code: string): Promise<AuthResult> => {
+  const verifyCode = (purpose: 'register') => async (phone: string, country: string, code: string): Promise<AuthResult> => {
     const res = await verifyPhoneCode(purpose, phone, country, code);
     if (res.success && res.pass) setVerified({ pass: res.pass, label: phone.trim() });
     return res;
@@ -340,16 +426,6 @@ export function AuthForm({
       showToast('Your account is ready, but creator mode didn\'t turn on. Use "Become a creator" from your menu.', 'error', 8000);
     }
     onSignedIn?.({ ...res, role });
-    return res;
-  };
-
-  const saveNewPassword = async (pw: string): Promise<AuthResult> => {
-    if (!verified) return { success: false, error: 'Verify your phone first.' };
-    const res = await resetPasswordWithPhone(verified.pass, pw);
-    if (res.success) {
-      showToast('New password saved. You are signed in.', 'success');
-      onSignedIn?.(res);
-    }
     return res;
   };
 
@@ -408,7 +484,7 @@ export function AuthForm({
                     restartPhone();
                   }}
                 >
-                  Forgot password?
+                  Forgot / change password?
                 </button>
               </div>
               <PasswordInput id="login-password" value={password} onChange={setPassword} placeholder="Your password" autoComplete="current-password" />
@@ -429,25 +505,17 @@ export function AuthForm({
 
         {mode === 'login' && forgot && (
           <div className={seg.stack}>
-            <button
-              type="button"
-              className={seg.back}
-              onClick={() => {
-                setForgot(false);
-                restartPhone();
-              }}
-            >
+            <button type="button" className={seg.back} onClick={() => setForgot(false)}>
               <ArrowLeft size={14} aria-hidden="true" /> Back to sign in
             </button>
-            <div>
-              <p className={seg.stepTitle}>Reset your password</p>
-              <p className={styles.fieldNote}>We&apos;ll text a code to the number on your account, then you choose a new password.</p>
-            </div>
-            {!verified ? (
-              <PhoneOtpFlow key={`reset-${flowKey}`} purpose="reset" submitLabel="Verify code" autoFocus onSubmitCode={verifyCode('reset')} onErrorCode={onPhoneErrorCode} />
-            ) : (
-              <PasswordPanel phoneLabel={verified.label} submitLabel="Save password & sign in" onSubmit={saveNewPassword} onRestart={restartPhone} />
-            )}
+            <PasswordResetFlow
+              autoFocus
+              onDone={(res) => onSignedIn?.(res)}
+              onNoAccount={() => {
+                showToast('No account uses that number. Create an account instead.', 'info', 6000);
+                switchMode('register');
+              }}
+            />
           </div>
         )}
 
@@ -555,7 +623,30 @@ export function AuthForm({
                 onRestart={restartPhone}
               />
             )}
+            {/* Shown under every sign-up step (2026-11-02, owner). */}
+            <p className={seg.consent}>
+              By creating an account you agree to our{' '}
+              <a href="/terms" target="_blank" rel="noopener">
+                Terms
+              </a>{' '}
+              and{' '}
+              <a href="/privacy" target="_blank" rel="noopener">
+                Privacy Policy
+              </a>
+              . Your mobile number is never shown to anyone.
+            </p>
           </>
+        )}
+        {mode === 'login' && (
+          <p className={seg.consent}>
+            <a href="/privacy" target="_blank" rel="noopener">
+              Privacy Policy
+            </a>{' '}
+            ·{' '}
+            <a href="/terms" target="_blank" rel="noopener">
+              Terms
+            </a>
+          </p>
         )}
         {footer}
       </div>

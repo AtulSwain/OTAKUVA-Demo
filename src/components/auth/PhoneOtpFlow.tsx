@@ -21,6 +21,8 @@ interface PhoneOtpFlowProps {
   onSubmitCode: (phone: string, country: string, code: string) => Promise<AuthResult>;
   /** Machine-readable failures the parent may want to act on (USERNAME_TAKEN, PHONE_IN_USE, …). */
   onErrorCode?: (code: string) => void;
+  /** Tells the parent which step is showing (number entry or code entry). */
+  onStepChange?: (step: 'phone' | 'code') => void;
 }
 
 /**
@@ -37,6 +39,7 @@ export function PhoneOtpFlow({
   autoFocus,
   onSubmitCode,
   onErrorCode,
+  onStepChange,
 }: PhoneOtpFlowProps) {
   const { requestOtp } = useAuth();
   const [country, setCountry] = useState(DEFAULT_COUNTRY_ISO);
@@ -56,6 +59,11 @@ export function PhoneOtpFlow({
     const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
+
+  useEffect(() => {
+    onStepChange?.(step);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   useEffect(() => {
     if (step === 'code') codeRef.current?.focus();

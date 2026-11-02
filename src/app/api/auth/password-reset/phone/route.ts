@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Your phone verification expired. Request a new code.', code: 'PASS_INVALID' }, { status: 400 });
     }
 
-    const rows = await prisma.$queryRaw<{ id: string; username: string; passwordChangedAt: Date | null }[]>`
-      SELECT id, username, "passwordChangedAt" FROM "User" WHERE phone = ${verified.phone} LIMIT 1`;
-    const account = rows[0];
+    const account = await prisma.user.findUnique({
+      where: { phone: verified.phone },
+      select: { id: true, username: true, passwordChangedAt: true, phoneVerifiedAt: true },
+    });
     if (!account) return NextResponse.json({ error: 'No account uses this number.', code: 'PHONE_NOT_REGISTERED' }, { status: 404 });
     // Single use: a pass issued before the last password change is spent.
     if (account.passwordChangedAt && verified.issuedAt.getTime() <= account.passwordChangedAt.getTime()) {
@@ -45,11 +46,14 @@ export async function POST(request: NextRequest) {
     if (passwordError) return NextResponse.json({ error: passwordError, code: 'INVALID_PASSWORD' }, { status: 400 });
 
     const passwordHash = await hashPassword(password);
-    await prisma.$executeRaw`
-      UPDATE "User"
-      SET "passwordHash" = ${passwordHash}, "passwordChangedAt" = NOW(), "lastLoginAt" = NOW(), "lastSeenAt" = NOW(),
-          "phoneVerifiedAt" = COALESCE("phoneVerifiedAt", NOW())
-      WHERE id = ${account.id}`;
+    // App clock, not the DB's NOW(): sessions are compared against this
+    // (isSessionCurrent), and the new session below is signed after it.
+    // Every session signed before this moment — other devices — is now dead.
+    const now = new Date();
+    await prisma.user.update({
+      where: { id: account.id },
+      data: { passwordHash, passwordChangedAt: now, lastLoginAt: now, lastSeenAt: now, phoneVerifiedAt: account.phoneVerifiedAt ?? now },
+    });
     // Outstanding email reset links for this account are void now too.
     await prisma.passwordResetToken.updateMany({ where: { userId: account.id, usedAt: null }, data: { usedAt: new Date() } }).catch(() => undefined);
 
