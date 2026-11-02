@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import '../styles/globals.css';
 import { AppShell } from '../components/shell/AppShell';
 import { inter } from './fonts';
@@ -45,6 +46,8 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AppShell>{children}</AppShell>
+        {/* Vercel Web Analytics: page views only, no cookies. Sends nothing outside Vercel deployments. */}
+        <Analytics />
       </body>
     </html>
   );
