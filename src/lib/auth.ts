@@ -89,6 +89,27 @@ export function verifyPhonePass(pass: unknown, purpose: PhonePassPurpose): { pho
   }
 }
 
+// ── Control-center gate pass (2026-11-02) ──────────────────────────────
+// Step one of the control-center sign-in: the owner's key, typed into the
+// ordinary password box, earns this short-lived signed pass (an httpOnly
+// cookie). Own audience, so it is never a session and grants nothing alone;
+// step two is still an ADMIN account's username + password.
+const CONTROL_GATE_AUDIENCE = 'otakuva-control-gate';
+
+export function signControlGatePass(ttlSec: number): string {
+  return jwt.sign({ gate: 'control' }, getJwtSecret(), { expiresIn: ttlSec, algorithm: JWT_ALGORITHM, audience: CONTROL_GATE_AUDIENCE });
+}
+
+export function verifyControlGatePass(pass: unknown): boolean {
+  if (typeof pass !== 'string' || !pass) return false;
+  try {
+    const p = jwt.verify(pass, getJwtSecret(), { algorithms: [JWT_ALGORITHM], audience: CONTROL_GATE_AUDIENCE }) as { gate?: unknown };
+    return p.gate === 'control';
+  } catch {
+    return false;
+  }
+}
+
 export interface AuthenticatedUser {
   id: string;
   username: string;

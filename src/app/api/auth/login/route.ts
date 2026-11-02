@@ -13,6 +13,7 @@ import {
   getClientIp,
 } from '../../../../lib/security/authRateLimiter';
 import { logger } from '../../../../lib/logger';
+import { isControlGateKey, issueControlGatePass, CONTROL_GATE_COOKIE, controlGateCookieOptions } from '@control/lib/gate';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
+
+    // Control-center step one: the owner's key in the password box. Nothing
+    // is signed in; it only opens /control's own sign-in (Control Center/lib/gate.ts).
+    if (body?.phone === undefined && isControlGateKey(body?.password)) {
+      const gated = NextResponse.json({ gate: true, redirect: '/control' }, { headers: { 'Cache-Control': 'no-store' } });
+      gated.cookies.set(CONTROL_GATE_COOKIE, issueControlGatePass(), controlGateCookieOptions());
+      return gated;
+    }
     const user = body?.phone !== undefined ? await phoneSignIn(body) : await legacyPasswordSignIn(body);
     if (user instanceof NextResponse) return user;
 

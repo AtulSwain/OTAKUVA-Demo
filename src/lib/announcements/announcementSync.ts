@@ -418,7 +418,8 @@ export async function linkAnnouncementNews(animeIds: string[]): Promise<{ linked
 
 // ── Background freshness (same pattern as ensureFreshSchedule) ─────────────
 
-const REFRESH_INTERVAL_MS = Number(process.env.ANNOUNCED_REFRESH_INTERVAL_MS) || 3 * 60 * 60 * 1000;
+// Hourly (was 3h; owner 2026-11-02: new announcements should show up soon).
+const REFRESH_INTERVAL_MS = Number(process.env.ANNOUNCED_REFRESH_INTERVAL_MS) || 60 * 60 * 1000;
 const RETRY_BACKOFF_MS = 15 * 60 * 1000;
 let lastAttemptAt = 0;
 let inFlight = false;

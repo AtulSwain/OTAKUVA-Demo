@@ -1952,6 +1952,22 @@ gaps against later phases, from the last audit (2026-08-28):
     plate; any other logo (admin upload) fills the tile edge to edge
     (`isPlatedLogo` / `.logoFill` in `StudioLogo`). Control Center logo
     previews no longer use a white plate either.
+- **Control-center key gate (2026-11-02, owner)**: getting into `/control`
+  takes two steps. (1) The owner's key typed into the normal sign-in form's
+  password box (any username) → `POST /api/auth/login` answers
+  `{ gate: true }`, signs nobody in, and sets the httpOnly `otakuva_cgate`
+  cookie (signed JWT, own audience, 12h); the browser goes to `/control`.
+  (2) `/control`'s own sign-in: ADMIN/SUPER_ADMIN username + password.
+  Without the gate cookie, `/control` 404s and every `requireControl` route
+  answers 404. The key is never in code: only its SHA-256 lives in
+  `CONTROL_GATE_KEY_SHA256` (`Control Center/lib/gate.ts`). Production
+  without that env var fails closed (nobody passes step one); local dev
+  without it skips the gate. Tests: `tests/control-gate.test.ts`. The old
+  `/admin/*` tools are not behind the gate (role checks only).
+  Same day: homepage masthead lost its anime / creators & cast / members
+  counts (reviews + discussions remain); Just Announced has no counter or
+  progress bars, always leads with the newest, re-polls every 5 min, and
+  the background announcement sync runs hourly (was 3h).
 - **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on
