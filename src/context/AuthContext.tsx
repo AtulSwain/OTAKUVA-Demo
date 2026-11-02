@@ -43,6 +43,8 @@ export interface AuthResult {
   devDetail?: string;
   /** The signed-in account's platform role (sign-in only), e.g. to open the creator dashboard. */
   role?: string;
+  /** The control-center key was entered: the browser is on its way to /control. */
+  gate?: boolean;
 }
 
 interface AuthContextType {
@@ -185,6 +187,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const finishSignIn = (ok: boolean, data: any, fallbackError: string): AuthResult => {
+    if (ok && data.gate === true) {
+      setShowAuthModal(false);
+      window.location.assign('/control');
+      return { success: true, gate: true };
+    }
     if (!ok || !data.user) {
       return { success: false, error: data.error || fallbackError, code: data.code };
     }

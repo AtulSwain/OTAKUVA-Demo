@@ -95,13 +95,11 @@ export function Masthead({ data, username, displayName = null, onJoin }: { data:
   const dateLine = now
     ? now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : null;
-  // Zero counts are left out until there's something to count.
+  // Zero counts are left out until there's something to count. Anime,
+  // creators & cast and members counts were removed (owner, 2026-11-02).
   const stats = ([
-    [data.stats.anime, 'anime'],
-    [data.stats.people, 'creators & cast'],
     [data.stats.reviews, data.stats.reviews === 1 ? 'review' : 'reviews'],
     [data.stats.discussions, data.stats.discussions === 1 ? 'discussion' : 'discussions'],
-    [data.stats.members, data.stats.members === 1 ? 'member' : 'members'],
   ] as [number, string][]).filter(([n]) => n > 0);
 
   return (

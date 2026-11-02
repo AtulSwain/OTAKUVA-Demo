@@ -3,15 +3,20 @@
  * ADMIN and SUPER_ADMIN only. Every /api/control/** route checks this
  * server-side; the page gate is only for showing the sign-in screen.
  */
-import type { NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole, type AuthenticatedUser } from '@/lib/auth';
 import { hasMinRole } from '@/lib/roles';
+import { CONTROL_GATE_COOKIE, hasControlGate } from './gate';
 
 export const CONTROL_MIN_ROLE = 'ADMIN' as const;
 
 export const canUseControl = (role: string | null | undefined) => Boolean(role && hasMinRole(role, CONTROL_MIN_ROLE));
 
-export function requireControl(request: NextRequest): Promise<AuthenticatedUser | NextResponse> {
+/** Gate cookie first (step one, see gate.ts), then an ADMIN+ session. No gate → 404. */
+export async function requireControl(request: NextRequest): Promise<AuthenticatedUser | NextResponse> {
+  if (!hasControlGate(request.cookies.get(CONTROL_GATE_COOKIE)?.value)) {
+    return NextResponse.json({ error: 'Not found.' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  }
   return requireRole(request, CONTROL_MIN_ROLE);
 }
 

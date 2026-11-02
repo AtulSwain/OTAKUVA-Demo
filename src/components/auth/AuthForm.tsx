@@ -290,6 +290,7 @@ export function AuthForm({
     setSubmitting(true);
     try {
       const res = await loginWithPassword(identifier.trim(), password);
+      if (res.gate) return; // control-center key: the browser is leaving for /control
       if (!res.success) {
         setLoginError(res.error || 'Could not sign in.');
         if (res.code === 'NO_PASSWORD') setForgot(true);
@@ -413,7 +414,7 @@ export function AuthForm({
               <PasswordInput id="login-password" value={password} onChange={setPassword} placeholder="Your password" autoComplete="current-password" />
             </div>
             {loginError && <div className={styles.errorBox}>{loginError}</div>}
-            <button type="submit" className={styles.submitBtn} disabled={submitting || !identifier.trim() || !password}>
+            <button type="submit" className={styles.submitBtn} disabled={submitting || !password}>
               {submitting ? (
                 <span className={styles.loadingSpan}>
                   <Loader2 size={15} className={styles.spin} />

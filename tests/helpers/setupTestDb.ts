@@ -72,6 +72,9 @@ process.env.AUTH_SECRET = 'otakuva-test-only-secret-0123456789abcdef';
 process.env.LOCAL_UPLOADS_ROOT = path.join(require('os').tmpdir(), `otakuva-test-uploads-${dbName}`);
 process.env.STORAGE_PROVIDER = 'local';
 delete process.env.GIPHY_API_KEY;
+// Control-center key gate off by default ('' so a later .env load can't fill it);
+// tests/control-gate.test.ts turns it on itself.
+process.env.CONTROL_GATE_KEY_SHA256 = '';
 // Keep the dev-mode Prisma global cache and non-production auth behaviour.
 (process.env as Record<string, string>).NODE_ENV = 'test';
 

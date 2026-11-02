@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
 import { getAuthUserFromCookies } from '@/lib/auth';
 import { canUseControl } from '@control/lib/access';
+import { CONTROL_GATE_COOKIE, hasControlGate } from '@control/lib/gate';
 import { ControlLogin } from '@control/ui/ControlLogin';
 import { ControlShell } from '@control/ui/ControlShell';
 
@@ -17,6 +20,9 @@ export const metadata: Metadata = {
  * /api/control route checks the role again on the server.
  */
 export default async function ControlLayout({ children }: { children: React.ReactNode }) {
+  // Step one: the owner's key from the normal sign-in form (gate.ts). Without
+  // it the console doesn't exist (404), not even its sign-in screen.
+  if (!hasControlGate(cookies().get(CONTROL_GATE_COOKIE)?.value)) notFound();
   const user = await getAuthUserFromCookies();
   if (!user || !canUseControl(user.role)) return <ControlLogin signedInAs={user?.username ?? null} />;
   return (

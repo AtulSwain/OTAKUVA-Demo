@@ -18,43 +18,63 @@ function metaLine(a: AnnouncedAnime): string {
 
 const mainStudio = (a: AnnouncedAnime) => a.studios[0]?.name ?? null;
 
-/** How long each announcement stays in the big card (the CSS progress bar runs this long). */
+/** How long each announcement stays in the big card. */
 const SLIDE_MS = 6000;
+/** How often the open page checks for newer announcements (only while the tab is visible). */
+const POLL_MS = 5 * 60 * 1000;
 
 /**
  * Homepage "Just Announced" (2026-11-01): front-page layout like the rest of
  * the homepage — a big card with art and a hairline list beside it. The big
- * card is a slider: it moves through the announcements one by one (6s each,
- * progress bars on top), pauses while hovered or focused, follows the row
- * you hover in the list, swipes on phones, and doesn't auto-advance for
- * people who turned on "reduce motion" (the CSS bar never runs, so it never
- * ends).
+ * card is a slider: it moves through the announcements one by one (6s each),
+ * pauses while hovered or focused, follows the row you hover in the list,
+ * swipes on phones, and doesn't auto-advance for people who turned on
+ * "reduce motion". No slide counter or progress bars (owner, 2026-11-02).
+ * Always newest first (the API's order), and it re-checks every few minutes
+ * while the tab is open, so a new announcement appears at the top by itself.
  */
 export function AnnouncedRail() {
   const [items, setItems] = useState<AnnouncedAnime[] | null>(null);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
-  // Bumped on every change so the progress bar restarts from zero.
+  // Bumped on every change so the slide timer restarts.
   const [cycle, setCycle] = useState(0);
   const touchX = useRef<number | null>(null);
+  const firstId = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/announced?limit=${LIST_COUNT + 1}`, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d) => alive && setItems(Array.isArray(d.items) ? d.items : []))
-      .catch(() => alive && setItems([]));
+    const load = () =>
+      fetch(`/api/announced?limit=${LIST_COUNT + 1}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!alive) return;
+          if (!d) {
+            setItems((prev) => prev ?? []);
+            return;
+          }
+          const next: AnnouncedAnime[] = Array.isArray(d.items) ? d.items : [];
+          // Something newer arrived: show it straight away.
+          if (firstId.current !== null && next[0] && next[0].id !== firstId.current) {
+            setActive(0);
+            setCycle((c) => c + 1);
+          }
+          firstId.current = next[0]?.id ?? null;
+          setItems(next);
+        })
+        .catch(() => alive && setItems((prev) => prev ?? []));
+    void load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load();
+    }, POLL_MS);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, []);
 
-  // Newest with wide art among the first few goes first, then the rest in order.
-  const slides = useMemo(() => {
-    if (!items || items.length === 0) return [];
-    const first = items.slice(0, 4).find((a) => isWideBanner(a.bannerUrl)) ?? items[0];
-    return [first, ...items.filter((a) => a.id !== first.id)].slice(0, LIST_COUNT + 1);
-  }, [items]);
+  // The very latest announcement first, then the rest in order.
+  const slides = useMemo(() => (items ?? []).slice(0, LIST_COUNT + 1), [items]);
 
   const go = useCallback(
     (i: number) => {
@@ -64,6 +84,14 @@ export function AnnouncedRail() {
     },
     [slides.length]
   );
+
+  // Auto-advance (off while paused, with one slide, or under "reduce motion").
+  useEffect(() => {
+    if (paused || slides.length < 2) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const t = window.setTimeout(() => go(active + 1), SLIDE_MS);
+    return () => window.clearTimeout(t);
+  }, [active, paused, cycle, slides.length, go]);
 
   if (items && items.length === 0) return null;
 
@@ -109,34 +137,14 @@ export function AnnouncedRail() {
             </div>
 
             {slides.length > 1 && (
-              <>
-                <div className={styles.progress} aria-hidden="true">
-                  {slides.map((a, i) => (
-                    <span key={a.id} className={styles.progressTrack}>
-                      {i < active && <span className={`${styles.progressFill} ${styles.progressDone}`} />}
-                      {i === active && (
-                        <span
-                          key={cycle}
-                          className={`${styles.progressFill} ${styles.progressRun}`}
-                          style={{ animationDuration: `${SLIDE_MS}ms` }}
-                          onAnimationEnd={() => go(active + 1)}
-                        />
-                      )}
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.controls}>
-                  <button type="button" className={styles.ctrlBtn} onClick={() => go(active - 1)} aria-label="Previous announcement">
-                    <ChevronLeft size={16} aria-hidden="true" />
-                  </button>
-                  <span className={styles.counter} aria-hidden="true">
-                    {active + 1} / {slides.length}
-                  </span>
-                  <button type="button" className={styles.ctrlBtn} onClick={() => go(active + 1)} aria-label="Next announcement">
-                    <ChevronRight size={16} aria-hidden="true" />
-                  </button>
-                </div>
-              </>
+              <div className={styles.controls}>
+                <button type="button" className={styles.ctrlBtn} onClick={() => go(active - 1)} aria-label="Previous announcement">
+                  <ChevronLeft size={16} aria-hidden="true" />
+                </button>
+                <button type="button" className={styles.ctrlBtn} onClick={() => go(active + 1)} aria-label="Next announcement">
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              </div>
             )}
           </div>
 
