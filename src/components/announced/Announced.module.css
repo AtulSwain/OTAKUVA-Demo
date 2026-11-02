@@ -215,21 +215,30 @@
 @keyframes slideIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 
 
-.controls { position: absolute; top: 6px; right: 10px; z-index: 2; display: flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(10, 10, 12, 0.55); backdrop-filter: blur(8px); }
-.ctrlBtn { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: transparent; color: #fff; cursor: pointer; transition: background 0.15s ease; }
-.ctrlBtn:hover { background: rgba(255, 255, 255, 0.14); }
-.ctrlBtn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+/* Line progress (2026-11-02, owner): one thin line per announcement, no
+   numbers, no arrows. Each line is a button with a taller hit area. */
+.progress { position: absolute; top: 10px; left: 18px; right: 18px; z-index: 2; display: flex; gap: 6px; }
+.progressTrack { position: relative; flex: 1; height: 14px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.progressTrack::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 3px; transform: translateY(-50%); border-radius: 999px; background: rgba(255, 255, 255, 0.24); transition: background 0.15s ease; }
+.progressTrack:hover::before { background: rgba(255, 255, 255, 0.4); }
+.progressTrack:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 4px; }
+.progressFill { position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 999px; background: #fff; transform-origin: left center; }
+.progressDone { transform: scaleX(1); }
+.progressRun { transform: scaleX(0); animation-name: progressRun; animation-timing-function: linear; animation-fill-mode: forwards; }
+.stagePaused .progressRun { animation-play-state: paused; }
+@keyframes progressRun { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .rowActive { background: var(--surface-active); }
 .rowActive .rowChevron { color: var(--text-primary); }
 
-/* Room for the controls above the card's text. */
-.stage .deskBody { padding-top: 56px; }
+/* Room for the lines above the card's text. */
+.stage .deskBody { padding-top: 40px; }
 
 @media (max-width: 560px) {
-  .ctrlBtn { width: 32px; height: 32px; }
+  .progress { left: 12px; right: 12px; }
 }
-/* Reduce motion: no slide-in movement (auto-advance is off in the component). */
+/* Reduce motion: no auto-advance (the line never runs), no slide-in movement. */
 @media (prefers-reduced-motion: reduce) {
   .slide { animation: none; }
+  .progressRun { animation: none; transform: scaleX(1); opacity: 0.5; }
 }

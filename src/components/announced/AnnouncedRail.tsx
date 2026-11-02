@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Building2, CalendarDays, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { Building2, CalendarDays, ChevronRight, Sparkles } from 'lucide-react';
 import type { AnnouncedAnime } from '../../lib/announcements/announcedAnime';
 import { isWideBanner, trailerStills } from '../../lib/media/heroArt';
 import { SectionHead } from '../ui/SectionHead';
@@ -27,9 +27,11 @@ const POLL_MS = 5 * 60 * 1000;
  * Homepage "Just Announced" (2026-11-01): front-page layout like the rest of
  * the homepage — a big card with art and a hairline list beside it. The big
  * card is a slider: it moves through the announcements one by one (6s each),
- * pauses while hovered or focused, follows the row you hover in the list,
- * swipes on phones, and doesn't auto-advance for people who turned on
- * "reduce motion". No slide counter or progress bars (owner, 2026-11-02).
+ * shown by a row of thin lines on top, one per announcement, that fill in
+ * turn (tap one to jump there). It pauses while hovered or focused, follows
+ * the row you hover in the list, swipes on phones, and doesn't auto-advance
+ * under "reduce motion" (the line never runs, so it never ends). No slide
+ * counter and no arrows (owner, 2026-11-02).
  * Always newest first (the API's order), and it re-checks every few minutes
  * while the tab is open, so a new announcement appears at the top by itself.
  */
@@ -85,14 +87,6 @@ export function AnnouncedRail() {
     [slides.length]
   );
 
-  // Auto-advance (off while paused, with one slide, or under "reduce motion").
-  useEffect(() => {
-    if (paused || slides.length < 2) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const t = window.setTimeout(() => go(active + 1), SLIDE_MS);
-    return () => window.clearTimeout(t);
-  }, [active, paused, cycle, slides.length, go]);
-
   if (items && items.length === 0) return null;
 
   const current = slides[active];
@@ -136,14 +130,30 @@ export function AnnouncedRail() {
               <DeskLead anime={current} />
             </div>
 
+            {/* One line per announcement: done ones full, the current one fills,
+                then the slider moves on. Tap a line to jump to it. */}
             {slides.length > 1 && (
-              <div className={styles.controls}>
-                <button type="button" className={styles.ctrlBtn} onClick={() => go(active - 1)} aria-label="Previous announcement">
-                  <ChevronLeft size={16} aria-hidden="true" />
-                </button>
-                <button type="button" className={styles.ctrlBtn} onClick={() => go(active + 1)} aria-label="Next announcement">
-                  <ChevronRight size={16} aria-hidden="true" />
-                </button>
+              <div className={styles.progress}>
+                {slides.map((a, i) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={styles.progressTrack}
+                    onClick={() => go(i)}
+                    aria-label={`Show ${a.title}`}
+                    aria-current={i === active ? 'true' : undefined}
+                  >
+                    {i < active && <span className={`${styles.progressFill} ${styles.progressDone}`} />}
+                    {i === active && (
+                      <span
+                        key={cycle}
+                        className={`${styles.progressFill} ${styles.progressRun}`}
+                        style={{ animationDuration: `${SLIDE_MS}ms` }}
+                        onAnimationEnd={() => go(active + 1)}
+                      />
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
