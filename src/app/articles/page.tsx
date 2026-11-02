@@ -8,7 +8,7 @@ import { CommunityHubNav } from '../../components/community/CommunityHubNav';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Articles — OTAKUVA',
+  title: 'Articles',
   description: 'News tips, write-ups and information about anime, shared by OTAKUVA members.',
 };
 

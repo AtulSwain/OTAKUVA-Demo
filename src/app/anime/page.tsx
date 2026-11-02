@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { AnimeLibraryView } from '../../components/anime/AnimeLibraryView';
 
 export const metadata: Metadata = {
-  title: 'Anime Library | OTAKUVA',
+  title: 'Anime Library',
   description: 'Explore the complete OTAKUVA anime catalog, genres, studios, and rankings.',
 };
 

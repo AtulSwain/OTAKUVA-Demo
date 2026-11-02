@@ -10,7 +10,7 @@ import { ControlShell } from '@control/ui/ControlShell';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Control center · OTAKUVA',
+  title: 'Control center',
   robots: { index: false, follow: false },
 };
 

@@ -12,6 +12,8 @@ import { searchAnimeIdsByTitle } from './fuzzySearch';
 // simply drops the weakest tail rather than losing anything a user would
 // actually be looking for.
 const MAX_TITLE_MATCHES = 500;
+// 'relevance' sorts in memory; a broad query (e.g. a genre word) is capped here.
+const MAX_RELEVANCE_CANDIDATES = 2000;
 
 export interface SearchFilters {
   query?: string;
@@ -26,7 +28,8 @@ export interface SearchFilters {
   decade?: string; // "1900s", "1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"
   minScore?: number;
   maxScore?: number;
-  sortBy?: 'score' | 'popularity' | 'title' | 'rank' | 'year' | 'updatedAt';
+  /** 'relevance' (with a query): exact title first, then titles that start with / contain the words, then tag/genre matches; popular first within each. */
+  sortBy?: 'relevance' | 'score' | 'popularity' | 'title' | 'rank' | 'year' | 'updatedAt';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
@@ -57,9 +60,11 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
   // to be a plain `contains` against canonicalTitle/AnimeTitle — replaced
   // with Postgres full-text + pg_trgm search, which also covers alternate
   // and romanized AnimeTitle rows the same way.
+  let titleRank: Map<string, number> | null = null;
   if (filters.query && filters.query.trim()) {
     const rawTerm = filters.query.trim();
     const titleMatches = await searchAnimeIdsByTitle(rawTerm, MAX_TITLE_MATCHES);
+    titleRank = new Map(titleMatches.map((m) => [m.id, Number(m.rank)]));
 
     where.OR = [
       { id: { in: titleMatches.map((m) => m.id) } },
@@ -194,20 +199,51 @@ export async function searchCatalog(filters: SearchFilters): Promise<{
       break;
   }
 
-  const [total, records] = await Promise.all([
-    prisma.anime.count({ where }),
-    prisma.anime.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
-      include: {
-        animeGenres: { include: { genre: true } },
-        animeStudios: { include: { studio: true } },
-        titles: true,
-      },
-    }),
-  ]);
+  const include = {
+    animeGenres: { include: { genre: true } },
+    animeStudios: { include: { studio: true } },
+    titles: true,
+  } as const;
+
+  let total: number;
+  let records: Awaited<ReturnType<typeof prisma.anime.findMany<{ include: typeof include }>>>;
+  if (filters.sortBy === 'relevance' && titleRank) {
+    // Order every match ourselves (Prisma can't sort by the search rank),
+    // then load just this page.
+    const ranks = titleRank;
+    const select = { id: true, members: true, scoredBy: true, popularity: true, externalSource: true } as const;
+    // Title matches always make the list; the cap only trims the
+    // studio/genre/tag-only tail (least popular first).
+    const [titled, others, count] = await Promise.all([
+      prisma.anime.findMany({ where: { AND: [where, { id: { in: [...ranks.keys()] } }] }, select }),
+      prisma.anime.findMany({
+        where: { AND: [where, { id: { notIn: [...ranks.keys()] } }] },
+        select,
+        orderBy: [{ members: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+        take: MAX_RELEVANCE_CANDIDATES,
+      }),
+      prisma.anime.count({ where }),
+    ]);
+    const candidates = [...titled, ...others];
+    const tier = (id: string) => {
+      const r = ranks.get(id);
+      if (r === undefined) return -1; // matched by studio / genre / tag only
+      return r >= 1.5 ? Math.floor(r) : r;
+    };
+    const pop = (a: (typeof candidates)[number]) =>
+      Math.max(a.members ?? 0, a.scoredBy ?? 0, a.externalSource === 'anilist' ? a.popularity ?? 0 : 0);
+    candidates.sort((a, b) => tier(b.id) - tier(a.id) || pop(b) - pop(a) || (ranks.get(b.id) ?? 0) - (ranks.get(a.id) ?? 0) || a.id.localeCompare(b.id));
+    const pageIds = candidates.slice(skip, skip + limit).map((c) => c.id);
+    const rows = await prisma.anime.findMany({ where: { id: { in: pageIds } }, include });
+    const order = new Map(pageIds.map((id, i) => [id, i]));
+    records = rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    total = count;
+  } else {
+    [total, records] = await Promise.all([
+      prisma.anime.count({ where }),
+      prisma.anime.findMany({ where, orderBy, skip, take: limit, include }),
+    ]);
+  }
 
   const items: AnimeCardData[] = records.map((r) => {
     const displayTitle = getAnimeDisplayTitle(r);

@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { ThemePicker } from '../../components/ui/ThemePicker';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, LogOut, ShieldCheck, ShieldAlert, Trash2, UserRound, ChevronRight } from 'lucide-react';
+import { Download, KeyRound, LogOut, ShieldCheck, ShieldAlert, Trash2, UserRound, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { UserAvatar } from '../../components/ui/UserAvatar';
+import { PasswordResetFlow } from '../../components/auth/AuthForm';
 import styles from './settings.module.css';
 
 /**
@@ -111,6 +112,9 @@ export default function SettingsPage() {
         </Link>
       </section>
 
+      {/* Password (2026-11-02): same mobile → SMS code → new password flow as "Forgot password". */}
+      <ChangePassword hasPhone={Boolean(user.phoneMasked)} phoneMasked={user.phoneMasked ?? null} />
+
       {/* Data */}
       <section className={styles.card} aria-labelledby="settings-data">
         <h2 id="settings-data" className={styles.cardTitle}>Your data</h2>
@@ -138,6 +142,46 @@ export default function SettingsPage() {
         See the <Link href="/privacy">Privacy Policy</Link> and <Link href="/community-guidelines">Community Guidelines</Link>.
       </p>
     </div>
+  );
+}
+
+function ChangePassword({ hasPhone, phoneMasked }: { hasPhone: boolean; phoneMasked: string | null }) {
+  const [open, setOpen] = useState(false);
+  const { refreshUser } = useAuth();
+  return (
+    <section className={styles.card} aria-labelledby="settings-password">
+      <h2 id="settings-password" className={styles.cardTitle}>Password</h2>
+      {!open ? (
+        <button type="button" className={styles.linkRow} onClick={() => setOpen(true)} disabled={!hasPhone}>
+          <KeyRound size={18} aria-hidden="true" />
+          <span>
+            <strong>Change password</strong>
+            <span className={styles.muted}>
+              {hasPhone
+                ? `We’ll text a code to ${phoneMasked}, then you type your new password twice. Other devices are signed out.`
+                : 'Add a verified mobile number to your account first.'}
+            </span>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" className={styles.chevron} />
+        </button>
+      ) : (
+        <div className={styles.passwordFlow}>
+          <PasswordResetFlow
+            autoFocus
+            title="Change your password"
+            note={`Enter the mobile number on your account (${phoneMasked ?? 'your number'}). We’ll text you a code.`}
+            submitLabel="Save new password"
+            onDone={async () => {
+              await refreshUser();
+              setOpen(false);
+            }}
+          />
+          <button type="button" className={styles.cancelLink} onClick={() => setOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 

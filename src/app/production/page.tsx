@@ -8,7 +8,7 @@ import { sanitizePublicEntityName } from '../../lib/normalizers';
 import styles from './production.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Anime Production | OTAKUVA' };
+export const metadata: Metadata = { title: 'Anime Production' };
 
 /**
  * The producers with the most titles in the catalog, from the Producer /

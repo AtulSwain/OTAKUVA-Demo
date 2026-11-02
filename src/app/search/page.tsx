@@ -7,22 +7,27 @@ import { BROWSE_GENRES } from '../../lib/browse';
 import styles from './search.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Search' };
+// Search results are kept out of search engines (thin, endless URL variants); links on them are still followed.
+export const metadata: Metadata = { title: 'Search', robots: { index: false, follow: true } };
 
 type Params = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 const SORTS = {
+  // Default when a query is typed: the anime you named first, then everything related.
+  relevance: { label: 'Best match', sortBy: 'relevance', sortOrder: 'desc' },
   popular: { label: 'Popular Anime', sortBy: 'popularity', sortOrder: 'asc' },
   score: { label: 'Top Rated', sortBy: 'score', sortOrder: 'desc' },
 } as const;
 type SortId = keyof typeof SORTS;
 
+const defaultSort = (q: string): SortId => (q ? 'relevance' : 'popular');
+
 function href(q: string, genre: string | undefined, sort: SortId, page: number) {
   const p = new URLSearchParams();
   if (q) p.set('q', q);
   if (genre) p.set('genre', genre);
-  if (sort !== 'popular') p.set('sort', sort);
+  if (sort !== defaultSort(q)) p.set('sort', sort);
   if (page > 1) p.set('page', String(page));
   const s = p.toString();
   return s ? `/search?${s}` : '/search';
@@ -32,7 +37,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Param
   // Only allowlisted or length-limited values ever reach the query.
   const q = (first(searchParams.q) || '').trim().slice(0, 100);
   const genre = BROWSE_GENRES.find((g) => g === first(searchParams.genre));
-  const sort: SortId = first(searchParams.sort) === 'score' ? 'score' : 'popular';
+  const askedSort = first(searchParams.sort);
+  const sort: SortId = askedSort === 'score' || askedSort === 'popular' || (askedSort === 'relevance' && q) ? (askedSort as SortId) : defaultSort(q);
   const page = Math.min(50, Math.max(1, parseInt(first(searchParams.page) || '1', 10) || 1));
 
   const { items, pagination } = await searchCatalog({

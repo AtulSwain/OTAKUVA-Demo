@@ -4,7 +4,7 @@ import { PageHead } from '../../../components/ui/PageHead';
 import { CollectionBuilder } from '../../../components/collections/CollectionBuilder';
 import styles from '../../../components/collections/Collections.module.css';
 
-export const metadata: Metadata = { title: 'Make a collection | OTAKUVA', robots: { index: false } };
+export const metadata: Metadata = { title: 'Make a collection', robots: { index: false } };
 
 /** /collections/new[?anime=<slug>] — the collection builder (2026-10-22). */
 export default function NewCollectionPage({ searchParams }: { searchParams: { anime?: string } }) {

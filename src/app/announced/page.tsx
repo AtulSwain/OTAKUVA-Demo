@@ -11,7 +11,7 @@ import styles from '../../components/announced/Announced.module.css';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Announced Anime — OTAKUVA',
+  title: 'Announced Anime',
   description: 'Newly announced anime: posters, premiere dates, studios and the news behind each announcement.',
 };
 

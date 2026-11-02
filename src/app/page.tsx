@@ -6,6 +6,7 @@ import { GUEST_COOKIE } from '../lib/landing/guest';
 import { getBrowseItemById, getBrowseList, getGenreArtwork } from '../lib/browseService';
 import { getTodayPick } from '@control/lib/dailyPicks';
 import { HomeClient } from './HomeClient';
+import { SiteJsonLd } from '../components/seo/SiteJsonLd';
 import { getCachedCreatorDirectory, getFollowedCreatorUsernames } from '../lib/creator/creatorDirectory';
 
 // Server component: every query behind the homepage runs here, at request
@@ -42,6 +43,8 @@ export default async function HomePage() {
   const initialSections = homeData.sections as any;
 
   return (
+    <>
+    <SiteJsonLd />
     <HomeClient
       initialSections={initialSections}
       genreArt={genreArt}
@@ -50,5 +53,6 @@ export default async function HomePage() {
       initialFollowedCreators={followedCreatorUsernames}
       initialFollowedUsername={authUser?.username ?? null}
     />
+    </>
   );
 }

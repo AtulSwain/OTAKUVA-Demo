@@ -3,7 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import styles from '../legal.module.css';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — OTAKUVA',
+  title: 'Terms of Service',
   robots: { index: false, follow: false },
 };
 

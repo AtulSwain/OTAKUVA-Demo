@@ -97,7 +97,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Raw SQL: these columns are newer than the running server's Prisma client may be.
-    await prisma.$executeRaw`UPDATE "User" SET "lastLoginAt" = NOW(), "lastSeenAt" = NOW(), "passwordChangedAt" = NOW() WHERE id = ${user.id}`;
+    // App clock, typed write — sessions are checked against passwordChangedAt (isSessionCurrent).
+    const now = new Date();
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: now, lastSeenAt: now, passwordChangedAt: now } });
 
     await alertAdmins('ADMIN_NEW_MEMBER', 'New member', `@${user.username} created an account.`, '/control/users');
 

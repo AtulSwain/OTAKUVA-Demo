@@ -17,14 +17,14 @@ const formatDate = (iso: string) =>
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const list = await getSharedList(params.token);
-  if (!list) return { title: 'List not found | OTAKUVA', robots: { index: false } };
+  if (!list) return { title: 'List not found', robots: { index: false } };
   const title = `${list.name} — ${list.items.length} anime by @${list.owner.username}`;
   const description =
     list.description ||
     `${list.items.slice(0, 4).map((i) => i.title).join(', ')}${list.items.length > 4 ? ' and more' : ''} — an anime list on OTAKUVA.`;
   const image = list.bannerUrl || list.items[0]?.posterUrl;
   return {
-    title: `${title} | OTAKUVA`,
+    title: `${title}`,
     description,
     // Link-only lists aren't meant to be found by search engines.
     robots: list.visibility === 'PUBLIC' ? undefined : { index: false, follow: false },

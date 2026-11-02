@@ -32,6 +32,22 @@ export interface TokenPayload {
   username: string;
   /** Null for phone-only accounts. Informational only — never used for authorization. */
   email?: string | null;
+  /** Issued-at (seconds), set by jsonwebtoken. */
+  iat?: number;
+}
+
+/**
+ * A session signed before the account's last password change is dead
+ * (2026-11-02): changing or resetting a password signs out every other
+ * device. One second of slack because `iat` is whole seconds.
+ */
+export function isSessionCurrent(payload: TokenPayload, passwordChangedAt: Date | null | undefined, now = Date.now()): boolean {
+  if (!passwordChangedAt) return true;
+  // A change time in the future is bad data (older rows were written with
+  // the DB clock/time zone) — never let it sign everyone out.
+  if (passwordChangedAt.getTime() > now + 60_000) return true;
+  if (typeof payload.iat !== 'number') return false;
+  return payload.iat * 1000 >= passwordChangedAt.getTime() - 1000;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -235,10 +251,12 @@ export async function getAuthUserFromCookies(): Promise<AuthenticatedUser | null
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, passwordChangedAt: true },
     });
+    if (!user || !isSessionCurrent(payload, user.passwordChangedAt)) return null;
+    const { passwordChangedAt: _pc, ...current } = user;
 
-    return user;
+    return current;
   } catch {
     return null;
   }
@@ -269,10 +287,12 @@ export async function getAuthUserFromRequest(request: NextRequest): Promise<Auth
     // without waiting for the token to expire.
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true },
+      select: { id: true, username: true, email: true, role: true, phoneVerifiedAt: true, passwordChangedAt: true },
     });
+    if (!user || !isSessionCurrent(payload, user.passwordChangedAt)) return null;
+    const { passwordChangedAt: _pc, ...current } = user;
 
-    return user;
+    return current;
   } catch (err) {
     return null;
   }
