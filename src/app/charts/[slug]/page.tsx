@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const chart = await getPublishedChart(params.slug).catch(() => null);
   if (!chart) return { title: 'Chart not found', robots: { index: false } };
-  return { title: `${chart.title} · OTAKUVA`, description: chart.description || `${chart.items.length} anime ranked by the OTAKUVA team.` };
+  return { title: `${chart.title}`, description: chart.description || `${chart.items.length} anime ranked by the OTAKUVA team.` };
 }
 
 const medal = (i: number) => (i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : '');

@@ -4,7 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import styles from '../legal.module.css';
 
 export const metadata: Metadata = {
-  title: 'Community Guidelines — OTAKUVA',
+  title: 'Community Guidelines',
 };
 
 interface Rule {

@@ -3,6 +3,13 @@ import AnimeDetailClient from './AnimeDetailClient';
 import { getSeasonSeries } from '../../../lib/catalog/seasonSeries';
 import { getAnimeFacts } from '../../../lib/anime/animeFacts';
 import { ViewBeacon } from '../../../components/analytics/ViewBeacon';
+import type { Metadata } from 'next';
+import { animeJsonLd, animeMetadata, getAnimeSeo } from '../../../lib/seo/animeSeo';
+import { JsonLd } from '../../../components/seo/JsonLd';
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  return animeMetadata(await getAnimeSeo(params.id).catch(() => null));
+}
 
 // Server component: fetches everything the detail view needs at request
 // time (via the same Route Handlers the client used to call after mount),
@@ -112,8 +119,11 @@ export default async function AnimeDetailPage({ params }: { params: { id: string
   // viewer, and cheap), so no need to duplicate that call here — the client
   // component starts with an empty list and fills it in immediately on mount.
 
+  const seo = await getAnimeSeo(id).catch(() => null);
+
   return (
     <>
+    {seo && !seo.isAdult && <JsonLd data={animeJsonLd(seo)} />}
     <ViewBeacon kind="anime" id={canonicalId} />
     <AnimeDetailClient
       id={id}

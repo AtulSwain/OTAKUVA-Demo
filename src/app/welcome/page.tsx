@@ -3,12 +3,14 @@ import { redirect } from 'next/navigation';
 import { getAuthUserFromCookies } from '../../lib/auth';
 import { getLandingPosters } from '../../lib/landing/landingPosters';
 import { WelcomeClient } from './WelcomeClient';
+import { SiteJsonLd } from '../../components/seo/SiteJsonLd';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'OTAKUVA — Track, rate and talk anime',
+  title: { absolute: 'OTAKUVA — Track, rate and talk anime' },
   description: 'Track what you watch, rate every episode and talk anime with people who love it.',
+  alternates: { canonical: '/' },
 };
 
 /**
@@ -20,5 +22,10 @@ export default async function WelcomePage() {
   const user = await getAuthUserFromCookies();
   if (user) redirect('/');
   const posters = await getLandingPosters(120).catch(() => []);
-  return <WelcomeClient posters={posters} />;
+  return (
+    <>
+      <SiteJsonLd />
+      <WelcomeClient posters={posters} />
+    </>
+  );
 }

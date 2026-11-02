@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import styles from './credits.module.css';
 
 export const metadata: Metadata = {
-  title: 'Data Credits — OTAKUVA',
+  title: 'Data Credits',
 };
 
 export default function CreditsPage() {

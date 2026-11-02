@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const def = getCollectionDef(params.slug);
   if (!def) notFound();
-  return { title: `${def.title} | OTAKUVA` };
+  return { title: `${def.title}` };
 }
 
 /**

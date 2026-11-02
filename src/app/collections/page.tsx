@@ -10,7 +10,7 @@ import c from '../../components/collections/Collections.module.css';
 import styles from './collections.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Collections | OTAKUVA' };
+export const metadata: Metadata = { title: 'Collections' };
 
 export default async function CollectionsPage() {
   const [collections, members] = await Promise.all([getCollectionSummaries(), getPublicCollections({ limit: 24 })]);

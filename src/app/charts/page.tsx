@@ -5,7 +5,7 @@ import { getChart, listPublishedCharts } from '@control/lib/charts';
 import styles from './charts.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Charts · OTAKUVA', description: 'Ranked anime charts made by the OTAKUVA team.' };
+export const metadata: Metadata = { title: 'Charts', description: 'Ranked anime charts made by the OTAKUVA team.' };
 
 /** Every published OTAKUVA chart (made in the control center). */
 export default async function ChartsIndex() {

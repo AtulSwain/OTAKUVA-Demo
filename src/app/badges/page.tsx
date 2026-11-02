@@ -5,7 +5,7 @@ import { Seal, BadgeChip, BadgeTooltip } from '../../components/badges';
 import styles from './badges.module.css';
 
 export const metadata: Metadata = {
-  title: 'Reviewer badges — OTAKUVA',
+  title: 'Reviewer badges',
   description: BADGE_STRINGS.galleryIntro,
 };
 

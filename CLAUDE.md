@@ -1969,6 +1969,28 @@ gaps against later phases, from the last audit (2026-08-28):
   no arrows — just one thin line per announcement on top that fills in turn
   (tap a line to jump; swipe on phones), always leads with the newest, re-polls every 5 min, and
   the background announcement sync runs hourly (was 3h).
+- **SEO (2026-11-02)**: site address = `NEXT_PUBLIC_APP_URL` via
+  `src/lib/seo/site.ts` (`SITE_URL`, `metaDescription`, `absoluteUrl`) —
+  change that one env var when moving to a real domain. Root layout sets
+  `metadataBase`, title template `%s · OTAKUVA` (so page titles must NOT add
+  "OTAKUVA" themselves; use `{ absolute }` to opt out), default OG/Twitter,
+  and `verification` from `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` /
+  `NEXT_PUBLIC_BING_SITE_VERIFICATION`. Never put `alternates.canonical` in
+  a layout that has child routes (it would be inherited). `robots.ts`
+  (private areas + API out; `/control` deliberately not named) and
+  `sitemap.ts` split per `src/lib/seo/sitemapPlan.ts` (`/sitemap/<n>.xml`,
+  25k URLs each: core+genres+studios+news, anime, people, characters; adult
+  anime excluded; built per request, never at build). Anime pages:
+  `generateMetadata` + TVSeries/Movie + BreadcrumbList JSON-LD from
+  `src/lib/seo/animeSeo.ts` (stored facts only, no rating claimed; adult =
+  noindex). Client-rendered detail pages get metadata from server
+  `layout.tsx` files via `src/lib/seo/pageSeo.ts` (news, character, genre,
+  theme, producer, franchise, community — private ones say nothing —,
+  discussion — `readableDiscussionsFilter(null)` —, profile). WebSite +
+  SearchAction JSON-LD on `/` and `/welcome`; `/search` is noindex.
+  Tests: `tests/seo.test.ts`. Not done: an OG image generator (next/og
+  crashed the Windows dev worker before — see app icons note), per-page
+  hreflang (site is English-only).
 - **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on

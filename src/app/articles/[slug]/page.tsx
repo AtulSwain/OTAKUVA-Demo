@@ -21,8 +21,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'nume
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const article = await getArticleBySlug(params.slug).catch(() => null);
   return article
-    ? { title: `${article.title} — OTAKUVA Articles`, description: article.summary }
-    : { title: 'Article not found — OTAKUVA' };
+    ? { title: `${article.title}`, description: article.summary }
+    : { title: 'Article not found' };
 }
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {

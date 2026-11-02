@@ -7,7 +7,8 @@ import { BROWSE_GENRES } from '../../lib/browse';
 import styles from './search.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Search' };
+// Search results are kept out of search engines (thin, endless URL variants); links on them are still followed.
+export const metadata: Metadata = { title: 'Search', robots: { index: false, follow: true } };
 
 type Params = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);

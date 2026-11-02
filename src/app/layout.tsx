@@ -4,17 +4,30 @@ import '../styles/globals.css';
 import { AppShell } from '../components/shell/AppShell';
 import { inter } from './fonts';
 import { THEME_INIT_SCRIPT } from '../lib/theme/themes';
+import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL } from '../lib/seo/site';
+
+const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined;
+const bingVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION || undefined;
 
 export const metadata: Metadata = {
-  title: 'OTAKUVA — Track what you watch.',
-  description: 'OTAKUVA is a premium digital archive, anime discovery, tracking, statistics, and community platform.',
-  keywords: ['anime', 'tracker', 'anime database', 'otakuva', 'anime list', 'seasonal anime', 'ratings'],
+  // SEO (2026-11-02): every relative canonical / share-image URL resolves
+  // against the site address; page titles read "<page> · OTAKUVA".
+  metadataBase: new URL(SITE_URL),
+  title: { default: 'OTAKUVA — Track what you watch.', template: '%s · OTAKUVA' },
+  description: DEFAULT_DESCRIPTION,
+  keywords: ['anime', 'anime tracker', 'anime database', 'otakuva', 'anime list', 'seasonal anime', 'anime schedule', 'anime reviews', 'episode ratings'],
   authors: [{ name: 'OTAKUVA' }],
   openGraph: {
     title: 'OTAKUVA — Track what you watch.',
-    description: 'A premium digital archive for anime and the people who watch it.',
+    description: DEFAULT_DESCRIPTION,
     type: 'website',
+    siteName: SITE_NAME,
+    locale: 'en_US',
+    images: [{ url: '/app-icons/512.png', width: 512, height: 512, alt: 'OTAKUVA' }],
   },
+  twitter: { card: 'summary', title: 'OTAKUVA — Track what you watch.', description: DEFAULT_DESCRIPTION, images: ['/app-icons/512.png'] },
+  // Search Console / Bing Webmaster ownership checks (set the env vars in Vercel).
+  verification: { google: googleVerification, other: bingVerification ? { 'msvalidate.01': bingVerification } : undefined },
   applicationName: 'OTAKUVA',
   // Installed to the home screen (and the basis for a store wrapper later).
   appleWebApp: { capable: true, title: 'OTAKUVA', statusBarStyle: 'black-translucent' },
