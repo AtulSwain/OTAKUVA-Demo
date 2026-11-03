@@ -25,10 +25,10 @@ const ROUTE = 'login';
  *   { identifier, password }   — THE sign-in (2026-10-28): username (or a
  *                                legacy account's email) + password, for
  *                                every account.
- *   { phone, country?, code }  — only for older phone accounts that have
- *                                no password yet; refused once a password
- *                                is set, so the code can't bypass it. Those
- *                                accounts are pointed to "Forgot password".
+ *   { phone, country?, code }  — sign in with an SMS code instead
+ *                                (re-enabled for every account 2026-11-03,
+ *                                owner). Codes are rate-limited per number
+ *                                and per network (send-otp + otpRoute).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -72,9 +72,6 @@ async function phoneSignIn(body: any) {
   const found = await prisma.user.findUnique({ where: { phone }, select: { ...SESSION_USER_SELECT, passwordHash: true } });
   if (!found) {
     return NextResponse.json({ error: 'No account uses this number yet. Create an account instead.' }, { status: 401 });
-  }
-  if (found.passwordHash) {
-    return NextResponse.json({ error: 'Sign in with your username and password.', code: 'USE_PASSWORD' }, { status: 400 });
   }
   const { passwordHash: _ph, ...user } = found;
   if (!user.phoneVerifiedAt) {

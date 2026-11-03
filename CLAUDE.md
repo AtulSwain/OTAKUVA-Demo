@@ -2030,7 +2030,29 @@ gaps against later phases, from the last audit (2026-08-28):
     Terms and Privacy Policy"; Sign In shows the two links.
   - *Phone verification on*: Vercel `PHONE_VERIFICATION_REQUIRED=true`
     (production + preview). Twilio Verify vars exist only for production.
-- **Support contact (2026-11-01, owner)**: "Need a Hand?" in the site footer
+- **OTP sign-in, forgot username/password, footer pages (2026-11-03, owner)**:
+  - *OTP sign-in is back for every account*: `POST /api/auth/login { phone,
+    code }` no longer refuses accounts with a password (`USE_PASSWORD` is
+    gone). Sign In has a Password | SMS code (OTP) switch (`AuthForm`).
+  - *Forgot password or username* = `AccountRecoveryFlow` (`AuthForm.tsx`;
+    sign-in link + `/forgot-password` page): username → code to the number
+    on file (send-otp purpose `reset` with `username`, reply has only
+    `maskedPhone`; `USERNAME_NOT_FOUND` / `NO_PHONE`), or "Forgot your
+    username?" → phone → code. verify-code `reset` accepts `{ username,
+    code }` and now returns the account's `username` + `maskedPhone`. Then
+    choose **Reset username** (typed twice → `POST
+    /api/auth/username-reset/phone { pass, username }`, sign-up rules,
+    case-insensitive uniqueness, signs in, sessions kept) or **Reset
+    password** (typed twice → existing password-reset route). Settings still
+    uses `PasswordResetFlow`. Tests in `tests/phone-auth.test.ts`.
+  - *Footer*: "Need a Hand?" box removed; Company / Help / Legal link
+    columns. Support address now on `/support` (help tiles + "How support
+    works" = support terms) and `/about` (what OTAKUVA is, "About me" from
+    `src/content/about.ts` — hidden until the owner fills it in, support card)
+    via `src/components/support/SupportEmailCard.tsx`. `/terms` is real
+    plain-language Terms & Conditions (placeholder banner removed; India
+    governing law and 13+ are owner choices; lawyer read still advised).
+- **Support contact (2026-11-01, owner; moved to /support + /about 2026-11-03)**: "Need a Hand?" in the site footer
   (`src/components/shell/SupportContact.tsx`), right under the brand line
   "Track what you watch…" — stacked on phones, brand left / support right on
   laptops (≥961px). mailto: links only (no form/backend): the address, and

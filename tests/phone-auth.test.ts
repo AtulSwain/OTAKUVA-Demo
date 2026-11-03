@@ -28,6 +28,7 @@ import { POST as registerPOST } from '../src/app/api/auth/register/route';
 import { POST as loginPOST } from '../src/app/api/auth/login/route';
 import { POST as verifyCodePOST } from '../src/app/api/auth/phone/verify-code/route';
 import { POST as phoneResetPOST } from '../src/app/api/auth/password-reset/phone/route';
+import { POST as usernameResetPOST } from '../src/app/api/auth/username-reset/phone/route';
 import { POST as ratingPOST } from '../src/app/api/anime/[id]/rating/route';
 import { POST as reviewsPOST } from '../src/app/api/reviews/route';
 
@@ -183,12 +184,17 @@ describe('sign-up by phone', () => {
     assert.equal(unknown.body.error, wrong.body.error, 'same message: no hint which part was wrong');
   });
 
-  test('a code alone can no longer sign in to an account that has a password', async () => {
+  test('OTP sign-in: the SMS code signs in to an account that has a password (2026-11-03)', async () => {
     const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'login', phone, country: 'IN' } })));
     assert.equal(sent.status, 200);
-    const res = await read(await loginPOST(req('POST', '/api/auth/login', { body: { phone, country: 'IN', code: peekDevOtp(e164(phone)) } })));
-    assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'USE_PASSWORD');
+    const login = await loginPOST(req('POST', '/api/auth/login', { body: { phone, country: 'IN', code: peekDevOtp(e164(phone)) } }));
+    const res = await read(login);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.user.username, username);
+    assert.ok(login.headers.get('set-cookie')?.includes('anilog_token='), 'session cookie set');
+
+    const wrong = await read(await loginPOST(req('POST', '/api/auth/login', { body: { phone, country: 'IN', code: '000000' } })));
+    assert.equal(wrong.status, 400, 'a wrong (or already used) code is refused');
   });
 });
 
@@ -381,5 +387,64 @@ describe('forgot password by phone', () => {
     const res = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: user.username, password: PW } })));
     assert.equal(res.status, 400);
     assert.equal(res.body.code, 'NO_PASSWORD');
+  });
+});
+
+describe('forgot username or password, starting from the username (2026-11-03)', () => {
+  test('username → code to the number on file (masked only) → pass + username → reset username → signed in as the new name', async () => {
+    const user = await createUser();
+    const phone = freshPhone();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: e164(phone), passwordHash: await hashPassword('Keep-password-1') } });
+
+    const missing = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', username: `nobody_${Date.now()}` } })));
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.code, 'USERNAME_NOT_FOUND');
+
+    const sent = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', username: user.username.toUpperCase() } })));
+    assert.equal(sent.status, 200, JSON.stringify(sent.body));
+    assert.match(sent.body.maskedPhone, /^\+91 •+\d{4}$/);
+    assert.equal(JSON.stringify(sent.body).includes(e164(phone)), false, 'the full number is never echoed back');
+
+    const ver = await read(await verifyCodePOST(req('POST', '/api/auth/phone/verify-code', { body: { purpose: 'reset', username: user.username, code: peekDevOtp(e164(phone)) } })));
+    assert.equal(ver.status, 200, JSON.stringify(ver.body));
+    assert.equal(ver.body.username, user.username, 'the verified owner is told their username');
+    assert.ok(ver.body.pass);
+
+    const taken = await createUser();
+    const clash = await read(await usernameResetPOST(req('POST', '/api/auth/username-reset/phone', { body: { pass: ver.body.pass, username: taken.username.toUpperCase() } })));
+    assert.equal(clash.status, 409);
+    const short = await read(await usernameResetPOST(req('POST', '/api/auth/username-reset/phone', { body: { pass: ver.body.pass, username: 'abc' } })));
+    assert.equal(short.status, 400);
+    const forged = await read(await usernameResetPOST(req('POST', '/api/auth/username-reset/phone', { body: { pass: 'nope', username: 'brand_new_name1' } })));
+    assert.equal(forged.status, 400);
+    assert.equal(forged.body.code, 'PASS_INVALID');
+
+    const fresh = `renamed_${Date.now().toString(36)}`;
+    const done = await usernameResetPOST(req('POST', '/api/auth/username-reset/phone', { body: { pass: ver.body.pass, username: fresh } }));
+    const body = await read(done);
+    assert.equal(body.status, 200, JSON.stringify(body.body));
+    assert.equal(body.body.user.username, fresh);
+    assert.ok(done.headers.get('set-cookie')?.includes('anilog_token='), 'signed in');
+
+    const login = await read(await loginPOST(req('POST', '/api/auth/login', { body: { identifier: fresh, password: 'Keep-password-1' } })));
+    assert.equal(login.status, 200, 'same password works with the new username');
+  });
+
+  test('forgot username: verifying by phone also names the account', async () => {
+    const user = await createUser();
+    const phone = freshPhone();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: e164(phone) } });
+    await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', phone, country: 'IN' } }));
+    const ver = await read(await verifyCodePOST(req('POST', '/api/auth/phone/verify-code', { body: { purpose: 'reset', phone, country: 'IN', code: peekDevOtp(e164(phone)) } })));
+    assert.equal(ver.status, 200, JSON.stringify(ver.body));
+    assert.equal(ver.body.username, user.username);
+  });
+
+  test('an account with no number on file gets no code', async () => {
+    const user = await createUser();
+    await prisma.user.update({ where: { id: user.id }, data: { phone: null } });
+    const res = await read(await sendOtpPOST(req('POST', '/api/auth/phone/send-otp', { body: { purpose: 'reset', username: user.username } })));
+    assert.equal(res.status, 400);
+    assert.equal(res.body.code, 'NO_PHONE');
   });
 });

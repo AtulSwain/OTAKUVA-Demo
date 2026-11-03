@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUserFromRequest } from '../../../../../lib/auth';
-import { normalizePhone } from '../../../../../lib/identity/phoneNumber';
+import { maskPhone, normalizePhone } from '../../../../../lib/identity/phoneNumber';
 import { validateUsername } from '../../../../../lib/identity/username';
-import { findUserIdByPhone, isUsernameTaken } from '../../../../../lib/identity/accountLookup';
+import { findAccountByUsername, findUserIdByPhone, isUsernameTaken } from '../../../../../lib/identity/accountLookup';
 import { isDevOtpSender, peekDevOtp, sendOtp, type OtpSendFailureReason } from '../../../../../lib/identity/otpService';
 import { isMockOtpMode } from '../../../../../lib/identity/identityConfig';
 import {
@@ -29,7 +29,10 @@ type Purpose = 'register' | 'login' | 'link' | 'reauth' | 'reset';
  * for a request that can't succeed:
  *   - register: `username` must be valid and free, and the number unused.
  *   - login:    the number must belong to an account.
- *   - reset:    same as login — "Forgot password" (2026-10-28).
+ *   - reset:    same as login — "Forgot password" (2026-10-28). Since
+ *               2026-11-03 it can also take `username` instead of `phone`:
+ *               the code goes to that account's number on file, and the
+ *               reply carries only the masked number.
  *   - link:     signed in, and the number not on another account.
  *   - reauth:   signed in; always texts the account's OWN stored number
  *               (the `phone` field is ignored) — used to confirm sensitive
@@ -52,7 +55,22 @@ export async function POST(request: NextRequest) {
     }
 
     let phone: string | null;
-    if (purpose === 'reauth') {
+    // reset by username: the number is the account's own, never echoed.
+    let byUsername = false;
+    if (purpose === 'reset' && body?.phone === undefined && typeof body?.username === 'string') {
+      const account = await findAccountByUsername(body.username);
+      if (!account) {
+        return NextResponse.json({ error: 'No account has that username.', code: 'USERNAME_NOT_FOUND' }, { status: 404 });
+      }
+      if (!account.phone) {
+        return NextResponse.json(
+          { error: 'This account has no mobile number on file, so we can’t text a code. Contact support.', code: 'NO_PHONE' },
+          { status: 400 }
+        );
+      }
+      phone = account.phone;
+      byUsername = true;
+    } else if (purpose === 'reauth') {
       const authUser = await getAuthUserFromRequest(request);
       if (!authUser) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
       const account = await prisma.user.findUnique({ where: { id: authUser.id }, select: { phone: true } });
@@ -138,8 +156,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       sent: true,
-      // reauth never echoes the number: the client only ever sees it masked.
-      ...(purpose === 'reauth' ? {} : { phone }),
+      // reauth and reset-by-username never echo the number: only masked.
+      ...(purpose === 'reauth' || byUsername ? { maskedPhone: maskPhone(phone) } : { phone }),
       // Lets the form say "check the server log" in development instead of
       // implying an SMS went out when none did.
       devMode: isDevOtpSender() || undefined,
