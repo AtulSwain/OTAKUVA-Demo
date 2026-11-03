@@ -51,7 +51,8 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   /** Texts a one-time code. `username` is required for 'register'. */
-  requestOtp: (args: { purpose: OtpPurpose; phone: string; country: string; username?: string }) => Promise<AuthResult & { devMode?: boolean; mockCode?: string }>;
+  /** `phone` may be left out only for purpose 'reset' with `username` (code goes to that account's number; `maskedPhone` comes back). */
+  requestOtp: (args: { purpose: OtpPurpose; phone?: string; country?: string; username?: string }) => Promise<AuthResult & { devMode?: boolean; mockCode?: string; maskedPhone?: string }>;
   loginWithPhone: (phone: string, country: string, code: string) => Promise<AuthResult>;
   /** The sign-in: username (or a legacy account's email) + password. */
   loginWithPassword: (identifier: string, password: string) => Promise<AuthResult>;
@@ -59,6 +60,13 @@ interface AuthContextType {
   verifyPhoneCode: (purpose: 'register' | 'reset', phone: string, country: string, code: string) => Promise<AuthResult & { pass?: string }>;
   /** Creates the account from a verified phone pass + password, and signs in. */
   register: (username: string, password: string, pass: string) => Promise<AuthResult>;
+  /** Forgot password/username: checks the code (by phone, or by username) → pass + the account's username. */
+  verifyResetCode: (
+    target: { phone: string; country: string } | { username: string },
+    code: string,
+  ) => Promise<AuthResult & { pass?: string; username?: string; maskedPhone?: string }>;
+  /** Sets a new username from a verified phone pass ("Forgot username"), and signs in. */
+  resetUsernameWithPhone: (pass: string, username: string) => Promise<AuthResult>;
   /** Sets a new password from a verified phone pass ("Forgot password"), and signs in. */
   resetPasswordWithPhone: (pass: string, password: string) => Promise<AuthResult>;
   /** Replaces the signed-in user after a server-side change (e.g. phone linked). */
@@ -203,7 +211,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const requestOtp: AuthContextType['requestOtp'] = async (args) => {
     const { ok, data } = await postAuth('/api/auth/phone/send-otp', args);
     if (!ok) return { success: false, error: data.error || 'Could not send the code.', code: data.code, devDetail: data.devDetail };
-    return { success: true, devMode: data.devMode === true, mockCode: typeof data.mockCode === 'string' ? data.mockCode : undefined };
+    return {
+      success: true,
+      devMode: data.devMode === true,
+      mockCode: typeof data.mockCode === 'string' ? data.mockCode : undefined,
+      maskedPhone: typeof data.maskedPhone === 'string' ? data.maskedPhone : undefined,
+    };
   };
 
   const loginWithPhone = async (phone: string, country: string, code: string) => {
@@ -220,6 +233,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { ok, data } = await postAuth('/api/auth/phone/verify-code', { purpose, phone, country, code });
     if (!ok || typeof data.pass !== 'string') return { success: false, error: data.error || "That code didn't work.", code: data.code };
     return { success: true, pass: data.pass };
+  };
+
+  const verifyResetCode: AuthContextType['verifyResetCode'] = async (target, code) => {
+    const { ok, data } = await postAuth('/api/auth/phone/verify-code', { purpose: 'reset', ...target, code });
+    if (!ok || typeof data.pass !== 'string') return { success: false, error: data.error || "That code didn't work.", code: data.code };
+    return { success: true, pass: data.pass, username: data.username, maskedPhone: data.maskedPhone };
+  };
+
+  const resetUsernameWithPhone = async (pass: string, username: string) => {
+    const { ok, data } = await postAuth('/api/auth/username-reset/phone', { pass, username });
+    return finishSignIn(ok, data, 'Could not change the username.');
   };
 
   const register = async (username: string, password: string, pass: string) => {
@@ -304,6 +328,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         verifyPhoneCode,
         register,
         resetPasswordWithPhone,
+        verifyResetCode,
+        resetUsernameWithPhone,
         setSessionUser: applySession,
         logout,
         showAuthModal,

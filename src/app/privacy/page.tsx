@@ -175,7 +175,7 @@ export default function PrivacyPage() {
       </div>
 
       <p className={styles.footNote}>
-        See also the <Link href="/terms">Terms of Service</Link> and the <Link href="/community-guidelines">Community Guidelines</Link>.
+        See also the <Link href="/terms">Terms &amp; Conditions</Link> and the <Link href="/community-guidelines">Community Guidelines</Link>.
       </p>
     </div>
   );

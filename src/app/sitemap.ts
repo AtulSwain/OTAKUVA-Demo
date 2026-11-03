@@ -30,6 +30,10 @@ const CORE_PATHS: { path: string; changeFrequency: 'hourly' | 'daily' | 'weekly'
   { path: '/community', changeFrequency: 'daily', priority: 0.6 },
   { path: '/discussions', changeFrequency: 'daily', priority: 0.6 },
   { path: '/history', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/about', changeFrequency: 'weekly', priority: 0.4 },
+  { path: '/support', changeFrequency: 'weekly', priority: 0.4 },
+  { path: '/terms', changeFrequency: 'weekly', priority: 0.3 },
+  { path: '/privacy', changeFrequency: 'weekly', priority: 0.3 },
 ];
 
 export async function generateSitemaps() {

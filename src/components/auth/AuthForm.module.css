@@ -45,7 +45,7 @@
 }
 .forgotLink:hover, .back:hover { color: var(--text-primary, #f5f5f7); text-decoration: underline; text-underline-offset: 3px; }
 .back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
-.stepTitle { margin: 0 0 4px; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.stepTitle { margin: 0 0 4px; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary, #f5f5f7); }
 
 .pwWrap { position: relative; display: flex; }
 .pwInput { flex: 1; min-width: 0; padding-right: 44px !important; }
@@ -116,3 +116,36 @@
 .consent { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: var(--text-tertiary, #71717a); text-align: center; }
 .consent a { color: var(--text-secondary, #a1a1aa); text-decoration: underline; text-underline-offset: 2px; }
 .consent a:hover { color: var(--text-primary, #f5f5f7); }
+
+/* Sign in with: Password | SMS code (2026-11-03) */
+.method { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.methodBtn, .methodOn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; border: 0; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.methodBtn { background: transparent; color: var(--text-secondary, #a1a1aa); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.methodBtn:hover { color: var(--text-primary, #f5f5f7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22); }
+.methodOn { background: rgba(255, 255, 255, 0.1); color: var(--text-primary, #f5f5f7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28); }
+
+/* Forgot password or username */
+.altLink {
+  display: inline-flex; align-items: center; gap: 6px; align-self: center;
+  padding: 2px 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-secondary, #a1a1aa); font: inherit; font-size: 12.5px; font-weight: 600;
+}
+.altLink:hover { color: var(--text-primary, #f5f5f7); text-decoration: underline; text-underline-offset: 3px; }
+.choiceGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+  padding: 14px; border: 0; border-radius: 14px; cursor: pointer; font: inherit;
+  background: rgba(255, 255, 255, 0.04); color: var(--text-primary, #f5f5f7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.choice:hover { background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); transform: translateY(-1px); }
+.choice:focus-visible { outline: 2px solid var(--text-primary, #f5f5f7); outline-offset: 2px; }
+.choiceTitle { font-size: 14px; font-weight: 800; }
+.choiceNote { font-size: 12px; line-height: 1.4; color: var(--text-secondary, #a1a1aa); }
+@media (max-width: 420px) { .choiceGrid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .choice { transition: none; } .choice:hover { transform: none; } }

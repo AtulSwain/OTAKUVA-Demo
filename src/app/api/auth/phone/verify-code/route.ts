@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signPhonePass, PHONE_PASS_TTL_SEC, type PhonePassPurpose } from '../../../../../lib/auth';
-import { normalizePhone } from '../../../../../lib/identity/phoneNumber';
-import { findUserIdByPhone } from '../../../../../lib/identity/accountLookup';
+import { maskPhone, normalizePhone } from '../../../../../lib/identity/phoneNumber';
+import { prisma } from '../../../../../lib/prisma';
+import { findAccountByUsername, findUserIdByPhone } from '../../../../../lib/identity/accountLookup';
 import { verifyOtpOrRespond } from '../../../../../lib/identity/otpRoute';
 import { checkIpRateLimit, rateLimitResponse, getClientIp } from '../../../../../lib/security/authRateLimiter';
 import { logger } from '../../../../../lib/logger';
@@ -18,6 +19,11 @@ const ROUTE = 'otp-verify';
  * then asks for the password and sends { pass, password } to
  * /api/auth/register or /api/auth/password-reset/phone. The code alone never
  * signs anyone in.
+ *
+ * Reset (2026-11-03): `{ username, code }` works in place of the phone (the
+ * code was sent to that account's number), and the reply also names the
+ * account — `username` + masked number — so someone who forgot their
+ * username sees it before choosing "Reset username" or "Reset password".
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +36,16 @@ export async function POST(request: NextRequest) {
     if (purpose !== 'register' && purpose !== 'reset') {
       return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
     }
-    const phone = normalizePhone(String(body?.phone ?? ''), String(body?.country ?? 'IN'));
+    let phone: string | null;
+    if (purpose === 'reset' && body?.phone === undefined && typeof body?.username === 'string') {
+      const account = await findAccountByUsername(body.username);
+      if (!account?.phone) {
+        return NextResponse.json({ error: 'No account has that username.', code: 'USERNAME_NOT_FOUND' }, { status: 404 });
+      }
+      phone = account.phone;
+    } else {
+      phone = normalizePhone(String(body?.phone ?? ''), String(body?.country ?? 'IN'));
+    }
     if (!phone) return NextResponse.json({ error: 'Enter a valid mobile number.', code: 'INVALID_PHONE' }, { status: 400 });
 
     // Checked before the code (a provider check consumes it).
@@ -45,7 +60,16 @@ export async function POST(request: NextRequest) {
     const otpFailure = await verifyOtpOrRespond(phone, body?.code);
     if (otpFailure) return otpFailure;
 
-    return NextResponse.json({ pass: signPhonePass(phone, purpose), expiresInSec: PHONE_PASS_TTL_SEC }, { headers: { 'Cache-Control': 'no-store' } });
+    // The code just proved this number, so naming its account is safe.
+    const account = purpose === 'reset' ? await prisma.user.findUnique({ where: { phone }, select: { username: true } }) : null;
+    return NextResponse.json(
+      {
+        pass: signPhonePass(phone, purpose),
+        expiresInSec: PHONE_PASS_TTL_SEC,
+        ...(account ? { username: account.username, maskedPhone: maskPhone(phone) } : {}),
+      },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     logger.error('Phone code verification failed', { error: error as Error, component: 'auth/verify-code' });
     return NextResponse.json({ error: 'Could not verify the code.' }, { status: 500 });

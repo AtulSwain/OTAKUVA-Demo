@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Eye, EyeOff, ShieldCheck, ArrowLeft, AtSign, KeyRound, Pencil, Smartphone } from 'lucide-react';
 import { useAuth, type AuthResult } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { PhoneOtpFlow } from './PhoneOtpFlow';
@@ -10,6 +10,7 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_STRENGTH_LABEL, pass
 import { CHANNEL_NAME_MAX, CHANNEL_URL_MAX, channelProblem } from '../../lib/creator/channelRules';
 import styles from '../ui/AuthModal.module.css';
 import seg from './AuthForm.module.css';
+import otp from './PhoneOtpFlow.module.css';
 
 export type AuthMode = 'login' | 'register' | 'creator';
 const MODE_LABEL: Record<AuthMode, string> = { login: 'Sign In', register: 'Create Account', creator: 'Creator' };
@@ -289,15 +290,469 @@ export function PasswordResetFlow({
   );
 }
 
+/** New username typed twice, with the live availability check. */
+function UsernamePanel({
+  accountLabel,
+  currentUsername,
+  onSubmit,
+  onRestart,
+}: {
+  accountLabel: string;
+  currentUsername?: string;
+  onSubmit: (username: string) => Promise<AuthResult>;
+  onRestart: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const status = useUsernameAvailability(name, true);
+  const same = Boolean(currentUsername) && name.trim() === currentUsername;
+  const mismatch = confirm.length > 0 && confirm.trim() !== name.trim();
+  const ready = status.kind === 'available' && !same && confirm.trim() === name.trim();
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ready || busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await onSubmit(name.trim());
+      if (!res.success) {
+        setError(res.error || 'Something went wrong.');
+        if (res.code === 'PASS_INVALID') onRestart();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const bad = same || status.kind === 'unavailable' || status.kind === 'error';
+  const good = status.kind === 'available' && !same;
+  const note = same
+    ? 'That is already your username.'
+    : status.kind === 'available'
+    ? 'Username is available.'
+    : status.kind === 'unavailable' || status.kind === 'error'
+    ? status.message
+    : status.kind === 'checking'
+    ? 'Checking…'
+    : `At least ${USERNAME_MIN_LENGTH} characters: letters, numbers, _ and .`;
+
+  return (
+    <form className={seg.panel} onSubmit={submit} noValidate>
+      <div className={seg.verified}>
+        <ShieldCheck size={16} aria-hidden="true" />
+        <span>
+          <strong>{accountLabel}</strong> verified
+        </span>
+        <button type="button" className={seg.verifiedChange} onClick={onRestart}>
+          Start over
+        </button>
+      </div>
+      <div className={styles.inputGroup}>
+        <label className={styles.label} htmlFor="new-username">
+          New username
+        </label>
+        <div className={styles.inputWithStatus}>
+          <input
+            id="new-username"
+            type="text"
+            className={`${styles.input} ${good ? styles.inputOk : bad ? styles.inputBad : ''}`}
+            placeholder="e.g. otaku_collector"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={USERNAME_MAX_LENGTH}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus
+          />
+          <span className={styles.statusIcon} aria-hidden="true">
+            {status.kind === 'checking' && <Loader2 size={15} className={styles.spin} />}
+            {good && <CheckCircle2 size={16} className={styles.ok} />}
+            {bad && <XCircle size={16} className={styles.bad} />}
+          </span>
+        </div>
+        <p className={`${styles.fieldNote} ${good ? styles.ok : bad ? styles.bad : ''}`} aria-live="polite">
+          {note}
+        </p>
+      </div>
+      <div className={styles.inputGroup}>
+        <label className={styles.label} htmlFor="confirm-username">
+          Re-enter new username
+        </label>
+        <input
+          id="confirm-username"
+          type="text"
+          className={`${styles.input} ${mismatch ? styles.inputBad : ''}`}
+          placeholder="Type it again"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          maxLength={USERNAME_MAX_LENGTH}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+        />
+        <p className={`${styles.fieldNote} ${mismatch ? styles.bad : confirm && !mismatch ? styles.ok : ''}`} aria-live="polite">
+          {mismatch ? "Usernames don't match." : confirm && !mismatch ? 'Usernames match.' : ' '}
+        </p>
+      </div>
+      {error && <div className={styles.errorBox}>{error}</div>}
+      <button type="submit" className={styles.submitBtn} disabled={!ready || busy}>
+        {busy ? (
+          <span className={styles.loadingSpan}>
+            <Loader2 size={15} className={styles.spin} />
+            <span>Saving…</span>
+          </span>
+        ) : (
+          'Save username & sign in'
+        )}
+      </button>
+    </form>
+  );
+}
+
+const RESEND_SEC = 30;
+
+/** Username → code texted to that account's number (shown masked) → code. */
+function UsernameCodeStep({
+  autoFocus,
+  onVerified,
+  onStepChange,
+}: {
+  autoFocus?: boolean;
+  onVerified: (v: { pass: string; username: string; maskedPhone?: string }) => void;
+  onStepChange: (step: 'phone' | 'code') => void;
+}) {
+  const { requestOtp, verifyResetCode } = useAuth();
+  const [username, setUsername] = useState('');
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [mockCode, setMockCode] = useState<string | null>(null);
+  const [devMode, setDevMode] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+  useEffect(() => {
+    onStepChange(sentTo ? 'code' : 'phone');
+  }, [sentTo, onStepChange]);
+
+  const send = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await requestOtp({ purpose: 'reset', username: username.trim() });
+      if (!res.success) {
+        setError(res.error || 'Could not send the code.');
+        return;
+      }
+      setSentTo(res.maskedPhone ?? 'your mobile number');
+      setMockCode(res.mockCode ?? null);
+      setDevMode(res.devMode === true);
+      setCode(res.mockCode ?? '');
+      setResendIn(RESEND_SEC);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verify = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await verifyResetCode({ username: username.trim() }, code);
+      if (!res.success || !res.pass) {
+        setError(res.error || "That code didn't work.");
+        return;
+      }
+      onVerified({ pass: res.pass, username: res.username ?? username.trim(), maskedPhone: res.maskedPhone });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      className={otp.flow}
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (busy) return;
+        void (sentTo ? verify() : send());
+      }}
+    >
+      {!sentTo ? (
+        <div className={otp.group}>
+          <label className={otp.label} htmlFor="recover-username">
+            Username
+          </label>
+          <input
+            id="recover-username"
+            type="text"
+            className={otp.input}
+            placeholder="your_username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus={autoFocus}
+          />
+          <p className={otp.hint}>We&apos;ll text a code to the mobile number on this account.</p>
+        </div>
+      ) : (
+        <div className={otp.group}>
+          <div className={otp.sentRow}>
+            <span className={otp.sentTo}>
+              Code sent to <strong>{sentTo}</strong>
+            </span>
+            <button
+              type="button"
+              className={otp.linkBtn}
+              onClick={() => {
+                setSentTo(null);
+                setError(null);
+              }}
+            >
+              <Pencil size={11} aria-hidden="true" /> Change
+            </button>
+          </div>
+          <label className={otp.label} htmlFor="recover-code">
+            Verification code
+          </label>
+          <input
+            id="recover-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            className={`${otp.input} ${otp.codeInput}`}
+            placeholder="••••••"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            autoFocus
+          />
+          {mockCode ? (
+            <p className={otp.devNote}>
+              Test mode: no SMS was sent. Your code is <strong>{mockCode}</strong> (filled in for you).
+            </p>
+          ) : devMode ? (
+            <p className={otp.devNote}>Development mode: no SMS was sent. The code is in the server log.</p>
+          ) : null}
+          <button type="button" className={otp.linkBtn} disabled={resendIn > 0 || busy} onClick={() => void send()}>
+            {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+          </button>
+        </div>
+      )}
+      {error && (
+        <div className={otp.error} role="alert">
+          {error}
+        </div>
+      )}
+      <button type="submit" className={otp.submit} disabled={busy || (sentTo ? code.length !== 6 : !username.trim())}>
+        {busy ? (
+          <span className={otp.loading}>
+            <Loader2 size={15} className={otp.spin} aria-hidden="true" />
+            <span>{sentTo ? 'Verifying…' : 'Sending…'}</span>
+          </span>
+        ) : sentTo ? (
+          'Verify code'
+        ) : (
+          'Send code'
+        )}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Forgot password or username (2026-11-03, owner):
+ *   1 Account — your username, or (forgot it?) your mobile number
+ *   2 Code    — SMS to the number on the account
+ *   3 Reset   — choose Reset username / Reset password, type it twice
+ * Saving signs this device in. A new password also signs every other
+ * device out (passwordChangedAt); a new username doesn't.
+ */
+export function AccountRecoveryFlow({
+  autoFocus,
+  onDone,
+  onNoAccount,
+}: {
+  autoFocus?: boolean;
+  onDone?: (res: AuthResult) => void;
+  onNoAccount?: () => void;
+}) {
+  const { verifyResetCode, resetPasswordWithPhone, resetUsernameWithPhone } = useAuth();
+  const { showToast } = useToast();
+  const [by, setBy] = useState<'username' | 'phone'>('username');
+  const [verified, setVerified] = useState<{ pass: string; username: string; maskedPhone?: string } | null>(null);
+  const [choice, setChoice] = useState<'username' | 'password' | null>(null);
+  const [otpStep, setOtpStep] = useState<'phone' | 'code'>('phone');
+  const [flowKey, setFlowKey] = useState(0);
+
+  const restart = () => {
+    setVerified(null);
+    setChoice(null);
+    setOtpStep('phone');
+    setFlowKey((k) => k + 1);
+  };
+  const step = verified ? 3 : otpStep === 'code' ? 2 : 1;
+  const stepState = (n: number) => ({ 'data-on': step === n ? 'true' : undefined, 'data-done': step > n ? 'true' : undefined });
+
+  const verifyByPhone = async (phone: string, country: string, code: string): Promise<AuthResult> => {
+    const res = await verifyResetCode({ phone, country }, code);
+    if (res.success && res.pass) setVerified({ pass: res.pass, username: res.username ?? '', maskedPhone: res.maskedPhone });
+    return res;
+  };
+
+  const savePassword = async (pw: string): Promise<AuthResult> => {
+    if (!verified) return { success: false, error: 'Verify your phone first.' };
+    const res = await resetPasswordWithPhone(verified.pass, pw);
+    if (res.success) {
+      showToast('New password saved. Other devices have been signed out.', 'success', 6000);
+      onDone?.(res);
+    }
+    return res;
+  };
+
+  const saveUsername = async (name: string): Promise<AuthResult> => {
+    if (!verified) return { success: false, error: 'Verify your phone first.' };
+    const res = await resetUsernameWithPhone(verified.pass, name);
+    if (res.success) {
+      showToast(`Your username is now @${name}.`, 'success', 6000);
+      onDone?.(res);
+    }
+    return res;
+  };
+
+  const accountLabel = verified?.username ? `@${verified.username}` : verified?.maskedPhone ?? 'Your account';
+
+  return (
+    <div className={seg.stack}>
+      <ol className={seg.steps} aria-label="Steps">
+        <li {...stepState(1)} aria-current={step === 1 ? 'step' : undefined}>Account</li>
+        <li {...stepState(2)} aria-current={step === 2 ? 'step' : undefined}>SMS code</li>
+        <li {...stepState(3)} aria-current={step === 3 ? 'step' : undefined}>Reset</li>
+      </ol>
+
+      {!verified && (
+        <>
+          <div>
+            <p className={seg.stepTitle}>Forgot your password or username?</p>
+            <p className={styles.fieldNote}>
+              {step === 2
+                ? 'Type the 6-digit code we texted you.'
+                : by === 'username'
+                ? 'Enter your username and we’ll text a code to the number on your account.'
+                : 'Enter the mobile number you registered with.'}
+            </p>
+          </div>
+          {by === 'username' ? (
+            <UsernameCodeStep key={`u-${flowKey}`} autoFocus={autoFocus} onVerified={setVerified} onStepChange={setOtpStep} />
+          ) : (
+            <PhoneOtpFlow
+              key={`p-${flowKey}`}
+              purpose="reset"
+              submitLabel="Verify code"
+              autoFocus
+              onSubmitCode={verifyByPhone}
+              onStepChange={setOtpStep}
+              onErrorCode={(code) => {
+                if (code === 'PHONE_NOT_REGISTERED') onNoAccount?.();
+              }}
+            />
+          )}
+          {step === 1 && (
+            <button
+              type="button"
+              className={seg.altLink}
+              onClick={() => {
+                setBy((b) => (b === 'username' ? 'phone' : 'username'));
+                setFlowKey((k) => k + 1);
+              }}
+            >
+              {by === 'username' ? (
+                <>
+                  <Smartphone size={14} aria-hidden="true" /> Forgot your username? Use your mobile number
+                </>
+              ) : (
+                <>
+                  <AtSign size={14} aria-hidden="true" /> Remember your username? Use it instead
+                </>
+              )}
+            </button>
+          )}
+        </>
+      )}
+
+      {verified && !choice && (
+        <div className={seg.panel}>
+          <div className={seg.verified}>
+            <ShieldCheck size={16} aria-hidden="true" />
+            <span>
+              {verified.username ? (
+                <>
+                  Your username is <strong>@{verified.username}</strong>
+                </>
+              ) : (
+                <>
+                  <strong>{accountLabel}</strong> verified
+                </>
+              )}
+            </span>
+            <button type="button" className={seg.verifiedChange} onClick={restart}>
+              Start over
+            </button>
+          </div>
+          <p className={seg.stepTitle}>What would you like to reset?</p>
+          <div className={seg.choiceGrid}>
+            <button type="button" className={seg.choice} onClick={() => setChoice('username')}>
+              <AtSign size={20} aria-hidden="true" />
+              <span className={seg.choiceTitle}>Reset username</span>
+              <span className={seg.choiceNote}>Pick a new name. Your password stays the same.</span>
+            </button>
+            <button type="button" className={seg.choice} onClick={() => setChoice('password')}>
+              <KeyRound size={20} aria-hidden="true" />
+              <span className={seg.choiceTitle}>Reset password</span>
+              <span className={seg.choiceNote}>Choose a new password. Other devices get signed out.</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {verified && choice && (
+        <>
+          <button type="button" className={seg.back} onClick={() => setChoice(null)}>
+            <ArrowLeft size={14} aria-hidden="true" /> Choose something else
+          </button>
+          {choice === 'username' ? (
+            <UsernamePanel accountLabel={accountLabel} currentUsername={verified.username} onSubmit={saveUsername} onRestart={restart} />
+          ) : (
+            <PasswordPanel phoneLabel={accountLabel} username={verified.username} submitLabel="Save password & sign in" onSubmit={savePassword} onRestart={restart} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * The sign-in / sign-up form, shared by the AuthModal pop-up and the
  * /welcome landing page (2026-10-28 flow):
- *   Sign In        — username + password, "Forgot password?"
+ *   Sign In        — username + password, or mobile number + SMS code
+ *                    (OTP sign-in, 2026-11-03); "Forgot password or username?"
  *   Create Account — username → phone → SMS code → password + confirm
  *   Creator        — same, plus channel name + link, then the existing
  *                    creator upgrade (POST /api/creator/upgrade)
- *   Forgot         — phone → SMS code → new password + confirm
- * The SMS code only proves the phone; it never signs anyone in by itself.
+ *   Forgot         — AccountRecoveryFlow: username or phone → SMS code →
+ *                    Reset username / Reset password, typed twice
  */
 export function AuthForm({
   mode,
@@ -320,7 +775,7 @@ export function AuthForm({
   /** Pill tabs with a sliding highlight (landing page). */
   segmented?: boolean;
 }) {
-  const { loginWithPassword, verifyPhoneCode, register, refreshUser } = useAuth();
+  const { loginWithPassword, loginWithPhone, verifyPhoneCode, register, refreshUser } = useAuth();
   const { showToast } = useToast();
 
   // Sign in
@@ -329,6 +784,7 @@ export function AuthForm({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [forgot, setForgot] = useState(false);
+  const [loginBy, setLoginBy] = useState<'password' | 'otp'>('password');
 
   // Sign up / creator / forgot
   const [username, setUsername] = useState('');
@@ -387,6 +843,15 @@ export function AuthForm({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const loginByCode = async (phone: string, country: string, code: string): Promise<AuthResult> => {
+    const res = await loginWithPhone(phone, country, code);
+    if (res.success) {
+      showToast('Signed in.', 'success');
+      onSignedIn?.(res);
+    }
+    return res;
   };
 
   // Verifies the SMS code → shows the password panel.
@@ -452,6 +917,44 @@ export function AuthForm({
 
       <div className={styles.form}>
         {mode === 'login' && !forgot && (
+          <div className={seg.method} role="radiogroup" aria-label="Sign in with">
+            <button type="button" role="radio" aria-checked={loginBy === 'password'} className={loginBy === 'password' ? seg.methodOn : seg.methodBtn} onClick={() => setLoginBy('password')}>
+              <KeyRound size={14} aria-hidden="true" /> Password
+            </button>
+            <button type="button" role="radio" aria-checked={loginBy === 'otp'} className={loginBy === 'otp' ? seg.methodOn : seg.methodBtn} onClick={() => setLoginBy('otp')}>
+              <Smartphone size={14} aria-hidden="true" /> SMS code (OTP)
+            </button>
+          </div>
+        )}
+
+        {mode === 'login' && !forgot && loginBy === 'otp' && (
+          <div className={seg.stack}>
+            <PhoneOtpFlow
+              purpose="login"
+              submitLabel="Sign In"
+              autoFocus={autoFocus}
+              onSubmitCode={loginByCode}
+              onErrorCode={(code) => {
+                if (code === 'PHONE_NOT_REGISTERED') {
+                  showToast('No account uses that number. Create an account instead.', 'info', 6000);
+                  switchMode('register');
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={seg.altLink}
+              onClick={() => {
+                setForgot(true);
+                setLoginError(null);
+              }}
+            >
+              Forgot password or username?
+            </button>
+          </div>
+        )}
+
+        {mode === 'login' && !forgot && loginBy === 'password' && (
           <form className={seg.stack} onSubmit={handleLogin} noValidate>
             <div className={styles.inputGroup}>
               <label className={styles.label} htmlFor="login-identifier">
@@ -484,7 +987,7 @@ export function AuthForm({
                     restartPhone();
                   }}
                 >
-                  Forgot / change password?
+                  Forgot password or username?
                 </button>
               </div>
               <PasswordInput id="login-password" value={password} onChange={setPassword} placeholder="Your password" autoComplete="current-password" />
@@ -508,7 +1011,7 @@ export function AuthForm({
             <button type="button" className={seg.back} onClick={() => setForgot(false)}>
               <ArrowLeft size={14} aria-hidden="true" /> Back to sign in
             </button>
-            <PasswordResetFlow
+            <AccountRecoveryFlow
               autoFocus
               onDone={(res) => onSignedIn?.(res)}
               onNoAccount={() => {
